@@ -1,5 +1,17 @@
 #!/usr/bin/env python
 
+# SUMMARY: this is a 2-class foreground/background labelling example, really
+# using a hidden MRF (obs not used in nbr potentials).  Fixed training
+# rectangles are used to construct histograms, used for probability a pixel is
+# foreground or background.  Grid weights encourage smoothness.  The
+# segmentation is performed for various values of the smoothness parameter.
+#
+# The example uses the PyMaxflow library.  It exposes the main limitation, that
+# the library can only accommodate one form of neighbourhood potential (unless
+# I'm just not seeing it).  Would be better if we could supply a matrix with a
+# probability table, to be more general.
+
+
 # todo:
 #   found this link too late:
 #      http://opencvpython.blogspot.com/2013/03/histograms-4-back-projection.html
@@ -28,10 +40,27 @@ def extractHist( img, channels, ranges ):
     hist = cv2.calcHist( [img], channels, None, nbBins, ranges )
     return hist
 
+def processHist( h ):
+    # assuming it's float.  Make it sum to 1
+    h = h / h.sum()
+    assert feq( h.sum(), 1.0, 1E-5 ), "Histogram sums to %f" % h.sum()
+    # now regularise by adding a uniform distribution with this much mass.
+    regAlpha = 0.01
+    h = regAlpha/h.size + (1.0-regAlpha)*h
+    assert feq( h.sum(), 1.0, 1E-5 ), "Histogram sums to %f" % h.sum()
+    return h
+
+def feq(a,b,tol):
+    return np.abs(a-b)<=tol
+
+#
+# MAIN
+#
 cvimg = cv2.imread("ship-at-sea.jpg")
 dimg = cvimg.copy()
 
 dohsv = True
+dointeract = False
 
 if dohsv:
     # I would love to do this on rgb, but calcBackProject has a bug for
@@ -61,12 +90,24 @@ z = cvimg[ rectBg[1]:rectBg[1]+rectBg[3], \
                rectBg[0]:rectBg[0]+rectBg[2] ]
 histBg = extractHist( z, channels, ranges )
 
+# THIS IS WHAT SHOULD HAPPEN!
+#
+# Normalise and regularise histograms.  This will make sure the histograms
+# contain no zeros, which will be useful when taking logs later.
+# Note they are float32 numpy arrays
+histFg = processHist( histFg )
+histBg = processHist( histBg )
+
+# BUT DUE TO OPENCV WEIRDNESS, JUST USE THE ONE EXAMPLE THAT WORKS.
+#
 # Turn into probability distributions
 #cv2.normalize( histFg, histFg, 1.0, 0.0, cv2.NORM_L1, cv2.CV_64F )
 # I couldn't get sum-to-1 normalisation working.  It's flakey this stuff
 # So to treat these _like_ probabilities, divide by 255 first.
 cv2.normalize( histFg, histFg, 0, 255, cv2.NORM_MINMAX)#, cv2.CV_64F )
 cv2.normalize( histBg, histBg, 0, 255, cv2.NORM_MINMAX)#, cv2.CV_64F )
+
+
 print "Background histogram: ", histBg
 
 # If you increase the resolution of the histogram you should blur it.
@@ -85,42 +126,72 @@ pImgGivenBg = cv2.calcBackProject( [cvimg], channels, histBg, \
                                        ranges, sf )
 
 # Display orig
+cv2.namedWindow("scenelabel2-input", 1)
 cv2.namedWindow("scenelabel2", 1)
-cv2.imshow("scenelabel2", dimg)
-print "Original image, press a key"
-cv2.waitKey(0)
+# moveWindow not in my version :(
+#cv2.moveWindow("scenelabel2-input",100,100)
+#cv2.moveWindow("scenelabel2",500,100)
+
+cv2.imshow("scenelabel2-input", dimg)
+#print "Original image, press a key"
+#if dointeract:
+#    cv2.waitKey(0)
 # now fg,bg probs
 cv2.imshow("scenelabel2", pImgGivenFg)
 print "foreground probs"
-cv2.waitKey(0)
+if dointeract:
+    cv2.waitKey(0)
 cv2.imshow("scenelabel2", pImgGivenBg)
 print "background probs"
-cv2.waitKey(0)
+if dointeract:
+    cv2.waitKey(0)
 
-#img = imread("ship-at-sea.jpg")
-#ppl.imshow(img)
-#ppl.show()
+# Looking in slides by S Gould, the interactive segmenation model (slide 18)
+#
+# http://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=8&ved=0CG0QFjAH&url=http%3A%2F%2Fusers.cecs.anu.edu.au%2F~sgould%2Fpapers%2Fpart1-MLSS-2011.pdf&ei=pniKUZ6eMIS7igKPq4AI&usg=AFQjCNEzjnqqNyQY0TWbD1-pG57EI9jVgQ&sig2=RrmuwMX_TKj1ugK46mRxdg
+#
+# The unary term is the -log prob of fg/bg given obs, depending on source (bg)
+# and sink (fg).  Note that our histograms are scaled to [0,255], and not
+# properly normalised (thanks opencv).  Will do for the demo.
+#
+# The interactive terms are:
+#
+#     psi(yi,yj; x) = l0 + l1.exp(-||xi-xj||^2/2.beta)     if yi != yj
+#                     0                                    otherwise
+#
+#
+# We can't use PyMaxflow for this form of weights.  It seems it can only do:
+# 
+#    psi(yi,yj; x) = K.|yi-yj|
+# 
+# which doesn't use the image at all.  That's cool, this is just a demo.
 
-sys.exit()
+print "Performing maxflow for various smoothness K..."
 
-# Create the graph.
-g = maxflow.Graph[int]()
-# Add the nodes. nodeids has the identifiers of the nodes in the grid.
-nodeids = g.add_grid_nodes(img.shape)
-# Add non-terminal edges with the same capacity.
-g.add_grid_edges(nodeids, 50)
-# Add the terminal edges. The image pixels are the capacities
-# of the edges from the source node. The inverted image pixels
-# are the capacities of the edges to the sink node.
-g.add_grid_tedges(nodeids, img, 255-img)
-
-# Find the maximum flow.
-g.maxflow()
-# Get the segments of the nodes in the grid.
-sgm = g.get_grid_segments(nodeids)
-
-# The labels should be 1 where sgm is False and 0 otherwise.
-img2 = np.int_(np.logical_not(sgm))
-# Show the result.
-ppl.imshow(img2)
-ppl.show()
+# for K in np.linspace(1,100,10):
+for K in np.logspace(0,3,10):
+   # Create the graph.  Float capacities.
+   g = maxflow.Graph[float]()
+   # Add the nodes. nodeids has the identifiers of the nodes in the grid.
+   # Same x-y extent as the image, but just 1 channel/band.
+   nodeids = g.add_grid_nodes(cvimg.shape[0:2])
+   # Add non-terminal edges with the same capacity.
+   g.add_grid_edges(nodeids, K)
+   # Add the terminal edges. The image pixels are the capacities
+   # of the edges from the source node. The inverted image pixels
+   # are the capacities of the edges to the sink node.
+   # Don't let log arg drop to zero.
+   g.add_grid_tedges(nodeids, \
+                         -np.log(np.maximum(1E-10,pImgGivenFg.astype(float)/255.0)),\
+                         -np.log(np.maximum(1E-10,pImgGivenBg.astype(float)/255.0)) )
+   
+   # Find the maximum flow.
+   g.maxflow()
+   # Get the segments of the nodes in the grid.  A boolean array that is true
+   # where foreground (sink), and false where background (source).
+   segResult = g.get_grid_segments(nodeids)
+   
+   # Show the result.
+   cv2.imshow("scenelabel2", segResult.astype('uint8')*255)
+   print "segmentation result, K = ", K 
+   cv2.waitKey(500)
