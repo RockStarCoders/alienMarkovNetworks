@@ -183,53 +183,48 @@ print "Image imageSize (1 channel) = ", imageSize, "total imageSize = " , numPix
 
 
 D = np.ndarray(shape=(numLabels, imageSize[0] * imageSize[1]))
-print "size of unary cost array = ", np.shape(D)
+
 # establish the unary costs in D, as per -log prob of fg/bg given obs
-# for l in range(0, numLabels):
-#     for x in range(0, xPixels):
-#         for y in range (0, yPixels):
-#             # -np.log(np.maximum(1E-10,pImgGivenFg.astype(float)/255.0))
-#             if l == 0:
-#                 D[l][x * y] = -np.log(np.maximum(1E-10,pImgGivenFg.astype(float)/255.0))
-#             else:
-#                 D[l][x * y] = -np.log(np.maximum(1E-10,pImgGivenBg.astype(float)/255.0))
-
-
 for l in range(0, numLabels):
     if l == 0:
-        D[l] = np.resize(-np.log(np.maximum(1E-10,pImgGivenFg.astype(float)/255.0)),(numPixels))
+        D[l] = np.resize(-np.log(np.maximum(1E-10,pImgGivenBg.astype(float)/255.0)),(numPixels))
     else:
-        D[l] = np.resize(-np.log(np.maximum(1E-10,pImgGivenBg.astype(float)/255.0)), (numPixels))
+        D[l] = np.resize(-np.log(np.maximum(1E-10,pImgGivenFg.astype(float)/255.0)), (numPixels))
 
 
-print "Look at some of the unary cost values: " , D[0][0], D[0][12]
+maxCycles = 1000
 
-V = np.ndarray(shape=(2, numLabels))
-print "size of pair cost array = ", np.shape(V)
-# establish the pair costs in V, as per psi(yi,yj; x) = l0 + l1.exp(-||xi-xj||^2/2.beta)     if yi != yj, 0 otherwise
-for l1 in range(0,numLabels):
-    for l2 in range(0, numLabels):
-        # Can we produce costs that are based on the node values?
-        V[l1, l2] = 1
-
-print "Look at some pairwise costs: " , V[0,0], V[0,1], V[1,0], V[1,1]
-
-maxCycles = 10 ^ 4
-
-labels = [] # optional
-
-alphaExpansion = maxflow.fastmin.aexpansion_grid(D, V, maxCycles)
-
-print "\nWhat does printing the alhaExpansion object look like?\n\t" , alphaExpansion, "\n\tsize = ", alphaExpansion.size, "\n\tnp.shape = ", np.shape(alphaExpansion)
-print "\nWhat values are in the alphaExpansion object?\n\t" , alphaExpansion[0:], "\n\t", alphaExpansion[1:0]
-
-# Get the segments of the nodes in the grid.
-segResult = np.resize(alphaExpansion, (xPixels, yPixels))
-
-print "Resized the alphaExpansion result object to match image (x,y) size : ", segResult.size
-print segResult
-
-# Show the result.
-cv2.imshow("scenelabel3 alpha expansion result", segResult.astype('uint8')*255)
-print "Display the segmentation result", 
-cv2.waitKey(10000)
+for K in range(0,1000,10):
+    V = np.ndarray(shape=(2, numLabels))
+    print "size of pair cost array = ", np.shape(V)
+    # establish the pair costs in V, as per psi(yi,yj; x) = l0 + l1.exp(-||xi-xj||^2/2.beta)     if yi != yj, 0 otherwise
+    for l1 in range(0,numLabels):
+        for l2 in range(0, numLabels):
+            # TODO can we implement pixel-specific neighbourhood costs?
+            if l1 == l2:
+                V[l1, l2] = 0
+            else:
+                V[l1, l2] = K
+    
+    print "Pairwise costs: " , V
+    
+    # perform fast approximate energy minimisation
+    alphaExpansion = maxflow.fastmin.aexpansion_grid(D, V, maxCycles)
+    alphaBetaSwap = maxflow.fastmin.abswap_grid(D, V, maxCycles)
+    
+    
+    # Get the segments of the nodes in the grid.
+    aeSegResult = np.resize(alphaExpansion, (xPixels, yPixels))
+    abSegResult = np.resize(alphaBetaSwap, (xPixels, yPixels))
+    
+    
+    # Show the result.
+    print "\nSegmentation result: K=", K
+    
+    
+    cv2.imshow("scenelabel3 alpha expansion result", aeSegResult.astype('uint8')*255)
+    cv2.waitKey(250)
+    
+    cv2.imshow("scenelabel3 alpha beta swap result", abSegResult.astype('uint8')*255)
+    cv2.waitKey(250)
+    
