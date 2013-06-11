@@ -25,17 +25,17 @@
 #
 # Edited the 2 class example to use Pymaxflow's alpha expansion
 
-import sys
+from matplotlib import pyplot as ppl
+from maxflow import fastmin
+from numpy.ma.core import exp
+from scipy.misc import imread
 import cv2
 import maxflow
 import numpy as np
 import scipy
-from scipy.misc import imread
-import maxflow
-from maxflow import fastmin
-from matplotlib import pyplot as ppl
 import scipy.ndimage.filters
-from numpy.ma.core import exp
+import sys
+import random
 
 def extractHist( img, channels, ranges ):
     nc = img.shape[2]
@@ -94,6 +94,8 @@ z = cvimg[ rectBg[1]:rectBg[1]+rectBg[3], \
                rectBg[0]:rectBg[0]+rectBg[2] ]
 histBg = extractHist( z, channels, ranges )
 
+cv2.imshow("scenelabel2-input", dimg)
+
 # THIS IS WHAT SHOULD HAPPEN!
 #
 # Normalise and regularise histograms.  This will make sure the histograms
@@ -112,7 +114,7 @@ cv2.normalize( histFg, histFg, 0, 255, cv2.NORM_MINMAX)#, cv2.CV_64F )
 cv2.normalize( histBg, histBg, 0, 255, cv2.NORM_MINMAX)#, cv2.CV_64F )
 
 
-print "Background histogram: ", histBg
+# print "Background histogram: ", histBg
 
 # If you increase the resolution of the histogram you should blur it.
 #sigma = 5
@@ -173,7 +175,7 @@ pImgGivenBg = cv2.calcBackProject( [cvimg], channels, histBg, \
    
 # Alpha expansion for 2 class
 
-numLabels = 2
+numLabels = 3
 imageSize = cvimg.shape[0:2]
 xPixels = imageSize[0]
 yPixels = imageSize[1]
@@ -185,46 +187,80 @@ print "Image imageSize (1 channel) = ", imageSize, "total imageSize = " , numPix
 D = np.ndarray(shape=(numLabels, imageSize[0] * imageSize[1]))
 
 # establish the unary costs in D, as per -log prob of fg/bg given obs
-for l in range(0, numLabels):
-    if l == 0:
-        D[l] = np.resize(-np.log(np.maximum(1E-10,pImgGivenBg.astype(float)/255.0)),(numPixels))
-    else:
-        D[l] = np.resize(-np.log(np.maximum(1E-10,pImgGivenFg.astype(float)/255.0)), (numPixels))
+# cv2.imshow("background prior", pImgGivenBg)
+# cv2.imshow("midground prior", (pImgGivenBg + pImgGivenFg) / 2)
+# cv2.imshow("foreground prior", pImgGivenFg)
+# cv2.waitKey(5000)
 
+# colourNum = 255.0;
+colourNum = 127.0;
+colourNumInt = 127;
+
+background = np.resize(-np.log(np.maximum(1E-10,pImgGivenBg.astype(float)/colourNum)),(numPixels))
+midground = (np.resize(-np.log(np.maximum(1E-10,pImgGivenBg.astype(float)/colourNum)),(numPixels)) + np.resize(-np.log(np.maximum(1E-10,pImgGivenFg.astype(float)/255.0)), (numPixels))) / 2
+midground = midground ** 2
+foreground = np.resize(-np.log(np.maximum(1E-10,pImgGivenFg.astype(float)/255.0)), (numPixels))
+
+for l in range(0, numLabels):
+    if(l == 0):
+        D[l] = background
+    elif (l == 1):
+        D[l] = midground / (max(midground))
+    elif(l == 2):
+        D[l] = foreground
 
 maxCycles = 1000
 
-for K in range(0,1000,10):
-    V = np.ndarray(shape=(2, numLabels))
+for K in range(0,5):
+    
+    V = np.ndarray(shape=(numLabels, numLabels))
     print "size of pair cost array = ", np.shape(V)
+    
     # establish the pair costs in V, as per psi(yi,yj; x) = l0 + l1.exp(-||xi-xj||^2/2.beta)     if yi != yj, 0 otherwise
-    for l1 in range(0,numLabels):
+    # class level neighbourhood costs
+    for l1 in range(0, numLabels):
         for l2 in range(0, numLabels):
             # TODO can we implement pixel-specific neighbourhood costs?
             if l1 == l2:
                 V[l1, l2] = 0
             else:
-                V[l1, l2] = K
+                V[l1, l2] = max(l1, l2) * K / (l1 + l2 + 1)
     
-    print "Pairwise costs: " , V
+    print "Pairwise costs:\n" , V
+    
+    # set initial conditions
+    labels = np.resize(0, (numPixels))
+    
+    for value in range(0,numPixels):
+        a = random.random()
+        if (0 < a < 0.33333):
+            labels[value] = 0
+            
+        elif(0.33333 <= a < 0.66666):
+            labels[value] = 1
+            
+        elif(a >= 0.66666):
+            labels[value] = 2
+    
+    # initial labels
+    initialConditionsImage = (np.resize(labels, (xPixels, yPixels))).astype('uint8')*colourNumInt;
+    
     
     # perform fast approximate energy minimisation
-    alphaExpansion = maxflow.fastmin.aexpansion_grid(D, V, maxCycles)
-    alphaBetaSwap = maxflow.fastmin.abswap_grid(D, V, maxCycles)
+    alphaExpansion = fastmin.aexpansion_grid(D, V, maxCycles, labels)
+    alphaBetaSwap = fastmin.abswap_grid(D, V, maxCycles, labels)
     
     
-    # Get the segments of the nodes in the grid.
-    aeSegResult = np.resize(alphaExpansion, (xPixels, yPixels))
-    abSegResult = np.resize(alphaBetaSwap, (xPixels, yPixels))
+    # Get the segment labels and convert to a format for image display
+#     aeSegResultImage = (np.resize(alphaExpansion, (xPixels, yPixels))).astype('uint8')*colourNumInt
+    
+    aeSegResultImage = (np.resize(alphaExpansion.astype('uint8'), (xPixels, yPixels)))*colourNumInt
+    
+    print "Set of result image values::\n", set(np.resize(aeSegResultImage, numPixels))
     
     
-    # Show the result.
-    print "\nSegmentation result: K=", K
-    
-    
-    cv2.imshow("scenelabel3 alpha expansion result", aeSegResult.astype('uint8')*255)
-    cv2.waitKey(250)
-    
-    cv2.imshow("scenelabel3 alpha beta swap result", abSegResult.astype('uint8')*255)
-    cv2.waitKey(250)
-    
+    # normalise class labels for conversion to greyscale
+    cv2.imshow("scenelabel3 initial labels", initialConditionsImage)
+    cv2.imshow("scenelabel3 alpha expansion result", aeSegResultImage)
+#     cv2.imshow("scenelabel3 alpha beta swap result", abSegResultImage)
+    cv2.waitKey(4000)
