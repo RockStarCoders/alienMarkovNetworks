@@ -12,27 +12,30 @@
 #include "C_uflow.h"
 //#include "graph.h"
 
-static PyMethodDef _C_uflowMethods[] = { 
+extern "C" {
+
+static PyMethodDef C_uflowMethods[] = { 
   {"uflow_inference2", uflow_inference2, METH_VARARGS},
   {NULL, NULL}     /* Sentinel - marks the end of this structure */
 };
 
 void init_C_uflow() { 
-  (void) Py_InitModule("_C_uflow", _C_uflowMethods);
+  (void) Py_InitModule("_C_uflow", C_uflowMethods);
   import_array(); // Must be present for NumPy. Called first after above line.
 }
 
+}
 
 
 /* ==== Create 1D Carray from PyArray ======================
     Assumes PyArray is contiguous in memory.             */
-/* template < typename T > */
-/* T *pyvector_to_Carrayptrs(PyArrayObject *arrayin)  { */
-/*     int i,n; */
+template < typename T >
+T *pyvector_to_Carrayptrs(PyArrayObject *arrayin)  {
+    int i,n;
     
-/*     n=arrayin->dimensions[0]; */
-/*     return (T *) arrayin->data;  /\* pointer to arrayin data as double *\/ */
-/* } */
+    n=arrayin->dimensions[0];
+    return (T *) arrayin->data;  /* pointer to arrayin data as double */
+}
 
 
 /* ==== Check that PyArrayObject is a double (Float) type and a vector ==============
@@ -59,11 +62,7 @@ int  not_doublematrix(PyArrayObject *mat)  {
 
 /****************************/
 
-void ultraflow_inference2( int nhoodSize, int rows, int cols, double* cMatSourceEdge, double* cMatSinkEdge, double* cMatInputImage, 
-  const char* nbrEdgeCostMethod, double* cCallbackParams, int* cMatOut )
-{
-  /* do nothing for now */
-}
+
 
 /****************************/
 static PyObject *uflow_inference2(PyObject *self, PyObject *args)
