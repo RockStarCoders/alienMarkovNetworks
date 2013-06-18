@@ -1,0 +1,97 @@
+\documentclass{article}
+
+\title{Alien Markov Networks - Notes}
+\author{ Anthony Burke and Jamie Sherrah}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section{Introduction}
+
+This is a set of examples with increasing complexity, working towards scene
+labelling and depth inference using Conditional Random Fields (CRFs).  The code
+is in Python, but can glue together libs in other languages.
+
+\section{Graph Cuts and Inference}
+
+The link between probabilistic inference and graph cuts is complicated.  For the
+5 mins that I understand it, I'm writing some notes.
+
+The MRF/CRF model for images defines a joint probability density of per-pixel
+states and observations on a graph.  The graph has a node per pixel, and edges
+between neighbouring pixels.  Generally we want to determine the most likely
+state (label) configuration given the observations:
+?? equations, arg max y p(x|y)
+
+This maximum likelihood is a product of conditional probabilities, or in the
+case of undirected graphs, potentials.  Another way to write the likelihood
+is as an energy function:
+
+?? equations E(y) = exp[ -log( P(x|y) ) ]
+
+So now we want to minimise the energy rather than maximising the likelihood wrt
+the state.  The energy function is a sum of unary and binary potentials.  For
+images the binary terms are to enforce smoothness on the labels (states).  So
+the potential between two neighbouring state variables, $y_i$ and $y_j$, usually
+looks like this:
+\begin{equation}
+\Psi(y_i,y_j) = \left\{ \begin{array}{ll}
+0 & \mbox{if } y_i=y_j \\
+\mbox{some penalty} &  \mbox{otherwise}
+\end{array}\right.
+\end{equation}
+
+In the case that there are only two nodal states, L = {0,1}, we can draw a dual
+graph that has two extra nodes, a source and a sink, with an edge from every
+existing node to each of these added nodes.  The source and sink nodes denote
+membership in the 0,1 label set.  Define a {\em feasible cut} as one that cuts
+edges so as to leave the graph in two parts, one with nodes attached to the
+source and the other with nodes attached to the sink.  Therefore the feasible
+cut removes exactly one source or sink edge from each node.  It's clear that 
+a feasible cut is equivalent to a binary labelling on the graph.
+
+Now, if we make our source/sink edge costs the same as the unary terms in the
+energy function for the given state label, and make the binary terms the penalty
+for mismatched labels\footnote{and scaled such that their sum in one
+  neighbourhood is less than the src/sink penalty...} that's when the magic
+happens.  Boykov and Jolly 2001 proved\footnote{that explains why everyone
+  references that paper.} that for such a network, the minimum cut (feasible cut
+with the minimum total edge cost) results in a labelling that minimises the
+energy function above.  Their proof comes down to the nature of the edge costs.
+Basically they relate the cut cost directly to the resulting energy, so if you
+minimise the cut you minimise the energy.  The benefit of this forumation is
+that there exist efficient polynomial time algorithms to find minimum graph
+cuts, such as maxflow.
+
+Note a funny convention: the source weights denote the probability of pixel data
+given the background (label=0) appearance model, and sink weights denote
+foreground/object likelihoods.  But it is the pixels whose sink edges are {\em
+  cut} that are assigned the object label (=1).  Tricksy...
+
+What is the intuition here?  How did we get from maximising the joint
+probability on a grid to finding a minimum cut in a source-sink graph?  Here are
+some thoughts:
+\begin{itemize}
+\item This is for a special case of binary labelling.  Min-cut also forms
+  dichotomies.  Somebody saw the equivalence.
+\item We have gone from a more complicated data structure, that had probability
+  tables on its edges, to a simpler one (graph) with scalars on its edges.
+\item True ``Object pixels'' will have a high foreground probability, or low
+  energy on the sink node edge.  We expect these weights to be in the cut.  So
+  intuitively, the graph cut will try to associate object pixels with the sink
+  (by cutting their edges).  Similarly for the source/background.
+\item In the energy function, neighbours with the same label have zero edge
+  energy.  In the dual graph, these neighbours have uncut edges to the same
+  src/snk node.  That means the edge between the neighbours does not appear in
+  the min cut, and the penalty weight on it is not included in the cost
+  minimised.
+\item In the energy function, neighbours with different labels have a penalty
+  energy.  In the dual graph, these neighbours have different src/snk edge
+  nodes, which means the edge between them is in the min cut.  The penalty
+  weight between them is included in the quantity minimised.
+\end{itemize}
+
+
+
+\end{document}
