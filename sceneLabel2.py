@@ -29,9 +29,10 @@ import maxflow
 import numpy as np
 import scipy
 from scipy.misc import imread
-import maxflow
 from matplotlib import pyplot as ppl
 import scipy.ndimage.filters
+import cython_uflow as uflow
+
 
 def extractHist( img, channels, ranges ):
     nc = img.shape[2]
@@ -61,6 +62,7 @@ dimg = cvimg.copy()
 
 dohsv = True
 dointeract = False
+usePyMaxflow = False
 
 if dohsv:
     # I would love to do this on rgb, but calcBackProject has a bug for
@@ -170,28 +172,34 @@ print "Performing maxflow for various smoothness K..."
 
 # for K in np.linspace(1,100,10):
 for K in np.logspace(0,3,10):
-   # Create the graph.  Float capacities.
-   g = maxflow.Graph[float]()
-   # Add the nodes. nodeids has the identifiers of the nodes in the grid.
-   # Same x-y extent as the image, but just 1 channel/band.
-   nodeids = g.add_grid_nodes(cvimg.shape[0:2])
-   # Add non-terminal edges with the same capacity.
-   g.add_grid_edges(nodeids, K)
-   # Add the terminal edges. The image pixels are the capacities
-   # of the edges from the source node. The inverted image pixels
-   # are the capacities of the edges to the sink node.
-   # Don't let log arg drop to zero.
-   g.add_grid_tedges(nodeids, \
-                         -np.log(np.maximum(1E-10,pImgGivenFg.astype(float)/255.0)),\
-                         -np.log(np.maximum(1E-10,pImgGivenBg.astype(float)/255.0)) )
-   
-   # Find the maximum flow.
-   g.maxflow()
-   # Get the segments of the nodes in the grid.  A boolean array that is true
-   # where foreground (sink), and false where background (source).
-   segResult = g.get_grid_segments(nodeids)
-   
-   # Show the result.
-   cv2.imshow("scenelabel2", segResult.astype('uint8')*255)
-   print "segmentation result, K = ", K 
-   cv2.waitKey(500)
+    srcEdgeCosts = -np.log(np.maximum(1E-10,pImgGivenFg.astype(float)/255.0))
+    snkEdgeCosts = -np.log(np.maximum(1E-10,pImgGivenBg.astype(float)/255.0))
+    if usePyMaxflow:
+        # Create the graph.  Float capacities.
+        g = maxflow.Graph[float]()
+        # Add the nodes. nodeids has the identifiers of the nodes in the grid.
+        # Same x-y extent as the image, but just 1 channel/band.
+        nodeids = g.add_grid_nodes(cvimg.shape[0:2])
+        # Add non-terminal edges with the same capacity.
+        g.add_grid_edges(nodeids, K)
+        # Add the terminal edges. The image pixels are the capacities
+        # of the edges from the source node. The inverted image pixels
+        # are the capacities of the edges to the sink node.
+        # Don't let log arg drop to zero.
+        g.add_grid_tedges(nodeids, srcEdgeCosts, snkEdgeCosts )
+        
+        # Find the maximum flow.
+        g.maxflow()
+        # Get the segments of the nodes in the grid.  A boolean array that is true
+        # where foreground (sink), and false where background (source).
+        segResult = g.get_grid_segments(nodeids)
+    else:
+        print srcEdgeCosts.shape
+        print snkEdgeCosts.shape
+        segResult = uflow.inference2( srcEdgeCosts, snkEdgeCosts, cvimg.astype(float),\
+                                          4, "dummy", np.array( [K] ) );
+ 
+    # Show the result.
+    cv2.imshow("scenelabel2", segResult.astype('uint8')*255)
+    print "labelling result, K = ", K 
+    cv2.waitKey(500)
