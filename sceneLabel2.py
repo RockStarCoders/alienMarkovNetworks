@@ -196,8 +196,23 @@ for K in np.logspace(0,3,10):
     else:
         print srcEdgeCosts.shape
         print snkEdgeCosts.shape
-        segResult = uflow.inference2( srcEdgeCosts, snkEdgeCosts, cvimg.astype(float),\
-                                          4, "dummy", np.array( [K] ) );
+        nhoodSz = 4
+        sigsq = 1 * (10.0**2)
+        def nbrCallback( pixR, pixG, pixB, nbrR, nbrG, nbrB ):
+            #print "*** Invoking callback"
+            # idiffsq = (pixR-nbrR)**2 + (pixG-nbrG)**2 + (pixB-nbrB)**2
+            idiffsq = (pixB-nbrB)**2
+            res = np.exp( -idiffsq / (2 * sigsq) )
+            #print res
+            res = 0 + res * K
+            return res
+
+        segResult = uflow.inference2( \
+            cvimg.astype(float),\
+            srcEdgeCosts, \
+            snkEdgeCosts, \
+            nhoodSz, \
+            nbrCallback )
  
     # Show the result.
     cv2.imshow("scenelabel2", segResult.astype('uint8')*255)

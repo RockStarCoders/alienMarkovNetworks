@@ -1,5 +1,6 @@
+#include "uflow.hpp"
+
 #include <iostream>
-#include <stdlib.h>
 #include <memory>
 
 #include "graph.h"
@@ -22,27 +23,27 @@ const int s_nhood8[][2] = { // r, c
 
 ////////////////////////////////////////////////////////////////////////////////
 void ultraflow_inference2(
-  int         nhoodSize,
-  int         rows,
-  int         cols,
-  double*     cMatSourceEdge,
-  double*     cMatSinkEdge,
-  double*     cMatInputImage,
-  const char* nbrEdgeCostMethod,
-  double*     cCallbackParams,
-  int32_t*    cMatOut
+  int             nhoodSize,
+  int             rows,
+  int             cols,
+  int             nbImgChannels,
+  double*         cMatInputImage,
+  double*         cMatSourceEdge,
+  double*         cMatSinkEdge,
+  NbrCallbackType nbrEdgeCostCallback,
+  void*           nbrEdgeCostCallbackData,
+  int32_t*        cMatOut
 )
 {
-  const double K = cCallbackParams[0]; // !!
   const int n = rows*cols;  
+  assert( nbImgChannels == 3 ); // currently only support RGB
   assert( nhoodSize == 4 || nhoodSize == 8 );
   const int (*nhood)[2] = ( nhoodSize == 4 ) ? s_nhood4 : s_nhood8;
   const int nhoodLen    = ( nhoodSize == 4 ) ? 2        : 4;
 
   std::cout << "ultraflow_inference2: nhoodSize = " << nhoodSize
-            << ", img size = (" << rows << ", " << cols
-            << "), edge cost method = " << nbrEdgeCostMethod
-            << ", K = " << K
+            << ", img size = (" << rows << ", " << cols << ", " 
+            << nbImgChannels << ")"
             << std::endl;
 
   std::cout << "nhood offsets:" << std::endl;
@@ -80,15 +81,26 @@ void ultraflow_inference2(
   int edgeCt = 0; // for asserting
   for ( int r=0; r<rows; ++r ){
     for ( int c=0; c<cols; ++c, ++idx ){
+      // Assume planar rgb storage
+      double pixR = cMatInputImage[idx],
+        pixG = cMatInputImage[idx + n],
+        pixB = cMatInputImage[idx + 2*n];
+
       for ( int j=0; j<nhoodLen; ++j ){
         const int nr = r + nhood[j][0];
         const int nc = c + nhood[j][1];
         if ( 0 <= nr && nr < rows && 0 <= nc && nc < cols )
         {
           const int nidx = nr*cols + nc;
-          const double wt = K;//edgeWtFunctor(
-          //            cMatInputImage, rows, cols, imgDims, r, c, nr, nc
-          //);
+          double nbrR = cMatInputImage[nidx],
+            nbrG = cMatInputImage[nidx + n],
+            nbrB = cMatInputImage[nidx + 2*n];
+
+          const double wt = nbrEdgeCostCallback(
+            pixR, pixG, pixB,
+            nbrR, nbrG,  nbrB,
+            nbrEdgeCostCallbackData 
+          );
           g->add_edge( idx, nidx, wt, wt );
           ++edgeCt;
         }
