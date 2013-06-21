@@ -57,8 +57,9 @@ def feq(a,b,tol):
 #
 # MAIN
 #
-cvimg = cv2.imread("ship-at-sea.jpg")
-dimg = cvimg.copy()
+imgRGB = cv2.imread("ship-at-sea.jpg")
+dimg = imgRGB.copy()
+cvimg = imgRGB.copy()
 
 dohsv = True
 dointeract = False
@@ -168,10 +169,42 @@ if dointeract:
 # 
 # which doesn't use the image at all.  That's cool, this is just a demo.
 
+nhoodSz = 8
+# estimate neighbourhood average diff
+sigsq = 0
+cnt = 0
+rows = imgRGB.shape[0]
+cols = imgRGB.shape[1]
+# vertical diffs
+idiffs = imgRGB[0:rows-1,:,:] - imgRGB[1:rows,:,:]
+sigsq += np.power(idiffs,2.0).sum()
+cnt += (rows-1)*cols
+# horizontal diffs
+idiffs = imgRGB[:,0:cols-1,:] - imgRGB[:,1:cols,:]
+sigsq += np.power(idiffs,2.0).sum()
+cnt += rows*(cols-1)
+
+if nhoodSz == 8:
+    # diagonal to right
+    idiffs = imgRGB[0:rows-1,0:cols-1,:] - imgRGB[1:rows,1:cols,:]
+    sigsq += np.power(idiffs,2.0).sum()
+    cnt += (rows-1)*(cols-1)
+    # diagonal to left
+    idiffs = imgRGB[0:rows-1,1:cols,:] - imgRGB[1:rows,0:cols-1,:]
+    sigsq += np.power(idiffs,2.0).sum()
+    cnt += (rows-1)*(cols-1)
+
+sigsq /= cnt
+print "Estimated neighbour RMS pixel diff = ", np.sqrt(sigsq)
+
 print "Performing maxflow for various smoothness K..."
 
+# In Shotton, K0 and K in the edge potentials are selected manually from
+# validation data results.
+K0 = 0.5
+
 # for K in np.linspace(1,100,10):
-for K in np.logspace(0,3,10):
+for K in np.logspace(0,2.5,10):
     srcEdgeCosts = -np.log(np.maximum(1E-10,pImgGivenFg.astype(float)/255.0))
     snkEdgeCosts = -np.log(np.maximum(1E-10,pImgGivenBg.astype(float)/255.0))
     if usePyMaxflow:
@@ -196,15 +229,15 @@ for K in np.logspace(0,3,10):
     else:
         print srcEdgeCosts.shape
         print snkEdgeCosts.shape
-        nhoodSz = 4
-        sigsq = 1 * (10.0**2)
         def nbrCallback( pixR, pixG, pixB, nbrR, nbrG, nbrB ):
             #print "*** Invoking callback"
-            # idiffsq = (pixR-nbrR)**2 + (pixG-nbrG)**2 + (pixB-nbrB)**2
-            idiffsq = (pixB-nbrB)**2
+            idiffsq = (pixR-nbrR)**2 + (pixG-nbrG)**2 + (pixB-nbrB)**2
+            #idiffsq = (pixB-nbrB)**2
             res = np.exp( -idiffsq / (2 * sigsq) )
             #print res
-            res = 0 + res * K
+            # According to Shotton, adding the constant can help remove
+            # isolated pixels.
+            res = K0 + res * K
             return res
 
         segResult = uflow.inference2( \
