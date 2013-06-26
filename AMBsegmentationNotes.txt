@@ -1,0 +1,135 @@
+Segmentation using CRFs
+
+
+References
+
+[1] Multi-Class Segmentation with Relative Location Prior.  Gould et al 2008.
+
+[2] TextonBoost: Joint Appearance, Shape and Context Modelling for Multi-Class Object Recognition and Segmentation.  Shotton et al 2006.
+
+[3] Graph Cuts in Vision and Graphics: Theories and Applciations. Boykov and Veksler 2005.
+
+[4] Contour and Texture Analysis for Image Segmentation. Malik et al 2001.
+
+[5] Histogram of Orient Gradients for Human Detection.  Dalal & Triggs 2005.
+
+
+
+
+Background
+
+Much work has been done.
+
+Conditional Random Fields (CRFs) are the most prominent models in the domain.
+
+Seek to apply modern approaches to segment and label images, with applications to GIAT data.
+
+
+
+Approach
+
+
+
+Incrementally build towards repeating implementation and results of [1] and [2].
+
+
+1.  Binary segmentation (background/foreground) using color histograms and min-cut algorithm to find MAP label assignment.
+
+2.  Build multi-class, pixel classifier for unary potentials within CRF model from MSRC dataset.
+	a) Implement following features:
+		Colour histograms
+		Histogram of oriented gradient (HOG)
+		Local binary pattern
+		Texture
+	b) Replicate TextonBoost [2] features.
+	c) Replciate Relative Prior [1] features.
+
+
+Feature generation
+
+Approach is to build a python module which provides functions for generating each feature, so feature functions can be reused.
+
+Where possible, seek to use existing python tools.  Scipy (and Numpy) and the scikit-image library will be used.  Using OpenCV python to read images - beware the BGR!
+
+
+Colour histograms features
+
+Implemented two variants of the colour histogram - RGB and HSV.  Key assumption is that input image is 8-bit, either greyscale or RGB.
+
+Output histograms are binned into 32 bins by default, but can be set to { 2, 4, 8, 16, 32, 64, 128, 256} bins using optional parameter.
+
+
+Histogram of oriented gradients (HOG) features
+
+HOG was defined by Dalal and Triggs in 2005 paper "Histogram of oriented gradient for human detection".  In this paper, they detail the definition of HOG features and experiments regarding parameter setting.  In particular, the paper states:
+
+
+(1) Gamma/Colour Normalization
+
+"We evaluated several input pixel representations including grayscale, RGB and LAB colour spaces optionally with power law (gamma) equalization.
+
+We do use colour information when available. RGB and LAB colour spaces give comparable results, but restricting to grayscale reduces performance by 1.5% at 10−4 FPPW. Square root gamma compression of each colour channel im- proves performance at low FPPW (by 1% at 10−4 FPPW) but log compression is too strong and worsens it by 2% at 10−4 FPPW."
+
+Note: Power law gamma equalisation is defined as newImage = originalImage ^ (gamma) [see http://www.sci.utah.edu/~cscheid/spr05/imageprocessing/project1/]
+
+The scikit-image project implementation [see https://github.com/scikit-image/scikit-image/blob/master/skimage/feature/_hog.py] uses an optional parameter to flag square root equalisation or none.
+
+
+(2) Gradient
+
+"Masks tested included various 1-D point derivatives (uncentred [−1, 1], centred [−1, 0, 1] and cubic-corrected [1, −8, 0, 8, −1]) as well as 3×3 Sobel masks and 2x2 diagonal ones.  Simple 1-D [−1, 0, 1] masks at σ=0 work best."
+
+"Using uncentred [−1, 1] derivative masks also decreases performance (by 1.5% at 10−4 FPPW),"
+
+
+The scikit-image HOG implementation uses the numpy diff implementation for gradient calculation [see http://docs.scipy.org/doc/numpy/reference/generated/numpy.diff.html]:
+
+	The first order difference is given by out[n] = a[n+1] - a[n] along the given axis
+
+This corresponds to the uncentred [-1, 1] mask.  The scipy examples show the results as being reduced in dimension comapred to input (e.g. do not generate an edge gradient value).
+
+However, the numpy.gradient function [see http://docs.scipy.org/doc/numpy/reference/generated/numpy.gradient.html#numpy.gradient] uses central differences in the interior and first differences at the boundaries.  Here, the example shows that central difference = 0.5 * [-1,0,1] mask.
+
+
+(3) Gradient in colour images
+
+"For colour images, we calculate separate gradients for each colour channel, and take the one with the largest norm as the pixel’s gradient vector."
+
+
+The scikit-image library HOG implementation does NOT handle colour images [see https://github.com/scikit-image/scikit-image/blob/master/skimage/feature/_hog.py].
+
+To proceed with the scikit-image HOG implementation, we have a few choices:
+* Convert colour to greyscale, and accept performance hit (easy)
+* Try to reconstruct a greyscale image, inverse gradient operation on the maxG_x and maxG_y matrices (non-trivial)
+
+
+Or we can refactor scikit-image._HOG to operate on user-specified gradient matrix for the image (e.g. result of a yet-to-be-written "maxGradientsFromColors(rgbImage)" function)
+
+
+Let's go with the greyscale option for now... maybe create a colourHOG function based on _HOG.py
+
+
+
+(3) AOB?
+
+
+
+In summary, the HOG implementation is a function which wraps the scikit-image HOG implementation in logic which handles colour images by coonverting to 0-255 greyscale by taking the mean of colour values and normalising.  Key assumption is that the input images are 8-bit RGB images.
+
+
+
+
+Texture features
+
+
+Defined in [1] as those used in [4].  
+
+
+
+
+
+TODO list
+
+
+Create stats for dataset - class avgs etc.
+
