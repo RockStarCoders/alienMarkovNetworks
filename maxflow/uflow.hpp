@@ -1,4 +1,6 @@
 #include <stdlib.h>
+#include <exception>
+#include <string>
 
 typedef double (*NbrCallbackType)(
   double  pixR, double pixG, double pixB,
@@ -6,7 +8,8 @@ typedef double (*NbrCallbackType)(
   void*   cbdata
 );
 
-extern void ultraflow_inference2(
+// Returns flow
+extern double ultraflow_inference2(
   int             nhoodSize,
   int             rows,
   int             cols,
@@ -19,4 +22,34 @@ extern void ultraflow_inference2(
   int32_t*        cMatOut
 );
 
+
+extern void ultraflow_inferenceN(
+  char*           method,
+  int             nhoodSize,
+  int             rows,
+  int             cols,
+  int             nbImgChannels,
+  int             nbLabels,
+  double*         cMatInputImage,
+  double*         cMatLabelWeights,
+  NbrCallbackType nbrEdgeCostCallback,
+  void*           nbrEdgeCostCallbackData,
+  int32_t*        cMatOut
+);
+
+class UflowException: public std::exception
+{
+  public:
+    UflowException( const char* str ) throw() : m_str( str ) {}
+
+    virtual ~UflowException() throw() {}
+
+    virtual const char* what() const throw ()
+    {
+      return m_str.c_str();
+    }
+
+  protected:
+    std::string m_str;
+};
 
