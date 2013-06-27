@@ -23,7 +23,7 @@ def plot1dRGBImageHistogram(rgbFrequencies, histRange):
     print "\nHistogram bins:\n", histRange
     
     fig = plt.figure()
-    ax = plt.subplot()
+    ax = fig.add_subplot(1,1,1)
 
     # matplotlib.pyplot.bar(left, height, width=0.8, bottom=None, hold=None, **kwargs)
     # left     the x coordinates of the left sides of the bars
@@ -57,7 +57,7 @@ def plotHOGResult(image, hogImage):
     plt.show()
 
 
-def plotFilterComparison(sourceImage, filteredImage):
+def plotImageComparison(sourceImage, filteredImage):
     
     plt.subplot(3,1,1)
     plt.imshow(sourceImage, cmap=cm.get_cmap('gray'))

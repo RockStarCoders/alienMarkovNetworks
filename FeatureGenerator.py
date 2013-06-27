@@ -1,6 +1,6 @@
-# collection of fucntions to produce feature vectors from an input image
+# collection of fucntions to produce feature vectors from an input sourceImage
 # Plan to generate:
-#    * Histogram of oriented gradient (HOG) features using scikit-image
+#    * Histogram of oriented gradient (HOG) features using scikit-sourceImage
 #    * Colour histograms
 #    * TextonBoost features from [Categorization by learned universal dictionary. Winn, Criminisi & Minka 2005]
 #    * Local binary patterns see [http://en.wikipedia.org/wiki/Local_binary_patterns]
@@ -22,7 +22,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.ticker import LinearLocator, FormatStrFormatter
 
 
-from DataVisualisation import createKernalWindowRanges, plotKernel, plotFilterComparison
+from DataVisualisation import createKernalWindowRanges, plotKernel, plotImageComparison, plot1dRGBImageHistogram,plotHOGResult
 
 increment = 1
 
@@ -68,7 +68,7 @@ def create1dRGBColourHistogram(imageRGB, numberBins):
     return np.array([redHist, greenHist, blueHist]) , histogramRange
 
 
-def create3dRGBColourHistogram(imageRGB, numberBins):
+def create3dRGBColourHistogramFeature(imageRGB, numberBins):
     
     bins = np.array([2,4,8,16,32,64,128,256])
     
@@ -90,14 +90,28 @@ def create3dRGBColourHistogram(imageRGB, numberBins):
 # TODO implement a HSV or HS colour histogram
 
 
-def createHistogramOfOrientedGradientFeatures(image, numOrientations, cellForm, cellsPerBlock, smoothImage):
-    # Assume given image is RGB numpy n-array.
-    # wraps scikit-image HOG function.  We convert an input image to 8-bit greyscale
-    image = color.rgb2gray(image)
+def createHistogramOfOrientedGradientFeatures(sourceImage, numOrientations, cellForm, cellsPerBlock, visualise, smoothImage):
+    # Assume given sourceImage is RGB numpy n-array.
+    # wraps scikit-sourceImage HOG function.  We convert an input sourceImage to 8-bit grayscale
+    sourceImage = color.rgb2gray(sourceImage)
     
-    hogResult = feature.hog(image, numOrientations, cellForm, cellsPerBlock, False, smoothImage)
+    return feature.hog(sourceImage, numOrientations, cellForm, cellsPerBlock, visualise=visualise, normalise=smoothImage)
     
-    return hogResult
+
+
+def createLocalBinaryPatternFeatures(imageRGB,orientationBins, neighbourhoodRadius, inputMethod):
+    """Returns (i, j) array of Local Binary Pattern values for (i, j) input sourceImage, using scikit-sourceImage.feature.local_binary_pattern."""
+    # See [http://scikit-sourceImage.org/docs/dev/api/skimage.feature.html#local-binary-pattern]
+    
+    grayImage = getGrayscaleImage(imageRGB)
+    methods = [ "default", "ror",  "uniform", "var"]
+    
+    assert inputMethod in methods, "Local binary patterns input method value = " + str(inputMethod) + ".  Not one of permitted values: " + str(methods)
+    
+    lbpImage = feature.local_binary_pattern(grayImage, orientationBins, neighbourhoodRadius, method=inputMethod) #(sourceImage, P, R, method='default')
+    
+    return lbpImage
+
 
 
 def createImageTextons():
@@ -105,14 +119,14 @@ def createImageTextons():
     print "Finish me!"
     
 
-def generateFilterbankResponse(image, window):
+def generateFilterbankResponse(sourceImage, window):
     # See [Object Categorization by Learned Universal Visual Dictionary. Winn, Criminisi & Minka, 2005]
     
     # convert RGB to CIELab
-    image = color.rgb2lab(image)
-    image_L = image[:,:,0]
-    image_a = image[:,:,1]
-    image_b = image[:,:,2]
+    sourceImage = color.rgb2lab(sourceImage)
+    image_L = sourceImage[:,:,0]
+    image_a = sourceImage[:,:,1]
+    image_b = sourceImage[:,:,2]
     
     # Create filters - G1, G2, G3, LoG1, LoG2, LoG3,LoG4, dx_G2, dx_G3, dy_G2, dy_G3
     filters = createDefaultFilterbank(window)
@@ -187,7 +201,7 @@ def createDefaultFilterbank(window):
 
 
 def getGradientMagnitude(gradX, gradY):
-    # magnitude of image gradient
+    # magnitude of sourceImage gradient
     return np.sqrt(gradX**2 + gradY**2)
 
 def getGradientOrientation(gradX, gradY):
@@ -286,68 +300,68 @@ def gaussianFirstDerivative(data, mu, sigma):
 def readImageFileRGB(imageFileLocation):    
     """This returns a (i, j, 3) RGB ndarray"""
     
-    image = io.imread(imageFileLocation)
+    sourceImage = io.imread(imageFileLocation)
     
-    return image
+    return sourceImage
 
-def getGreyscaleImage(imageRGB):
-    """This returns a (i, j) greyscale image from a (i, j, 3) RGB ndarray, using scikit-image conversion"""
+def getGrayscaleImage(imageRGB):
+    """This returns a (i, j) grayscale sourceImage from a (i, j, 3) RGB ndarray, using scikit-sourceImage conversion"""
     return color.rgb2gray(imageRGB)
 
 
 
 # Some simple testing
     
-image = readImageFileRGB("ship-at-sea.jpg");
+sourceImage = readImageFileRGB("ship-at-sea.jpg");
+grayImage = color.rgb2gray(sourceImage)
+
+histFreq, histRange = create1dRGBColourHistogram(sourceImage, 8)
+plot1dRGBImageHistogram(histFreq, histRange)
+
+numBins = 2
+freqs, rangeEdges = create3dRGBColourHistogramFeature(sourceImage, numBins)
+
+hogFeature, hogImage = createHistogramOfOrientedGradientFeatures(sourceImage, 8, (8,8), (2,2), True, True)
+plotHOGResult(sourceImage, hogImage)
 
 
-grayImage = color.rgb2gray(image)
-
-# hist, range = create1dRGBColourHistogram(image, 8)
-# plot1dRGBImageHistogram(hist, range)
-
-# numBins = 2
-# freqs, rangeEdges = create3dRGBColourHistogram(grayImage, numBins)
-
-# hogFeature, hogImage = createHistogramOfOrientedGradientFeatures(image, 8, (8,8), (2,2), True, True)
-# plotHOGResult(image, hogImage)
-
-# createDefaultFilterbank()
-
-
-# logKernel = laplacianOfGaussian_kernel(13, 13, 2, 2)
 xWindow = 9
 yWindow = 9
 sigma = 1.4
 xRange, yRange = createKernalWindowRanges(xWindow, yWindow, increment)
 
-# g_kernel = gaussian_kernel(xWindow, yWindow, sigma)
-# print "Gaussian kernel range:: ", np.min(g_kernel), np.max(g_kernel)
-# plotKernel(xRange, yRange, g_kernel, "Gaussian kernel, sigma= + " + str(sigma) + ", window=(" + str(xWindow) + "," + str(yWindow) + ")")
-# filteredImage = signal.convolve2d(grayImage, g_kernel, mode='same')
-# plotFilterComparison(grayImage, filteredImage)
-#  
-# log_kernel = laplacianOfGaussian_kernel(xWindow, yWindow, sigma)
-# print "Laplacian of Gaussian kernel range:: ", np.min(log_kernel), np.max(log_kernel)
-# plotKernel(xRange, yRange, log_kernel, "LOG kernel, sigma= + " + str(sigma) + ", window=(" + str(xWindow) + "," + str(yWindow) + ")")
-# filteredImage = signal.convolve2d(grayImage, log_kernel, mode='same')
-# plotFilterComparison(grayImage, filteredImage)
-# 
-# g_dx_kernel = gaussian_1xDerivative_kernel(xWindow, yWindow, sigma)
-# print "Gaussian X derivative kernel range:: ", np.min(g_dx_kernel), np.max(g_dx_kernel)
-# plotKernel(xRange, yRange, g_dx_kernel, "G_dx kernel, sigma= + " + str(sigma) + ", window=(" + str(xWindow) + "," + str(yWindow) + ")")
-# filteredImage = signal.convolve2d(grayImage, g_dx_kernel, mode='same')
-# plotFilterComparison(grayImage, filteredImage)
-# 
-# g_dy_kernel = gaussian_1yDerivative_kernel(xWindow, yWindow, sigma)
-# print "Gaussian Y derivative kernel range:: ", np.min(g_dy_kernel), np.max(g_dy_kernel)
-# plotKernel(xRange, yRange, g_dy_kernel, "G_dy kernel, sigma= + " + str(sigma) + ", window=(" + str(xWindow) + "," + str(yWindow) + ")")
-# filteredImage = signal.convolve2d(grayImage, g_dy_kernel, mode='same')
-# plotFilterComparison(grayImage, filteredImage)
+g_kernel = gaussian_kernel(xWindow, yWindow, sigma)
+print "Gaussian kernel range:: ", np.min(g_kernel), np.max(g_kernel)
+plotKernel(xRange, yRange, g_kernel, "Gaussian kernel, sigma= + " + str(sigma) + ", window=(" + str(xWindow) + "," + str(yWindow) + ")")
+filteredImage = signal.convolve2d(grayImage, g_kernel, mode='same')
+plotImageComparison(grayImage, filteredImage)
+  
+log_kernel = laplacianOfGaussian_kernel(xWindow, yWindow, sigma)
+print "Laplacian of Gaussian kernel range:: ", np.min(log_kernel), np.max(log_kernel)
+plotKernel(xRange, yRange, log_kernel, "LOG kernel, sigma= + " + str(sigma) + ", window=(" + str(xWindow) + "," + str(yWindow) + ")")
+filteredImage = signal.convolve2d(grayImage, log_kernel, mode='same')
+plotImageComparison(grayImage, filteredImage)
+ 
+g_dx_kernel = gaussian_1xDerivative_kernel(xWindow, yWindow, sigma)
+print "Gaussian X derivative kernel range:: ", np.min(g_dx_kernel), np.max(g_dx_kernel)
+plotKernel(xRange, yRange, g_dx_kernel, "G_dx kernel, sigma= + " + str(sigma) + ", window=(" + str(xWindow) + "," + str(yWindow) + ")")
+filteredImage = signal.convolve2d(grayImage, g_dx_kernel, mode='same')
+plotImageComparison(grayImage, filteredImage)
+ 
+g_dy_kernel = gaussian_1yDerivative_kernel(xWindow, yWindow, sigma)
+print "Gaussian Y derivative kernel range:: ", np.min(g_dy_kernel), np.max(g_dy_kernel)
+plotKernel(xRange, yRange, g_dy_kernel, "G_dy kernel, sigma= + " + str(sigma) + ", window=(" + str(xWindow) + "," + str(yWindow) + ")")
+filteredImage = signal.convolve2d(grayImage, g_dy_kernel, mode='same')
+plotImageComparison(grayImage, filteredImage)
 
 
-response = generateFilterbankResponse(image, xWindow)
+ 
+lbpImage = createLocalBinaryPatternFeatures(sourceImage, 6, 4, "default")
+print "Local Binary Pattern result::", lbpImage
+plotImageComparison(grayImage, filteredImage)
+
+
+response = generateFilterbankResponse(sourceImage, xWindow)
 
 print "\nFilter response shape=" + str(np.shape(response))  
-
 
