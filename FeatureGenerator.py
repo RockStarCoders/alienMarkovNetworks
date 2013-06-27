@@ -2,10 +2,9 @@
 # Plan to generate:
 #    * Histogram of oriented gradient (HOG) features using scikit-image
 #    * Colour histograms
-#    * TextonBoost features from [http://www.vision.caltech.edu/wikis/EE148/images/8/8a/EE148_Presentation_Will.pdf]
-#        |__ Laplacian of Gaussians [http://homepages.inf.ed.ac.uk/rbf/HIPR2/log.htm]
-#        |__ 
+#    * TextonBoost features from [Categorization by learned universal dictionary. Winn, Criminisi & Minka 2005]
 #    * Local binary patterns see [http://en.wikipedia.org/wiki/Local_binary_patterns]
+
 import numpy as np
 from numpy import exp
 
@@ -59,7 +58,6 @@ def create1dRGBColourHistogram(imageRGB, numberBins):
     maxBlue = np.max(green);
     blue = (blue / maxBlue) * 255.0
     
-#     histogramRange = np.arange(0, 256 +1 , (256 / float(numberBins)) , dtype=int )
     histogramRange = np.arange(0, 256 +1 , (256 / numberBins) , dtype=int )
     
     redHist, redRange = np.histogram(red, histogramRange)
@@ -68,10 +66,6 @@ def create1dRGBColourHistogram(imageRGB, numberBins):
     blueHist, blueRange = np.histogram(blue, histogramRange)
     
     return np.array([redHist, greenHist, blueHist]) , histogramRange
-
-
-    # Assume given image as numpy
-    print "Finish me!"
 
 
 def create3dRGBColourHistogram(imageRGB, numberBins):
@@ -94,8 +88,6 @@ def create3dRGBColourHistogram(imageRGB, numberBins):
 
 
 # TODO implement a HSV or HS colour histogram
-
-# http://scikit-image.org/docs/dev/auto_examples/plot_hog.html#example-plot-hog-py
 
 
 def createHistogramOfOrientedGradientFeatures(image, numOrientations, cellForm, cellsPerBlock, smoothImage):
@@ -125,7 +117,7 @@ def generateFilterbankResponse(image, window):
     # Create filters - G1, G2, G3, LoG1, LoG2, LoG3,LoG4, dx_G2, dx_G3, dy_G2, dy_G3
     filters = createDefaultFilterbank(window)
     numFilters = np.shape(filters)[0]
-    print "Total number of default filters = " + str(numFilters)
+    print "Total number of default filters = " + str(numFilters) + ", from shape=" + str(np.shape(filters))
     
     # Apply filters & append result into 17D vector for each pixel as follows:
     # Name          Defn                 CIE channel
@@ -166,7 +158,7 @@ def generateFilterbankResponse(image, window):
 # util methods for setting up filter bank for texton processing
     
 def createDefaultFilterbank(window):
-    # create filterbank as defined in [Object Categorization by Learned Universal Visual Dictionary. Winn, Criminisi & Minka, 2005]
+    """ Returns a (11, 9, 9) ndarray filterbank as defined in [Object Categorization by Learned Universal Visual Dictionary. Winn, Criminisi & Minka, 2005]"""
     # Gaussians::  G1 = N(0, 1), G2 = N(0, 2), G3 = N(0, 4)
     # Laplacian of Gaussians:: LoG1 = Lap(N(0, 1)), LoG2=Lap(N(0, 2)), LoG3=Lap(N(0, 4)), LoG4=Lap(N(0, 8))
     # Derivative of Gaussian (x):: Div1xG1 = d/dx N(0,2), Div1xG2=d/dx N(0,4)
@@ -206,7 +198,7 @@ def getGradientOrientation(gradX, gradY):
 # util methods for gaussian_kernel derivatives
 
 def gaussian_kernel(windowX, windowY, sigma):
-    """ Returns a normalized 2D (windowX x windowY grid) Gaussian kernel array for convolution"""
+    """Returns a sum-normalized 2D (windowX x windowY) Gaussian kernel for convolution"""
     X,Y = createKernalWindowRanges(windowX, windowY, increment)
     
     gKernel = gaussianNormalised(X, 0, sigma) * gaussianNormalised(Y, 0, sigma)
@@ -220,7 +212,7 @@ def gaussian_kernel(windowX, windowY, sigma):
 
 
 def laplacianOfGaussian_kernel(windowX, windowY, sigma):
-    """ Returns a normalized 2D (windowX x windowY grid) Laplacian of Gaussian (LoG) kernel array for convolution"""
+    """Returns a sum-normalized 2D (windowX x windowY) Laplacian of Gaussian (LoG) kernel for convolution"""
     # See [http://homepages.inf.ed.ac.uk/rbf/CVonline/LOCAL_COPIES/MARBLE/low/edges/canny.htm]
     X, Y = createKernalWindowRanges(windowX, windowY, increment)
     
@@ -235,6 +227,7 @@ def laplacianOfGaussian_kernel(windowX, windowY, sigma):
 
 
 def gaussian_1xDerivative_kernel(windowX, windowY, sigma):
+    """Returns a sum-normalized 2D (windowX x windowY) x-Derivative of Gaussian kernel for convolution"""
     # See [http://homepages.inf.ed.ac.uk/rbf/CVonline/LOCAL_COPIES/MARBLE/low/edges/canny.htm]
     X, Y = createKernalWindowRanges(windowX, windowY, increment)
     
@@ -249,6 +242,7 @@ def gaussian_1xDerivative_kernel(windowX, windowY, sigma):
     
 
 def gaussian_1yDerivative_kernel(windowX, windowY, sigma):
+    """Returns a sum-normalized 2D (windowX x windowY) y-Derivative of Gaussian kernel for convolution"""
     # See [http://homepages.inf.ed.ac.uk/rbf/CVonline/LOCAL_COPIES/MARBLE/low/edges/canny.htm]
     X, Y = createKernalWindowRanges(windowX, windowY, increment)
     
@@ -263,6 +257,7 @@ def gaussian_1yDerivative_kernel(windowX, windowY, sigma):
 
 
 def gaussianNormalised(data, mu, sigma):
+    """Returns a sum-normalized 2D (windowX x windowY) x-Derivative of Gaussian kernel for convolution"""
     data = data - mu
     g = exp ( - data**2 / (2*sigma**2) )
     gSum = np.sum(g)
@@ -286,18 +281,17 @@ def gaussianFirstDerivative(data, mu, sigma):
 
 
 
-
 # File IO utils
 
 def readImageFileRGB(imageFileLocation):    
-    """This function takes a (i, j, 3) BGR ndarray as read by opencv, and returns an (i, j, 3) RGB ndarray"""
+    """This returns a (i, j, 3) RGB ndarray"""
     
     image = io.imread(imageFileLocation)
     
-#     return np.dstack([r, g, b])
     return image
 
 def getGreyscaleImage(imageRGB):
+    """This returns a (i, j) greyscale image from a (i, j, 3) RGB ndarray, using scikit-image conversion"""
     return color.rgb2gray(imageRGB)
 
 
@@ -314,11 +308,6 @@ grayImage = color.rgb2gray(image)
 
 # numBins = 2
 # freqs, rangeEdges = create3dRGBColourHistogram(grayImage, numBins)
-# print "Number of bins for 3D histogram = " , numBins
-# for r in range(0,numBins):
-#     for g in range(0,numBins):
-#         for b in range(0,numBins):
-#             print "\tColour count (bin_" + str(r+1) + ", bin_" + str(g+1) + ", bin_" + str(b+1) + ")" , freqs[r,g,b]
 
 # hogFeature, hogImage = createHistogramOfOrientedGradientFeatures(image, 8, (8,8), (2,2), True, True)
 # plotHOGResult(image, hogImage)
@@ -360,4 +349,5 @@ xRange, yRange = createKernalWindowRanges(xWindow, yWindow, increment)
 response = generateFilterbankResponse(image, xWindow)
 
 print "\nFilter response shape=" + str(np.shape(response))  
+
 
