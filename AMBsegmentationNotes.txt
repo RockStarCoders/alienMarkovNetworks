@@ -13,6 +13,20 @@ References
 
 [5] Histogram of Orient Gradients for Human Detection.  Dalal & Triggs 2005.
 
+[6] Matching words and pictures. Barnard et al 2003.
+
+[7] Contour and Texture Analysis for Image Segmentation. Malik et al 2001.
+
+[8] Categorization by learned universal dictionary. Winn, Criminisi & Minka 2005.
+
+[9] Representing and recognising the visual appearance of materials using three-dimensional textons.  Malik & Leung, 2001.
+
+[10] A Statistical approach to texture classification from single images. Varma & Zisserman 2005.
+
+
+
+
+
 
 
 
@@ -40,35 +54,42 @@ Incrementally build towards repeating implementation and results of [1] and [2].
 		Colour histograms
 		Histogram of oriented gradient (HOG)
 		Local binary pattern
-		Texture
+		Texture based feature (textons)
 	b) Replicate TextonBoost [2] features.
 	c) Replciate Relative Prior [1] features.
 
 
 Feature generation
 
-Approach is to build a python module which provides functions for generating each feature, so feature functions can be reused.
+Approach is to build a python module of functions, where each function generates a vector of result values.
 
-Where possible, seek to use existing python tools.  Scipy (and Numpy) and the scikit-image library will be used.  Using OpenCV python to read images - beware the BGR!
+Where possible, seek to use existing python tools.  Scipy (and Numpy) and the scikit-image library will be used, and where OpenCV python is used, beware the BGR!
+
 
 
 Colour histograms features
 
-Implemented two variants of the colour histogram - RGB and HSV.  Key assumption is that input image is 8-bit, either greyscale or RGB.
+Implemented 1D colour histogram for RGB image.  Key assumption is that input image is 8-bit, either greyscale or RGB.
 
-Output histograms are binned into 32 bins by default, but can be set to { 2, 4, 8, 16, 32, 64, 128, 256} bins using optional parameter.
+Implemented a 3D colour histogram to capture colour correlations in the 256 x 256 x 256 colour space.  That is generate a count of values for colours (0, 0, 0) ... (0,0,256) ... (256, 256, 256).  Used Numpy.histogramdd to generate multi-dimensional histograms to be generated.
+
+In both cases, number of bins can be set to { 2, 4, 8, 16, 32, 64, 128, 256} bins using the numberBins parameter.
+
+Note: Need some kind of regularisation on the RGB histogram, either some constant or even smoothing operator over image in the learning phase.
+
+
 
 
 Histogram of oriented gradients (HOG) features
 
-HOG was defined by Dalal and Triggs in 2005 paper "Histogram of oriented gradient for human detection".  In this paper, they detail the definition of HOG features and experiments regarding parameter setting.  In particular, the paper states:
+HOG was defined by Dalal and Triggs in the 2005 CVPR paper "Histogram of oriented gradient for human detection" [5].  In the paper, they detail the definition of HOG features and experiments regarding parameter setting.  In particular, the paper states:
 
 
 (1) Gamma/Colour Normalization
 
-"We evaluated several input pixel representations including grayscale, RGB and LAB colour spaces optionally with power law (gamma) equalization.
+"We evaluated several input pixel representations including grayscale, RGB and LAB colour spaces optionally with power law (gamma) equalization."
 
-We do use colour information when available. RGB and LAB colour spaces give comparable results, but restricting to grayscale reduces performance by 1.5% at 10−4 FPPW. Square root gamma compression of each colour channel im- proves performance at low FPPW (by 1% at 10−4 FPPW) but log compression is too strong and worsens it by 2% at 10−4 FPPW."
+"We do use colour information when available. RGB and LAB colour spaces give comparable results, but restricting to grayscale reduces performance by 1.5% at 10−4 FPPW. Square root gamma compression of each colour channel im- proves performance at low FPPW (by 1% at 10−4 FPPW) but log compression is too strong and worsens it by 2% at 10−4 FPPW."
 
 Note: Power law gamma equalisation is defined as newImage = originalImage ^ (gamma) [see http://www.sci.utah.edu/~cscheid/spr05/imageprocessing/project1/]
 
@@ -82,13 +103,15 @@ The scikit-image project implementation [see https://github.com/scikit-image/sci
 "Using uncentred [−1, 1] derivative masks also decreases performance (by 1.5% at 10−4 FPPW),"
 
 
-The scikit-image HOG implementation uses the numpy diff implementation for gradient calculation [see http://docs.scipy.org/doc/numpy/reference/generated/numpy.diff.html]:
+The scikit-image HOG implementation uses the numpy.diff function for gradient calculation [see http://docs.scipy.org/doc/numpy/reference/generated/numpy.diff.html]:
+	"The first order difference is given by out[n] = a[n+1] - a[n] along the given axis"
 
-	The first order difference is given by out[n] = a[n+1] - a[n] along the given axis
-
-This corresponds to the uncentred [-1, 1] mask.  The scipy examples show the results as being reduced in dimension comapred to input (e.g. do not generate an edge gradient value).
+This corresponds to the uncentred [-1, 1] mask.  The scipy examples show the results as being reduced in dimension compared to input (doesn't generate an edge gradient value).
 
 However, the numpy.gradient function [see http://docs.scipy.org/doc/numpy/reference/generated/numpy.gradient.html#numpy.gradient] uses central differences in the interior and first differences at the boundaries.  Here, the example shows that central difference = 0.5 * [-1,0,1] mask.
+
+One idea is to allow user defined function to be used to create gradients from an image.
+
 
 
 (3) Gradient in colour images
@@ -102,11 +125,9 @@ To proceed with the scikit-image HOG implementation, we have a few choices:
 * Convert colour to greyscale, and accept performance hit (easy)
 * Try to reconstruct a greyscale image, inverse gradient operation on the maxG_x and maxG_y matrices (non-trivial)
 
+Alternatively, we could refactor scikit-image._HOG to operate on user-specified gradient matrix for the image (e.g. result of a yet-to-be-written "maxGradientsFromColors(rgbImage)" function).
 
-Or we can refactor scikit-image._HOG to operate on user-specified gradient matrix for the image (e.g. result of a yet-to-be-written "maxGradientsFromColors(rgbImage)" function)
-
-
-Let's go with the greyscale option for now... maybe create a colourHOG function based on _HOG.py
+Let's go with the greyscale option for now.
 
 
 
@@ -122,8 +143,54 @@ In summary, the HOG implementation is a function which wraps the scikit-image HO
 Texture features
 
 
-Defined in [1] as those used in [4].  
+Both Shotton [1] and Gould [2] use texture-based features.  Shotton's TextBoost paper [2] defines shape-texture potentials and refers to [6].  Gould's relative location paper [1] defines a set of appearance features based on [7] which act a unary potentials in the CRF model.
 
+Shotton [2] states:
+
+
+	"Textons.  Efficiency demands compact representations for the range of different appearances of an object.  For this we utilize textons [9 - Representing and Recognising the visual appearance of materials using 3D textons, Malik & Leung 2001] which have proven effective in categorizing materials [10 - A statistical approach to texture classification from single images, Varma & Zisserman 2005] as well as generic object classes [8 - Categorization by learned universal visual dictionary, Winn, Criminisi & Minka, 2005].  A dictionary of textons is learned by convolving a 17-dimensional filter-bank (footnote) with all the training images and running K-means clustering (using Mahalanobis distance) on the filter responses.  Finally, each pixel in each image is assigned to the nearest cluster centre, thus providing the texton map.
+
+	Footnote:  the filterbank used here is identical to that in [8 - Winn, Criminski, Minka 2005], consisting of scaled Gaussians, x and y derivatives of Gaussians, and Laplacians of Gaussians.  The Gaussians are applied to all three colour channels, while the remaining filters only to the luminance.  The perceptually uniform CIELab color space is used."
+	
+
+Review of [8] to identify definition and implementation details of textons:
+
+
+	"Textons and texton histograms. Each training image is convolved with a filter-bank to generate a set of filter responses [9, 16]. These filter responses are aggregated over
+all the images in the entire training set (independently from class labels) and clustered using a K-means approach. Mahalanobis distance between features is used during clustering."
+
+"Filter-banks. In this paper we have tested a number of different filter-banks made of combinations of Gaussians, first and second order derivatives of Gaussians and Gabor kernels. Many filter-banks produced comparable results with the best one made of 3 Gaussians, 4 Laplacian of Gaussians (LoG) and 4 first order derivatives of Gaussians. The three Gaussian kernels (with σ = 1, 2, 4) are applied to each CIE L,a,b channel [7], thus producing 9 filter responses. The four LoGs (with σ = 1, 2, 4, 8) were applied to the L channel only, thus producing 4 filter responses. The four derivatives of Gaussians were divided into the two x− and y−aligned sets, each with two different values of σ (σ = 2, 4). Derivatives of Gaussians were also applied to the L channel only, thus producing 4 final filter responses. Therefore, each pixel in each image has associated a 17−dimensional feature vector. Note that first order derivatives of Gaussian kernels are not rotational invariant."
+
+Therefore filterbank-channel application grid looks like:
+
+Name		Defn			   CIE channel
+							L		a		b
+
+G1			N(0, 1)			yes		yes		yes
+G2			N(0, 2)			yes		yes		yes
+G3			N(0, 4)			yes		yes		yes
+
+LoG1		lap(N(0, 1))	yes		no		no
+LoG2		lap(N(0, 2))	yes		no		no
+LoG3		lap(N(0, 4))	yes		no		no
+LoG4		lap(N(0, 8))	yes		no		no
+
+Div1xG1		dx(N(0,2))		yes		no		no
+Div1xG2		dx(N(0,4))		yes		no		no
+
+Div1yG1		dy(N(0,2))		yes		no		no
+Div1yG2		dy(N(0,4))		yes		no		no
+
+
+Note use of CIE colour model [see http://en.wikipedia.org/wiki/CIE_1931_color_space] and varied applciation of filterbank to L, a, b channels.  The following stackoverflow post gives useful info [http://stackoverflow.com/questions/13405956/convert-an-image-rgb-lab-with-python] and mentions scikit-image conversion.  I use the scikit-image.color.rgb2lab() function to convert images to CIELab.
+
+Filter window size.
+
+I haven't read a specification for the size of the filter (window size) in [8], [9] [10].  I did find one paper that states a filter window size of (13x13) - see [http://academia.edu/1146226/Texture_Classification_Using_Three_Circular_Filters].
+
+Also, there is a StackOverflow question regaridng window size for Gaussian filter see [http://stackoverflow.com/questions/16165666/how-to-determine-the-window-size-of-a-gaussian-filter].  This recommends a window size of 3*Gaussian's sigma, which seems to be accepted wisdom.
+
+As a first approximation, we will adopt (13x13) for the size of the filters in the filter bank.
 
 
 
@@ -131,5 +198,7 @@ Defined in [1] as those used in [4].
 TODO list
 
 
-Create stats for dataset - class avgs etc.
+* Create stats for dataset - class avgs etc.
+* Implement colour histograms in HSV and/or HS colour space.
+* ColourHOG implementation based on scikit-image HOG
 
