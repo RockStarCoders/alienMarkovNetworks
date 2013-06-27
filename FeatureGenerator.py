@@ -34,7 +34,7 @@ from matplotlib import cm
 from matplotlib.ticker import LinearLocator, FormatStrFormatter
 import matplotlib.pyplot as plt
 
-from DataVisualiation import createKernalWindowRanges, plotKernel
+from DataVisualisation import createKernalWindowRanges, plotKernel
 
 
 
@@ -304,7 +304,7 @@ def getGreyscaleImage(imageRGB):
 
 # Some simple testing
     
-image = readImageFileRGB("../ship-at-sea.jpg");
+image = readImageFileRGB("ship-at-sea.jpg");
 grayImage = color.rgb2gray(image)
 
 # hist, range = create1dRGBColourHistogram(image, 8)
