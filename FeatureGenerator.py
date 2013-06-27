@@ -12,14 +12,31 @@ import numpy as np
 from numpy import exp
 from numpy import sqrt
 from numpy import pi
+from numpy import mgrid
 
 from scipy import signal
 from scipy.misc import imread
+from scipy.stats import norm
 
-from skimage import feature, color, exposure
+import skimage
+from skimage import color, feature, exposure
 
 
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+from pylab import meshgrid
+
+from pylab import meshgrid,cm,imshow,contour,clabel,colorbar,axis,title,show
+
+
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib import cm
+from matplotlib.ticker import LinearLocator, FormatStrFormatter
+import matplotlib.pyplot as plt
+
+from DataVisualiation import createKernalWindowRanges, plotKernel
+
+
 
 def create1dRGBColourHistogram(imageRGB, numberBins):
     
@@ -98,12 +115,14 @@ def create3dRGBColourHistogram(imageRGB, numberBins):
 # TODO implement a HSV or HS colour histogram
 
 # http://scikit-image.org/docs/dev/auto_examples/plot_hog.html#example-plot-hog-py
-def createHistogramOfOrientedGradientFeatures(image, numOrientations, cellForm, cellsPerBlock, visualiseHOG, smoothImage):
+
+
+def createHistogramOfOrientedGradientFeatures(image, numOrientations, cellForm, cellsPerBlock, smoothImage):
     # Assume given image is RGB numpy n-array.
     # wraps scikit-image HOG function.  We convert an input image to 8-bit greyscale
     image = color.rgb2gray(image)
     
-    hogResult = feature.hog(image, numOrientations, cellForm, cellsPerBlock, visualiseHOG, smoothImage)
+    hogResult = feature.hog(image, numOrientations, cellForm, cellsPerBlock, False, smoothImage)
     
     return hogResult
 
@@ -112,30 +131,95 @@ def createImageTextons():
     # see http://webdocs.cs.ualberta.ca/~vis/readingMedIm/papers/CRF_TextonBoost_ECCV2006.pdf
     print "Finish me!"
     
+
+def generateFilterbankResponse(image):
+    # See [Object Categorization by Learned Universal Visual Dictionary. Winn, Criminisi & Minka, 2005]
+     
+    # convert RGB to CIELab
+    image = color.rgb2lab(image)
+    image_L = image[:,:,0]
+    image_a = image[:,:,1]
+    image_b = image[:,:,2]
+    
+    # Create filters
+    G1, G2, G3, LoG1, LoG2, LoG3,LoG4, Div1xG2, Div1xG3, Div1yG2, Div1yG3 = createDefaultFilterbank()
+    
+    # Apply filters & append result into 17D vector for each pixel as follows:
+    # Name          Defn                 CIE channel
+    #                                L        a        b
+    # G1            N(0, 1)          yes      yes      yes
+    # G2            N(0, 2)          yes      yes      yes
+    # G3            N(0, 4)          yes      yes      yes
+    # LoG1          Lap(N(0, 1))     yes      no       no
+    # LoG2          Lap(N(0, 1))     yes      no       no
+    # LoG3          Lap(N(0, 1))     yes      no       no
+    # LoG4          Lap(N(0, 1))     yes      no       no
+    # Div1xG2       d/dx(N(0,2))     yes      no       no
+    # Div1xG3       d/dx(N(0,4))     yes      no       no
+    # Div1yG2       d/dy(N(0,2))     yes      no       no
+    # Div1yG3       d/dy(N(0,4))     yes      no       no
+    
+    responseVector = np.array([])
+    
+    G1response1 = signal.convolve2d(image_L, G1, mode='same')
+    G1response2 = signal.convolve2d(image_a, G1, mode='same')
+    G1response3 = signal.convolve2d(image_b, G1, mode='same')
+    
+    G2response1 = signal.convolve2d(image_L, G2, mode='same')
+    G2response2 = signal.convolve2d(image_a, G2, mode='same')
+    G2response3 = signal.convolve2d(image_b, G2, mode='same')
+    
+    G3response1 = signal.convolve2d(image_L, G3, mode='same')
+    G3response2 = signal.convolve2d(image_a, G3, mode='same')
+    G3response3 = signal.convolve2d(image_b, G3, mode='same')
+    
+    LoG1response1 = signal.convolve2d(image_L, LoG1, mode='same')
+    LoG2response1 = signal.convolve2d(image_L, LoG2, mode='same')
+    LoG3response1 = signal.convolve2d(image_L, LoG3, mode='same')
+    LoG4response1 = signal.convolve2d(image_L, LoG4, mode='same')
+    
+    Div1xG2response1 = signal.convolve2d(image_L, Div1xG2, mode='same')
+    Div1xG3response1 = signal.convolve2d(image_L, Div1xG3, mode='same')
+    
+    Div1yG2response1 = signal.convolve2d(image_L, Div1yG2, mode='same')
+    Div1yG3response1 = signal.convolve2d(image_L, Div1yG3, mode='same')
+    
+    
+    print "Finish me!"
+    
+    
+def createDefaultFilterbank(window):
+    # create filterbank as defined in [Object Categorization by Learned Universal Visual Dictionary. Winn, Criminisi & Minka, 2005]
+    # Gaussians::  G1 = N(0, 1), G2 = N(0, 2), G3 = N(0, 4)
+    # Laplacian of Gaussians:: LoG1 = Lap(N(0, 1)), LoG2=Lap(N(0, 2)), LoG3=Lap(N(0, 4)), LoG4=Lap(N(0, 8))
+    # Derivative of Gaussian (x):: Div1xG1 = d/dx N(0,2), Div1xG2=d/dx N(0,4)
+    # Derivative of Gaussian (y):  Div1yG1 = d/dy N(0,2), Div1yG2=d/dy N(0,4)
+    
+    window = int(window)
+    
+    G1 = gaussian_kernel(window, window, 1, 1)
+    G2 = gaussian_kernel(window, window, 2, 2)
+    G3 = gaussian_kernel(window, window, 4, 4)
+    
+    # see http://homepages.inf.ed.ac.uk/rbf/HIPR2/log.htm
+    LoG1 = laplacianOfGaussian_kernel(window, window, 1, 1)
+    LoG2 = laplacianOfGaussian_kernel(window, window, 1, 2)
+    LoG3 = laplacianOfGaussian_kernel(window, window, 1, 4)
+    LoG4 = laplacianOfGaussian_kernel(window, window, 1, 8)
+    
+    print "Finish me... I need some validation!"
+    return G1, G2, G3, G3, LoG1, LoG2, LoG3, LoG4
     
 # Some util functions
-
-def getDifferenceOfGradient():
-    # See http://www.eng.utah.edu/~bresee/compvision/files/MalikBLS.pdf
-    print "Finish me!"
-
-
-def getXGradient():
-    print "Finish me!"
-
-
-def getYGradient():
-    print "Finish me!"
-
     
 def getGradientMagnitude(gradX, gradY):
     # magnitude of image gradient
     return np.sqrt(gradX**2 + gradY**2)
 
-
 def getGradientOrientation(gradX, gradY):
     # orientation of computed gradient
     return np.arctan2(gradX, gradY)
+
 
 
 
@@ -145,50 +229,59 @@ def createStandardTextureFilterBank():
     # see http://research.microsoft.com/pubs/67408/criminisi_iccv2005.pdf
     print "Finish me!"
 
-def createRadialSymmetricFilters():
-    # Difference of gaussian or laplacian of gaussian
-    # Assume a 2D function, so need bivariate Gaussians
-    print "Finish me!"
-
-def createOddSymmetricFilters():
-    # See Malik paper
-    print "Finish me!"
 
 
-# util methods for 1D gaussian derivatives
-def gaussian(x, mu, sigma):
-    x = x - mu
-    x = (1 / (sqrt(2 * pi) * sigma)) * exp(-x**2 / (2*(sigma**2)))
-    return x
+# util methods for gaussian_kernel derivatives
+
+def gaussian_kernel(windowX, windowY, sigma):
+    """ Returns a normalized 2D (windowX x windowY grid) Gaussian kernel array for convolution"""
+    X,Y = createKernalWindowRanges(windowX, windowY, 0.1)
     
-def gaussianFirstDerivative(x, mu, sigma):
-    x = x - mu
-    x = (-x / (sqrt(2 * pi) * (sigma**3) ) ) * exp(-x**2 / (2*sigma**2))
-    return x  
-
-def gaussianSecondDerivative(x, mu, sigma):
-    x = x - mu
-    x = (-1 / (sqrt(2 * pi) * sigma**3 ) ) * exp(-x**2 / 2*sigma**2) * (1 - (x**2 / sigma**2) )
-    return x
-
-
-# See Malik, Countour and Texture Analysis paper - specific form of gaussians - C, l and sigma
-def gaussFilter_f1(x, y, C, l, sigma):
-    print "Finish me!"
+    gKernel = gaussianNormalised(X, 0, sigma) * gaussianNormalised(Y, 0, sigma)
     
-def gaussFilter_f2_calc(x, y, C, l, sigma):
-    print "Finish me!"
+    return (gKernel / np.sum(gKernel))
 
-def gaussFilter_f2_from_f1(f1_result):
-    print "Hilbert transform.... test me!"
-    
-    # What does hilbert2 do?
-    h2 = signal.hilbert2(f1_result)
-    
-    # is this the Y axis?
-    h1 = signal.hilbert(f1_result, 0, 1)    
-    return [[h1] , [h2]]
 
+def laplacianOfGaussian_kernel(windowX, windowY, sigma):
+    """ Returns a normalized 2D (windowX x windowY grid) Laplacian of Gaussian (LoG) kernel array for convolution"""
+    # See [http://homepages.inf.ed.ac.uk/rbf/CVonline/LOCAL_COPIES/MARBLE/low/edges/canny.htm]
+    X, Y = createKernalWindowRanges(windowX, windowY, 0.1)
+    
+    logKernel = -1 * (1 - ( X**2 + Y**2) ) *  exp (- (X**2 + Y**2) / (2 * sigma))
+    
+    return (logKernel / np.sum(logKernel))
+
+
+def gaussian_1xDerivative_kernel(windowX, windowY, sigma):
+    # See [http://homepages.inf.ed.ac.uk/rbf/CVonline/LOCAL_COPIES/MARBLE/low/edges/canny.htm]
+    X, Y = createKernalWindowRanges(windowX, windowY, 0.1)
+    
+    g_dx = gaussianFirstDerivative(X, 0, sigma) * gaussianNormalised(Y, 0, sigma)
+        
+    return (g_dx / np.sum(g_dx))
+
+
+
+def gaussian_1yDerivative_kernel(windowX, windowY, sigma):
+    # See [http://homepages.inf.ed.ac.uk/rbf/CVonline/LOCAL_COPIES/MARBLE/low/edges/canny.htm]
+    X, Y = createKernalWindowRanges(windowX, windowY, 0.1)
+    
+    g_dy = gaussianFirstDerivative(Y, 0, sigma) * gaussianNormalised(X, 0, sigma)
+        
+    return (g_dy / np.sum(g_dy))
+
+
+def gaussianNormalised(data, mu, sigma):
+    data = data - mu
+    g = exp ( - data**2 / (2*sigma**2) )
+    return (g / np.sum(g))
+    
+    
+def gaussianFirstDerivative(data, mu, sigma):
+    data = data - mu
+    g = -data * exp(-data**2 / (2*sigma**2))
+    
+    return (g / np.sum(g))
 
 
 # File IO utils
@@ -208,64 +301,55 @@ def getGreyscaleImage(imageRGB):
     return color.rgb2gray(imageRGB)
 
 
-# Visualisation functions
 
-def plot1dRGBImageHistogram(rgbFrequencies, histRange):
+# Some simple testing
     
-    numberBins = np.shape(histRange)[0] -1
-
-    print "\nRed histogram:\n", rgbFrequencies[0]
-    print "\nGreen histogram:\n", rgbFrequencies[1]
-    print "\nBlue histogram:\n", rgbFrequencies[2]
-    print "\nHistogram bins:\n", histRange
-    
-    fig, ax = plt.subplots()
-
-    # matplotlib.pyplot.bar(left, height, width=0.8, bottom=None, hold=None, **kwargs)
-    # left     the x coordinates of the left sides of the bars
-    # height     the heights of the bars
-
-    ind = np.arange(0,256,(256 / numberBins))  # the x locations for the groups
-    width = int( (256 / (numberBins * 3.5) ) )    # the width of the bars
-
-    ax.bar( ind , rgbFrequencies[0] , width, color=['red'] )
-    ax.bar( ind+width , rgbFrequencies[1] , width, color=['green'] )
-    ax.bar( ind+2*width , rgbFrequencies[2] , width, color=['blue'] )
-
-    ax.set_xticks(histRange)
-    
-    plt.show()
-
-
-def plotHOGResult(image, hogImage):
-    plt.figure(figsize=(8, 4))
-
-    plt.subplot(121).set_axis_off()
-    plt.imshow(image, cmap=plt.cm.get_cmap('grey'))
-    plt.title('Input image')
-
-    # Rescale histogram for better display
-    hog_image_rescaled = exposure.rescale_intensity(hogImage, in_range=(0, 0.02))
-
-    plt.subplot(122).set_axis_off()
-    plt.imshow(hog_image_rescaled, cmap=plt.cm.get_cmap('grey'))
-    plt.title('Histogram of Oriented Gradients')
-    plt.show()
-
-
 image = readImageFileRGB("../ship-at-sea.jpg");
+grayImage = color.rgb2gray(image)
+
 # hist, range = create1dRGBColourHistogram(image, 8)
 # plot1dRGBImageHistogram(hist, range)
 
 # numBins = 2
-# freqs, rangeEdges = create3dRGBColourHistogram(image, numBins)
+# freqs, rangeEdges = create3dRGBColourHistogram(grayImage, numBins)
 # print "Number of bins for 3D histogram = " , numBins
 # for r in range(0,numBins):
 #     for g in range(0,numBins):
 #         for b in range(0,numBins):
 #             print "\tColour count (bin_" + str(r+1) + ", bin_" + str(g+1) + ", bin_" + str(b+1) + ")" , freqs[r,g,b]
 
-hogFeature, hogImage = createHistogramOfOrientedGradientFeatures(image, 8, (8,8), (2,2), True, True)
+# hogFeature, hogImage = createHistogramOfOrientedGradientFeatures(image, 8, (8,8), (2,2), True, True)
+# plotHOGResult(image, hogImage)
 
-plotHOGResult(image, hogImage)
+# createDefaultFilterbank()
+
+
+# logKernel = laplacianOfGaussian_kernel(13, 13, 2, 2)
+xWindow = 9
+yWindow = 9
+sigma = 1.4
+xRange, yRange = createKernalWindowRanges(xWindow, yWindow, 0.1)
+# gKernel = gaussian_kernel(xWindow, yWindow, sigma, sigma)
+# print "Gaussian kernel range:: ", np.min(gKernel), np.max(gKernel)
+# plotKernel(xRange, yRange, gKernel, "Gaussian kernel, sigma= + " + str(sigma) + ", window=(" + str(xWindow) + "," + str(yWindow) + ")")
+
+logKernel = laplacianOfGaussian_kernel(xWindow, yWindow, sigma)
+print "Laplacian of Gaussian kernel range:: ", np.min(logKernel), np.max(logKernel)
+plotKernel(xRange, yRange, logKernel, "LOG kernel, sigma= + " + str(sigma) + ", window=(" + str(xWindow) + "," + str(yWindow) + ")")
+
+g_dx_kernel = gaussian_1xDerivative_kernel(xWindow, yWindow, sigma)
+print "Gaussian X derivative kernel range:: ", np.min(logKernel), np.max(logKernel)
+plotKernel(xRange, yRange, g_dx_kernel, "G_dx kernel, sigma= + " + str(sigma) + ", window=(" + str(xWindow) + "," + str(yWindow) + ")")
+
+g_dy_kernel = gaussian_1yDerivative_kernel(xWindow, yWindow, sigma)
+print "Gaussian Y derivative kernel range:: ", np.min(logKernel), np.max(logKernel)
+plotKernel(xRange, yRange, g_dy_kernel, "G_dy kernel, sigma= + " + str(sigma) + ", window=(" + str(xWindow) + "," + str(yWindow) + ")")
+
+
+# logImage = signal.convolve2d(grayImage, logKernel, mode='same')
+# gImage = signal.convolve2d(grayImage, gKernel, mode='same')
+# plotFilterComparison(grayImage, gImage)
+
+
+
 
