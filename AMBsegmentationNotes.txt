@@ -195,6 +195,42 @@ As a first approximation, we will adopt (13x13) for the size of the filters in t
 
 
 
+
+PossumStats
+
+Some general stats for the MSRC dataset.
+
+
+
+Images by class-pair.  Seek to count the number of images containing pixels of type class1 and class2, where these pixels are neighbours.
+First, what constitues a neighbour?
+
+Clearly, a 4-neighbourhood match.
+However, if two pixels are diagonal neighbours, should we count this?  In this case, we would have an image region like:
+
+
+		...  classA    0    ...		     ...    0    classA  ...
+		...    0    classB  ...	   or    ... classB    0     ....
+
+Where classes "touch" by a diagonal, I dont think that the classes are proper neighbours.  We need an efficient way to test if an image contains pixel of classA and pixel of classB that are 4-neighbours.
+
+It is possible to construct binary arrays which represent pixels of a given class, giving us binary "class channel" versions of the source image (pixels having 0 or 1 value).
+The difference between such class channels will be a new image, with pixel values { -1, 0, 1 }.  The test we wish to conduct is to see if there are two pixels that are 4-neighbours such that the pixel values are -1 and +1.  If we take the gradient of the difference image, if any of the following pixel configurations exist:
+
+... -1 ...     ... +1 ...        ... ... ... ...        ... ... ... ...
+... +1 ...  or ... -1 ...   or   ...  +1  -1 ...   or   ...  -1  +1 ...
+
+In the first two cases, the absolute value of the y-derivative will be 2, similarily for the x-derivative int he last two cases.  Therefore, to test if there is at least one 4-neighbour match between classA and classB pixels in an image, we can:
+1) Create class channel binary images
+2) Take the difference of the binary images
+3) Compute the x and y gradients of the image
+4) Take absoulte value of x and y gradient
+5) Check the existence of a gradient value of 2 in either x or y derivative
+
+Note this wouldn't work for 8 neighbours, likely need to work with orientation and magnitude of gradient to check diagonal neighbour condition.
+
+
+
 TODO list
 
 
