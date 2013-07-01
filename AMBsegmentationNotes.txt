@@ -229,12 +229,15 @@ In the first two cases, the absolute value of the y-derivative will be 2, simila
 
 Note this wouldn't work for 8 neighbours, likely need to work with orientation and magnitude of gradient to check diagonal neighbour condition.
 
+I looked through the MSRC dataset by hand to see if the "void" class was common.  In many of the images, object segments are separated by a void area - need a better way to detect object segment neighbours, ignoring void when sensible.
+
+
 
 
 TODO list
 
 
-* Create stats for dataset - class avgs etc.
+* Implement an "ObjectSegmentNeighbours" function
 * Implement colour histograms in HSV and/or HS colour space.
 * ColourHOG implementation based on scikit-image HOG
 
