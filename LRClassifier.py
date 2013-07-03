@@ -59,8 +59,8 @@ def splitInputDataset_msrcData(msrcDataLocation, train=0.6, validation=0.2, test
 def reshapeImageLabelData(msrcImage):
     groundTruth = msrcImage.m_gt
     
-    numLabels = np.shape(groundTruth)[0] * np.shape(groundTruth)[1]
-    return np.reshape(groundTruth, (1 , numLabels))
+    numPixels = np.shape(groundTruth)[0] * np.shape(groundTruth)[1]
+    return np.reshape(groundTruth, (numPixels))
     
 
 def reshapeImageFeatures(imageFeatures):
@@ -141,7 +141,7 @@ def processLabelledImageData(inputMsrcImages, outputFileLocation):
         if allLabels == None:
             allLabels = labels
         else:
-            allLabels = np.append(allLabels, labels)
+            allLabels = np.hstack( [ allLabels, labels ] )
     
     allFeatures = None
     
