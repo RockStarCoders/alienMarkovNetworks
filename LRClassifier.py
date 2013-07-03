@@ -95,7 +95,7 @@ def trainLogisticRegressionModel(features, labels, Cvalue, outputClassifierFile,
         features = preprocessing.scale(features)
     
     # sklearn.linear_model.LogisticRegression(penalty='l2', dual=False, tol=0.0001, C=1.0, fit_intercept=True, intercept_scaling=1, class_weight=None, random_state=None)
-    lrc = LogisticRegression(penalty='l1' , dual=False, tol=0.0001, C=Cvalue, fit_intercept=True, sintercept_scaling=1)
+    lrc = LogisticRegression(penalty='l1' , dual=False, tol=0.0001, C=Cvalue, fit_intercept=True, intercept_scaling=1)
     lrc.fit(features, labels)
     joblib.dump(lrc, outputClassifierFile)
     print "LogisticRegression classifier saved to " + str(outputClassifierFile)
