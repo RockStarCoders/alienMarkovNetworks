@@ -176,7 +176,7 @@ def processLabelledImageData(inputMsrcImages, outputFileLocation):
         if allFeatures == None:
             allFeatures = imageFeatures
         else:
-            np.vstack( [allFeatures, imageFeatures] )
+            allFeatures = np.vstack( [allFeatures, imageFeatures] )
     
     # save data to file
     result = np.array( [ allFeatures, allLabels ])
