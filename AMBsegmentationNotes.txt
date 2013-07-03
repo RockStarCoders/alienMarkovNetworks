@@ -188,7 +188,7 @@ Filter window size.
 
 I haven't read a specification for the size of the filter (window size) in [8], [9] [10].  I did find one paper that states a filter window size of (13x13) - see [http://academia.edu/1146226/Texture_Classification_Using_Three_Circular_Filters].
 
-Also, there is a StackOverflow question regaridng window size for Gaussian filter see [http://stackoverflow.com/questions/16165666/how-to-determine-the-window-size-of-a-gaussian-filter].  This recommends a window size of 3*Gaussian's sigma, which seems to be accepted wisdom.
+Also, there is a StackOverflow question regarding window size for Gaussian filter see [http://stackoverflow.com/questions/16165666/how-to-determine-the-window-size-of-a-gaussian-filter].  This recommends a window size of 3*Gaussian's sigma, which seems to be accepted wisdom.
 
 As a first approximation, we will adopt (13x13) for the size of the filters in the filter bank.
 
@@ -231,6 +231,25 @@ Note this wouldn't work for 8 neighbours, likely need to work with orientation a
 
 I looked through the MSRC dataset by hand to see if the "void" class was common.  In many of the images, object segments are separated by a void area - need a better way to detect object segment neighbours, ignoring void when sensible.
 
+
+
+
+Classification
+
+Pixel-based logistic regression.  take each pixel in each image as a data point, build a logistic regression classifier to be used as a unary potential within the CRF.
+
+Take image, generate features and then convert to ( 1 x numPixels) array.  Convert labels to array of same same shape.
+For all images in training/validation datasets:
+	create image features
+	reshape to (numPixels x numFeatures) np array per image
+	reshape labels to (numPixels) np array
+	stack features into combined (totalNumPixels x numFeatures) feature dataset
+	stack labels into combined label set
+
+Q:  How best to incorporate image-wide features (like colour histograms) into pixel-level models?  Just append image features to all pixel feature datasets?
+	
+
+Getting to grips with scikit-learn LogisticRegression model - should be fun.
 
 
 

@@ -75,9 +75,6 @@ def create3dRGBColourHistogramFeature(imageRGB, numberBins):
     # fail if user-input number of bins is not a permitted value
     assert numberBins in bins, "User specified number of bins is not one of the permitted values:: " + str(bins)
     
-    print "shape of imageRGB[:,:,0] = ", np.shape(imageRGB[:,:,0])
-    print "shape of imageRGB[:,:,1] = ", np.shape(imageRGB[:,:,1])
-    print "shape of imageRGB[:,:,2] = ", np.shape(imageRGB[:,:,2])
     numPixels = np.shape(imageRGB[:,:,0])[0] * np.shape(imageRGB[:,:,0])[1]
     
     data = imageRGB.reshape((numPixels, 3))
@@ -119,7 +116,7 @@ def createImageTextons():
     print "Finish me!"
     
 
-def generateFilterbankResponse(sourceImage, window):
+def createFilterbankResponse(sourceImage, window):
     # See [Object Categorization by Learned Universal Visual Dictionary. Winn, Criminisi & Minka, 2005]
     
     # convert RGB to CIELab
@@ -150,8 +147,6 @@ def generateFilterbankResponse(sourceImage, window):
     response = np.array([])
     
     for filterNum in range(0,numFilters):
-        
-        print "Filter#" + str(filterNum+1) + " = ", np.shape(filters[filterNum])
         
         if filterNum == 0:
             response = signal.convolve2d(image_L, filters[filterNum], mode='same')
@@ -194,7 +189,6 @@ def createDefaultFilterbank(window):
     dy_G1 = gaussian_1yDerivative_kernel(window, window, 2)
     dy_G2 = gaussian_1yDerivative_kernel(window, window, 4)
     
-    print "***I need some validation!***"
     return np.array([G1, G2, G3, LoG1, LoG2, LoG3, LoG4, dx_G1, dx_G2, dy_G1, dy_G2])
     
 # Some util functions
@@ -311,57 +305,56 @@ def getGrayscaleImage(imageRGB):
 
 
 # Some simple testing
-    
-sourceImage = readImageFileRGB("ship-at-sea.jpg");
-grayImage = color.rgb2gray(sourceImage)
-
-histFreq, histRange = create1dRGBColourHistogram(sourceImage, 8)
-plot1dRGBImageHistogram(histFreq, histRange)
-
-numBins = 2
-freqs, rangeEdges = create3dRGBColourHistogramFeature(sourceImage, numBins)
-
-hogFeature, hogImage = createHistogramOfOrientedGradientFeatures(sourceImage, 8, (8,8), (2,2), True, True)
-plotHOGResult(sourceImage, hogImage)
-
-
-xWindow = 9
-yWindow = 9
-sigma = 1.4
-xRange, yRange = createKernalWindowRanges(xWindow, yWindow, increment)
-
-g_kernel = gaussian_kernel(xWindow, yWindow, sigma)
-print "Gaussian kernel range:: ", np.min(g_kernel), np.max(g_kernel)
-plotKernel(xRange, yRange, g_kernel, "Gaussian kernel, sigma= + " + str(sigma) + ", window=(" + str(xWindow) + "," + str(yWindow) + ")")
-filteredImage = signal.convolve2d(grayImage, g_kernel, mode='same')
-plotImageComparison(grayImage, filteredImage)
-  
-log_kernel = laplacianOfGaussian_kernel(xWindow, yWindow, sigma)
-print "Laplacian of Gaussian kernel range:: ", np.min(log_kernel), np.max(log_kernel)
-plotKernel(xRange, yRange, log_kernel, "LOG kernel, sigma= + " + str(sigma) + ", window=(" + str(xWindow) + "," + str(yWindow) + ")")
-filteredImage = signal.convolve2d(grayImage, log_kernel, mode='same')
-plotImageComparison(grayImage, filteredImage)
- 
-g_dx_kernel = gaussian_1xDerivative_kernel(xWindow, yWindow, sigma)
-print "Gaussian X derivative kernel range:: ", np.min(g_dx_kernel), np.max(g_dx_kernel)
-plotKernel(xRange, yRange, g_dx_kernel, "G_dx kernel, sigma= + " + str(sigma) + ", window=(" + str(xWindow) + "," + str(yWindow) + ")")
-filteredImage = signal.convolve2d(grayImage, g_dx_kernel, mode='same')
-plotImageComparison(grayImage, filteredImage)
- 
-g_dy_kernel = gaussian_1yDerivative_kernel(xWindow, yWindow, sigma)
-print "Gaussian Y derivative kernel range:: ", np.min(g_dy_kernel), np.max(g_dy_kernel)
-plotKernel(xRange, yRange, g_dy_kernel, "G_dy kernel, sigma= + " + str(sigma) + ", window=(" + str(xWindow) + "," + str(yWindow) + ")")
-filteredImage = signal.convolve2d(grayImage, g_dy_kernel, mode='same')
-plotImageComparison(grayImage, filteredImage)
-
-
- 
-lbpImage = createLocalBinaryPatternFeatures(sourceImage, 6, 4, "default")
-print "Local Binary Pattern result::", lbpImage
-plotImageComparison(grayImage, filteredImage)
-
-
-response = generateFilterbankResponse(sourceImage, xWindow)
-
-print "\nFilter response shape=" + str(np.shape(response))  
-
+#     
+# sourceImage = readImageFileRGB("../ship-at-sea.jpg");
+# grayImage = color.rgb2gray(sourceImage)
+# 
+# histFreq, histRange = create1dRGBColourHistogram(sourceImage, 8)
+# plot1dRGBImageHistogram(histFreq, histRange)
+# 
+# numBins = 2
+# freqs, rangeEdges = create3dRGBColourHistogramFeature(sourceImage, numBins)
+# 
+# hogFeature, hogImage = createHistogramOfOrientedGradientFeatures(sourceImage, 8, (8,8), (2,2), True, True)
+# plotHOGResult(sourceImage, hogImage)
+# 
+# 
+# xWindow = 9
+# yWindow = 9
+# sigma = 1.4
+# xRange, yRange = createKernalWindowRanges(xWindow, yWindow, increment)
+# 
+# g_kernel = gaussian_kernel(xWindow, yWindow, sigma)
+# print "Gaussian kernel range:: ", np.min(g_kernel), np.max(g_kernel)
+# plotKernel(xRange, yRange, g_kernel, "Gaussian kernel, sigma= + " + str(sigma) + ", window=(" + str(xWindow) + "," + str(yWindow) + ")")
+# filteredImage = signal.convolve2d(grayImage, g_kernel, mode='same')
+# plotImageComparison(grayImage, filteredImage)
+#   
+# log_kernel = laplacianOfGaussian_kernel(xWindow, yWindow, sigma)
+# print "Laplacian of Gaussian kernel range:: ", np.min(log_kernel), np.max(log_kernel)
+# plotKernel(xRange, yRange, log_kernel, "LOG kernel, sigma= + " + str(sigma) + ", window=(" + str(xWindow) + "," + str(yWindow) + ")")
+# filteredImage = signal.convolve2d(grayImage, log_kernel, mode='same')
+# plotImageComparison(grayImage, filteredImage)
+#  
+# g_dx_kernel = gaussian_1xDerivative_kernel(xWindow, yWindow, sigma)
+# print "Gaussian X derivative kernel range:: ", np.min(g_dx_kernel), np.max(g_dx_kernel)
+# plotKernel(xRange, yRange, g_dx_kernel, "G_dx kernel, sigma= + " + str(sigma) + ", window=(" + str(xWindow) + "," + str(yWindow) + ")")
+# filteredImage = signal.convolve2d(grayImage, g_dx_kernel, mode='same')
+# plotImageComparison(grayImage, filteredImage)
+#  
+# g_dy_kernel = gaussian_1yDerivative_kernel(xWindow, yWindow, sigma)
+# print "Gaussian Y derivative kernel range:: ", np.min(g_dy_kernel), np.max(g_dy_kernel)
+# plotKernel(xRange, yRange, g_dy_kernel, "G_dy kernel, sigma= + " + str(sigma) + ", window=(" + str(xWindow) + "," + str(yWindow) + ")")
+# filteredImage = signal.convolve2d(grayImage, g_dy_kernel, mode='same')
+# plotImageComparison(grayImage, filteredImage)
+# 
+# 
+#  
+# lbpImage = createLocalBinaryPatternFeatures(sourceImage, 6, 4, "default")
+# print "Local Binary Pattern result::", lbpImage
+# plotImageComparison(grayImage, filteredImage)
+# 
+# 
+# response = createFilterbankResponse(sourceImage, xWindow)
+# 
+# print "\nFilter response shape=" + str(np.shape(response))  

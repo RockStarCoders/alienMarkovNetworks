@@ -8,17 +8,19 @@ import skimage
 
 import sklearn
 from sklearn import preprocessing
+
 from sklearn.linear_model import LogisticRegression
 
 import joblib
 
 import pomio
+import FeatureGenerator
 
 # data IO
 
-def cleanInputData(inputFeatureData):
+def scaleInputData(inputFeatureData):
     # Assumes numeric numpy array [[ data....] , [data....] ... ]
-    return preprocessing.Scaler().transform(inputFeatureData)
+    return preprocessing.scale(inputFeatureData.astype('float'))
 
 def readClassifierFromFile(classifierFileLocation):
     classifier = joblib.load(classifierFileLocation)
@@ -49,15 +51,25 @@ def splitInputDataset_msrcData(msrcDataLocation, train=0.6, validation=0.2, test
     
     print "\nRandomly assigned " + str(np.shape(trainData)) + " subset of msrc data to TRAIN set"
     print "\nRandomly assigned " + str(np.shape(testData)) + " subset of msrc data to TEST set"
-    print "\nAssigned remaining" + str(np.shape(validationData)) + " msrc data to validation set"
+    print "\nAssigned remaining " + str(np.shape(validationData)) + " msrc data to VALIDATION set"
     
-    # Now reshape and format to np arrays 
-    trainData, trainLabels = convertImagesToData(trainData)
-    testData, testLabels = convertImagesToData(testData)
-    validationData, validationLabels = convertImagesToData(validationData)
+    return [trainData, validationData, testData]
+
+
+def reshapeImageLabelData(msrcImage):
+    groundTruth = msrcImage.m_gt
     
-    return [trainData, trainLabels, validationData, validationLabels, testData, testLabels]
+    numLabels = np.shape(groundTruth)[0] * np.shape(groundTruth)[1]
+    return np.reshape(groundTruth, (1 , numLabels))
     
+
+def reshapeImageFeatures(imageFeatures):
+    # assume (i, j, f) feature data, so feature array per pixel.  Reshape to (i*j , f) array
+    numDatapoints = np.shape(imageFeatures)[0] * np.shape(imageFeatures)[1]
+    numFeatures = np.shape(imageFeatures)[2]
+    
+    return np.reshape(imageFeatures, (numDatapoints, numFeatures))
+
 
 def sampleFromList(data, numberSamples):
     idx = 0
@@ -69,64 +81,27 @@ def sampleFromList(data, numberSamples):
         result.insert(idx, data[randIdx])
         # now remove the image from the dataset to avoid duplication
         data.pop(randIdx)
-        print "\tData assignment reduced image set size to: " + str(np.size(data))
         idx = idx+1
         
     return result, data
 
 
-def convertImagesToData(msrcImages):
-    dataResult = None
-    labelsResult = None
-    
-    for idx in range(0, np.size(msrcImages)):
-        data, labels = convertMsrcImageToInputData(msrcImages[idx])
-        
-        if dataResult == None:
-            dataResult = data
-        else:
-            print "\t*How do data results stack up?  :: " + str(np.shape(dataResult)) + "" + str(np.shape(data))
-            dataResult = np.vstack([dataResult, data])
-            
-        if labelsResult == None:
-            labelsResult = labels
-        else:
-            labelsResult = np.vstack([labelsResult, labels])
-            
-    return dataResult, labelsResult
-
-
-
-def convertMsrcImageToInputData(msrcImage):
-    # we get numpy arrays from pomio, so just reshape
-    data = msrcImage.m_img
-    labels = msrcImage.m_gt
-    
-    assert ((data.shape[0] == labels.shape[0]) and (data.shape[1] == labels.shape[1])), "The dimensions of the ground truth " +\
-                                str(labels.shape)+ "and image data " +\
-                                str(data.shape) + " from the msrcImage object do not match!"
-    
-    # make a 1-dimensional view of arr
-    data = data.ravel()
-    labels = labels.ravel()
-    
-    # FIXME need to cope with different sized images - use some resize function to scale up to maximum picture size?
-    return data , labels
-
-
 # Basic classifier functions
 
-def trainLogisticRegressionModel(features, labels, C, outputClassifierFile, scaleData=True):
+def trainLogisticRegressionModel(features, labels, Cvalue, outputClassifierFile, scaleData=True):
     # See [http://scikit-learn.org/dev/modules/generated/sklearn.linear_model.LogisticRegression.html]
     # scaled() method with 1 argument scales data to have zero mean and unit variance
     if scaleData:
-        features = preprocessing.Scaler().transform(features)
+        features = preprocessing.scale(features)
     
-    lrc = LogisticRegression(C, dual=False, fit_intercept=True, sintercept_scaling=1, penalty='l1', tol=0.0001)
+    # sklearn.linear_model.LogisticRegression(penalty='l2', dual=False, tol=0.0001, C=1.0, fit_intercept=True, intercept_scaling=1, class_weight=None, random_state=None)
+    lrc = LogisticRegression(penalty='l1' , dual=False, tol=0.0001, C=Cvalue, fit_intercept=True, sintercept_scaling=1)
     lrc.fit(features, labels)
     joblib.dump(lrc, outputClassifierFile)
     print "LogisticRegression classifier saved to " + str(outputClassifierFile)
-
+    
+    return lrc
+    
 
 # Utility functions for train, validation and test for classifier
 
@@ -153,10 +128,79 @@ def testClassifier(classifier, testFeatures, testClassLabels, resultsFile, scale
     print "Classifier %correct classifications:: ", str( np.round(numberCorrectPredictions / totalCases * 100 , 4))
 
 
+def processLabelledImageData(inputMsrcImages, outputFileLocation):
+    # Assume we get a list / array of msrcImage objects.  We need reshape the labels, and compute+reshape features
+    
+    numImages = np.size(inputMsrcImages)
+    
+    allLabels = None
+    
+    for labelIdx in range(0, numImages):
+        # stack up the labels
+        labels = reshapeImageLabelData(inputMsrcImages[labelIdx])
+        if allLabels == None:
+            allLabels = labels
+        else:
+            allLabels = np.append(allLabels, labels)
+    
+    allFeatures = None
+    
+    for idx in range(0, numImages):
+    
+        numPixels = np.size(inputMsrcImages[idx].m_img[:,:,0])
+        
+        print "\nImage#" + str(idx+1) + " has " + str(numPixels) + " pixels"
+    
+        # TODO refactor this into FeatureGenerator.py as a util method (you give me image, I give you image feature data over pixels)
+        numGradientBins = 9
+        hog1Darray, hogFeatures = FeatureGenerator.createHistogramOfOrientedGradientFeatures(inputMsrcImages[idx].m_img, numGradientBins, (8,8), (3,3), True, True)
+#         colour3DFeatures = FeatureGenerator.create3dRGBColourHistogramFeature(inputMsrcImages[idx].m_img, 16)
+#         colour1DFeatures = FeatureGenerator.create1dRGBColourHistogram(inputMsrcImages[idx].m_img, 16)
+        lbpFeatures = FeatureGenerator.createLocalBinaryPatternFeatures(inputMsrcImages[idx].m_img, 4, 2, "default")
+        filterResponseFeatures = FeatureGenerator.createFilterbankResponse(inputMsrcImages[idx].m_img, 15)
+        
+        # resize into (numPixels x numFeatures) array:
+        hogFeatures = np.reshape(hogFeatures, (numPixels , np.size(hogFeatures) / numPixels) )
+        lbpFeatures = np.reshape(lbpFeatures, (numPixels , np.size(lbpFeatures) / numPixels) )
+        filterResponseFeatures = np.reshape(filterResponseFeatures, ( numPixels , np.size(filterResponseFeatures) / numPixels))
+#         print "Image feature sizes:"
+#         print "\tHOG: " + str(np.size(hogFeatures)) + " , " + str(np.shape(hogFeatures))
+#         print "\t3d colour histogram (16 bins): " + str(np.size(colour3DFeatures)) + " , " + str(np.shape(colour3DFeatures))
+#         print "\t1d colour histogram (16 bins): " + str(np.size(colour1DFeatures)) + " , " + str(np.shape(colour1DFeatures))
+#         print "\tLBP features (4 neighbour): " + str(np.size(lbpFeatures)) + " , " + str(np.shape(lbpFeatures))
+#         print "\tfilter response features (15x15 window): " + str(np.size(filterResponseFeatures)) + " , " + str(np.shape(filterResponseFeatures))
+    
+        imageFeatures = np.hstack( [hogFeatures, lbpFeatures, filterResponseFeatures ] )
+        print "Image features array:: " + str(np.size(imageFeatures))
+    
+        if allFeatures == None:
+            allFeatures = imageFeatures
+        else:
+            np.vstack( [allFeatures, imageFeatures] )
+    
+    # save data to file
+    result = np.array( [ allFeatures, allLabels ])
+    
+    np.savetxt(str(outputFileLocation + "Data.csv"), result[0], delimiter=",", fmt="%s")
+    np.savetxt(str(outputFileLocation + "Labels.csv"), result[1], delimiter=",", fmt="%s")
+    
+    # return results
+    return result
+    
 
-# TODO look at sklean pipeline to get some automation here
+# TODO look at sklearn pipeline to get some automation here
 
 msrcData = "/home/amb/dev/mrf/data/MSRC_ObjCategImageDatabase_v2"
+trainingPixelFeatureDataFile = "/home/amb/dev/mrf/data/training/pixelLevelData/pixelFeature"
+classifierFile = "/home/amb/dev/mrf/classifiers/logisticRegression/pixelLevelModels/logRegClassifier_C1"
 
-splitInputDataset_msrcData(msrcData, train=0.6, validation=0.2, test=0.2)
+splitData = splitInputDataset_msrcData(msrcData, train=0.6, validation=0.2, test=0.2)
+
+trainData = splitData[0]
+# validationData = splitData[1]
+# testData = splitData[2]
+
+result = processLabelledImageData(trainData, trainingPixelFeatureDataFile)
+
+classifier = trainLogisticRegressionModel(result[0], result[1], 1, classifierFile, scaleData=True)
     
