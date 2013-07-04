@@ -128,7 +128,7 @@ def createFilterbankResponse(sourceImage, window):
     # Create filters - G1, G2, G3, LoG1, LoG2, LoG3,LoG4, dx_G2, dx_G3, dy_G2, dy_G3
     filters = createDefaultFilterbank(window)
     numFilters = np.shape(filters)[0]
-    # print "Total number of default filters = " + str(numFilters) + ", from shape=" + str(np.shape(filters))
+#     print "Total number of default filters = " + str(numFilters) + ", from shape=" + str(np.shape(filters))
     
     # Apply filters & append result into 17D vector for each pixel as follows:
     # Name          Defn                 CIE channel
@@ -161,7 +161,7 @@ def createFilterbankResponse(sourceImage, window):
         else:
             response = np.dstack((response, signal.convolve2d(image_L, filters[filterNum], mode='same')))
         
-    # print "Size of response data = " + str(np.shape(response))     
+#     print "Size of response data = " + str(np.shape(response))     
     return response
 
 # util methods for setting up filter bank for texton processing
