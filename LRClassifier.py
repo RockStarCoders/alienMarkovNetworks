@@ -16,7 +16,6 @@ from sklearn.linear_model import LogisticRegression
 import joblib
 
 import pomio
-
 import FeatureGenerator
 
 # data IO
@@ -91,7 +90,6 @@ def sampleFromList(data, numberSamples):
 
 # Basic classifier functions
 
-
 def trainLogisticRegressionModel(features, labels, Cvalue, outputClassifierFile, scaleData=True):
     # See [http://scikit-learn.org/dev/modules/generated/sklearn.linear_model.LogisticRegression.html]
     # scaled() method with 1 argument scales data to have zero mean and unit variance
@@ -101,22 +99,21 @@ def trainLogisticRegressionModel(features, labels, Cvalue, outputClassifierFile,
     # sklearn.linear_model.LogisticRegression(penalty='l2', dual=False, tol=0.0001, C=1.0, fit_intercept=True, intercept_scaling=1, class_weight=None, random_state=None)
     lrc = LogisticRegression(penalty='l1' , dual=False, tol=0.0001, C=Cvalue, fit_intercept=True, intercept_scaling=1)
     lrc.fit(features, labels)
+    # See http://stackoverflow.com/questions/10592605/save-naivebayes-classifier-to-disk-in-scikits-learn
     joblib.dump(lrc, outputClassifierFile)
     print "LogisticRegression classifier saved to " + str(outputClassifierFile)
     
     return lrc
     
 
-# Utility functions for train, validation and test for classifier
 
+
+# Utility functions for train, validation and test for classifier
 def testClassifier(classifier, testFeatures, testClassLabels, resultsFile, scaleData=True):
     # predict on testFeatures, compare to testClassLabels, return the rsults
     predictions = classifier.predict(testFeatures)
     
-    numberCorrectPredictions = 0
-    
-    # compare predictions with given class labels
-    assert np.shape(predictions) == np.shape(testClassLabels) , "The shape of the prediction: " + str(np.shape(predictions)) + " and given class labels" + str(np.shape(testClassLabels)) + " is not equal!" 
+    numberCorrectPredictions = 0 
     
     totalCases = np.shape(testClassLabels)[0]
     
@@ -124,54 +121,102 @@ def testClassifier(classifier, testFeatures, testClassLabels, resultsFile, scale
         if predictions[valueIdx] == testClassLabels[valueIdx]:
             numberCorrectPredictions = numberCorrectPredictions + 1
     
-    classifierResult = np.append(classifier.getParams(deep=True) , numberCorrectPredictions, totalCases)
+    classifierResult = np.array( [classifier.get_params(deep=True) , numberCorrectPredictions, totalCases ] )
     
     # persist the coefficients of the model and the score, so it can be re-created
-    np.savetxt(resultsFile, classifierResult, fmt="%s", delimiter=",")
+    np.savetxt(resultsFile, classifierResult, fmt="%.5f", delimiter=",")
     
     print "Classifier %correct classifications:: ", str( np.round(numberCorrectPredictions / totalCases * 100 , 4))
 
 
-def processLabelledImageData(inputMsrcImages, outputFileLocation):
+def processLabelledImageData(inputMsrcImages, outputFileLocation, persistenceType):
     # Assume we get a list / array of msrcImage objects.  We need reshape the labels, and compute+reshape features
     # http://stackoverflow.com/questions/16482895/convert-a-numpy-array-to-a-csv-string-and-a-csv-string-back-to-a-numpy-array
+    assert (persistenceType == "pickle" or persistenceType == "csv") , "persistenceType must be either pickle or csv"
     
     totalImages = np.size(inputMsrcImages)
-    
     totalPixels = 0
     
-    for idx in range(0, totalImages):
+    if(persistenceType == "csv"):
+        
+        for idx in range(0, totalImages):
     
-        imageLabels = reshapeImageLabelData(inputMsrcImages[idx])
+            imageLabels = reshapeImageLabelData(inputMsrcImages[idx])
+            
+            numPixels = np.size(inputMsrcImages[idx].m_img[:,:,0])
+            
+            totalPixels = totalPixels + numPixels
+            
+            print "\nImage#" + str(idx+1) + " has " + str(numPixels) + " pixels"
         
-        numPixels = np.size(inputMsrcImages[idx].m_img[:,:,0])
+            # TODO refactor this into FeatureGenerator.py as a util method (you give me image, I give you image feature data over pixels)
+            imageFeatures = generateFeaturesForImage(inputMsrcImages[idx])
+            
+            # save data to files suitable for classifier by appending to CSV - one for features, one for class labels 
+            writeFeaturesToFile(imageFeatures, str(outputFileLocation + "Data.csv"))
+            writeFeaturesToFile(imageLabels , str(outputFileLocation + "Labels.csv"))
+            
+            print "Processed " + str(idx+1) + " of " + str(totalImages) + " images & " + str(totalPixels) + " pixels"
+            
+    elif(persistenceType == "pickle"):
+        print "In pickle mode, accumulate feature data in memeory, then serialize to file"
         
-        totalPixels = totalPixels + numPixels
+        allFeatures = None
+        allLabels = None
         
-        print "\nImage#" + str(idx+1) + " has " + str(numPixels) + " pixels"
+        for idx in range(0, totalImages):
+            
+            imageLabels = reshapeImageLabelData(inputMsrcImages[idx])
+            
+            numPixels = np.size(inputMsrcImages[idx].m_img[:,:,0])
+            totalPixels = totalPixels + numPixels
+            
+            print "\nImage#" + str(idx+1) + " has " + str(numPixels) + " pixels"
+        
+            # TODO refactor this into FeatureGenerator.py as a util method (you give me image, I give you image feature data over pixels)
+            imageFeatures = generateFeaturesForImage(inputMsrcImages[idx])
+            
+            if allFeatures == None:
+                allFeatures = imageFeatures
+            else:
+                allFeatures = np.vstack( [ allFeatures, imageFeatures])
+            
+            if allLabels == None:
+                allLabels = imageLabels
+            else:
+                allLabels = np.append( allLabels , imageLabels )
+            
+            # save data to files suitable for classifier by appending to CSV - one for features, one for class labels
+            print "Processed " + str(idx+1) + " of " + str(totalImages) + " images & " + str(totalPixels) + " pixels"
+            
+        # Now serialize entire arrays to file 
+        pickleNumpyData(imageFeatures, str(outputFileLocation + "Data.npy"))
+        pickleNumpyData(imageLabels , str(outputFileLocation + "Labels.npy"))
+        
+
+def generateFeaturesForImage(msrcImage):
     
-        # TODO refactor this into FeatureGenerator.py as a util method (you give me image, I give you image feature data over pixels)
-        numGradientBins = 9
-        
-        hog1Darray, hogFeatures = FeatureGenerator.createHistogramOfOrientedGradientFeatures(inputMsrcImages[idx].m_img, numGradientBins, (8,8), (3,3), True, True)
-        hog1Darray = None
-#         colour3DFeatures = FeatureGenerator.create3dRGBColourHistogramFeature(inputMsrcImages[idx].m_img, 16)
-#         colour1DFeatures = FeatureGenerator.create1dRGBColourHistogram(inputMsrcImages[idx].m_img, 16)
-        lbpFeatures = FeatureGenerator.createLocalBinaryPatternFeatures(inputMsrcImages[idx].m_img, 4, 2, "default")
-        filterResponseFeatures = FeatureGenerator.createFilterbankResponse(inputMsrcImages[idx].m_img, 15)
-        
-        # resize into (numPixels x numFeatures) array:
-        hogFeatures = np.reshape(hogFeatures, (numPixels , np.size(hogFeatures) / numPixels) )
-        lbpFeatures = np.reshape(lbpFeatures, (numPixels , np.size(lbpFeatures) / numPixels) )
-        filterResponseFeatures = np.reshape(filterResponseFeatures, ( numPixels , np.size(filterResponseFeatures) / numPixels))
-        
-        imageFeatures = np.hstack( [hogFeatures, lbpFeatures, filterResponseFeatures ] )
-        
-        # save data to files suitable for classifier by appending to CSV - one for features, one for class labels 
-        writeFeaturesToFile(imageFeatures, str(outputFileLocation + "Data.csv"))
-        writeFeaturesToFile(imageLabels , str(outputFileLocation + "Labels.csv"))
+    numGradientBins = 9
     
-        print "Processed " + str(idx+1) + " of " + str(totalImages) + " images & " + str(totalPixels) + " pixels"
+    numPixels = np.size(msrcImage.m_img[:,:,0])
+        
+    hog1Darray, hogFeatures = FeatureGenerator.createHistogramOfOrientedGradientFeatures(msrcImage.m_img, numGradientBins, (8,8), (3,3), True, True)
+    hog1Darray = None
+#     colour3DFeatures = FeatureGenerator.create3dRGBColourHistogramFeature(msrcImage.m_img, 16)
+#     colour1DFeatures = FeatureGenerator.create1dRGBColourHistogram(msrcImage.m_img, 16)
+    lbpFeatures = FeatureGenerator.createLocalBinaryPatternFeatures(msrcImage.m_img, 4, 2, "default")
+    filterResponseFeatures = FeatureGenerator.createFilterbankResponse(msrcImage.m_img, 15)
+        
+    # resize into (numPixels x numFeatures) array:
+    hogFeatures = np.reshape(hogFeatures, (numPixels , np.size(hogFeatures) / numPixels) )
+    lbpFeatures = np.reshape(lbpFeatures, (numPixels , np.size(lbpFeatures) / numPixels) )
+    filterResponseFeatures = np.reshape(filterResponseFeatures, ( numPixels , np.size(filterResponseFeatures) / numPixels))
+        
+    imageFeatures = np.hstack( [hogFeatures, lbpFeatures, filterResponseFeatures ] )
+        
+    return imageFeatures
+
+
 
 
 def writeFeaturesToFile(features, filename):
@@ -188,22 +233,37 @@ def writeFeaturesToFile(features, filename):
     
     dataFile.close()
 
-    
 
+def pickleNumpyData(data, filename):
+    print "Pickle my shizzle"
+    np.save(filename, data)
+    print "Shizzle is now pickled"
+
+
+def unpickleNumpyData(filename):
+    data = np.load(filename)
+    return data
+
+    
 def readArrayDataFromFile(arrayDataFile):
     # looks like we need to loop over a read function and construct array, now we are just writing csv to disk
     featureData = None
+    print "\nReading data from file::" + str(arrayDataFile)
     with open(arrayDataFile, 'r') as f:
         rowCount = 0;
         row = f.readline()
         while not (row == ''):
+            
             rowArray = np.fromstring(row, sep=',')
+            
             if featureData == None:
                 featureData = rowArray
             else:
                 featureData = np.vstack( [featureData, rowArray])
-        row = f.readline()
-        rowCount = rowCount + 1
+                
+            row = f.readline()
+            rowCount = rowCount + 1
+            
     return featureData
 
 
@@ -214,52 +274,65 @@ msrcData = "/home/amb/dev/mrf/data/MSRC_ObjCategImageDatabase_v2"
 trainingPixelFile = "/home/amb/dev/mrf/data/training/pixelLevelData/pixelFeature"
 trainingPixelDataFile = trainingPixelFile + "Data.csv"
 trainingPixelLabelFile = trainingPixelFile + "Labels.csv"
-classifierFile = "/home/amb/dev/mrf/classifiers/logisticRegression/pixelLevelModels/logRegClassifier_C1"
+classifierFile = "/home/amb/dev/mrf/classifiers/logisticRegression/pixelLevelModels/logRegClassifier_C1_joblib.pkl"
+
+# Generate data from images and save to file
+# splitData = splitInputDataset_msrcData(msrcData, train=0.6, validation=0.2, test=0.2)
+# trainData = splitData[0]
+# validationData = splitData[1]
+# testData = splitData[2]
+# processLabelledImageData(trainData, trainingPixelFile)
 
 
-splitData = splitInputDataset_msrcData(msrcData, train=0.6, validation=0.2, test=0.2)
-trainData = splitData[0]
-validationData = splitData[1]
-testData = splitData[2]
-processLabelledImageData(trainData, trainingPixelFile)
+# print "Attempt to load training data from previously generated files..."
+# print "\t" + trainingPixelDataFile + " & " + trainingPixelLabelFile
+# print "First the class label data..."
+# labels  = readArrayDataFromFile(trainingPixelLabelFile)
+# print "Now the feature data..."
+# data = readArrayDataFromFile(trainingPixelDataFile)
+# print "\nNow build logistic regression classifier from input data:" + str(np.shape(trainingPixelDataFile)) + ", " + str(np.shape(trainingPixelLabelFile))
+# classifier = trainLogisticRegressionModel(data, labels, 1, classifierFile, scaleData=True)
+# print "Completed classifier training:: " + str(classifier.getParams)
 
 
-print "Attempt to load training data from previously generated files..."
-print "\t" + trainingPixelDataFile + " & " + trainingPixelLabelFile
-data = readArrayDataFromFile(trainingPixelDataFile)
-labels  = readArrayDataFromFile(trainingPixelLabelFile)
-print "\nNow build logistic regression classifier from input data:" + str(np.shape(trainingPixelDataFile)) + ", " + str(np.shape(trainingPixelLabelFile))
-classifier = trainLogisticRegressionModel(data, labels, 1, classifierFile, scaleData=True)
-print "Completed classifier training:: " + str(classifier.getParams)
+# toy example with small number of training images
+toyTrainPixelFile = "/home/amb/dev/mrf/data/training/pixelLevelData/toyPixelFeature"
+toyTestPixelFile = "/home/amb/dev/mrf/data/test/pixelLevelData/toyPixelFeature"
 
+# toyTrainPixelFeaturesCsv = toyTrainPixelFile + "Data"
+# toyTrainPixelLabelsCsv = toyTrainPixelFile + "Labels"
+# toyTestPixelFeaturesCsv = toyTestPixelFile + "Data"
+# toyTestPixelLabelsCsv = toyTestPixelFile + "Labels"
 
+toyTrainPixelFeaturesPickle = toyTrainPixelFile + "Data.npy"
+toyTrainPixelLabelsPickle = toyTrainPixelFile + "Labels.npy"
+toyTestPixelFeaturesPickle = toyTestPixelFile + "Data.npy"
+toyTestPixelLabelsPickle = toyTestPixelFile + "Labels.npy"
 
-# testData = np.hstack( [np.pi*np.ones((4, 12)) , 2*np.pi*np.ones((4, 3)) , 3*np.pi*np.ones((4,5)) ] )
-# testImage = skimage.io.imread("/home/amb/dev/workspaces/mrfWorkspace/objectSegmentation/src/amb/data/ship-at-sea.jpg")
-# print testImage
-# print "Original test data shape = " + str(np.shape(testImage)) + " , size=" + str(np.size(testImage))
-# testData = reshapeImageFeatures(testImage)
-# print "\nreshapeImageFeatures result shape = " + str(np.shape(testData)) + " , size=" + str(np.size(testData))
-# print testData
-# writeFeaturesToFile(testData, "/home/amb/dev/testData.csv")
-# # read file
-# newArray = None
-# print "\nNow try to read int eh file data to nparray:"
-# 
-# with open('/home/amb/dev/testData.csv', 'r') as f:
-#     rowCount = 0;
-#     row = f.readline()
-#     while not (row == ''):
-#         rowArray = np.fromstring(row, sep=',')
-#         if newArray == None:
-#             newArray = rowArray
-#         else:
-#             newArray = np.vstack( [newArray, rowArray])
-#         
-#         row = f.readline()
-#         rowCount = rowCount + 1
-# print "\nResultant input array shape = " + str(np.shape(newArray)) + ", size=" + str(np.size(newArray))
-# make up some random labels, skewed to class=1
-# labels = (np.random.random((158000)) < 0.7).astype('int')
-# trainLogisticRegressionModel(newArray, labels, 1.0, classifierFile, True)
+toyClassifierFile = "/home/amb/dev/mrf/classifiers/logisticRegression/pixelLevelModels/toyLogRegClassifier_C1_joblib.pkl"
+
+testResultsFile = "/home/amb/dev/mrf/data/test/pixelLevelData/toyClassifier_testResults.csv"
+
+msrcData = pomio.msrc_loadImages(msrcData)
+toyTrainData, reducedData = sampleFromList(msrcData, 2)
+toyTestData, reducedData = sampleFromList(reducedData, 1)
+
+# Generate training data
+processLabelledImageData(toyTrainData, toyTrainPixelFile , "pickle")
+
+trainFeatureData = unpickleNumpyData(toyTrainPixelFeaturesPickle)
+trainLabelData = unpickleNumpyData(toyTrainPixelLabelsPickle)
+
+print "\n***Now training classifier..."
+toyClassifier = trainLogisticRegressionModel(trainFeatureData, trainLabelData, 1.0, toyClassifierFile, True)
+
+# Generate testing data (pickle or csv)
+processLabelledImageData(toyTestData, toyTestPixelFile , "pickle")
+
+testFeatureData = unpickleNumpyData(toyTestPixelFeaturesPickle)
+testLabelData = readArrayDataFromFile(toyTestPixelLabelsPickle)
+
+print "\n***Now testing classifier..."
+testClassifier(toyClassifier, testFeatureData, testLabelData, testResultsFile, True)
+
 
