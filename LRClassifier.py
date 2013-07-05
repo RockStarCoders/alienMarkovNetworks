@@ -123,8 +123,14 @@ def testClassifier(classifier, testFeatures, testClassLabels, resultsFile, scale
     
     classifierResult = np.array( [classifier.get_params(deep=True) , numberCorrectPredictions, totalCases ] )
     
-    # persist the coefficients of the model and the score, so it can be re-created
+    # Save test score
     np.savetxt(resultsFile, classifierResult, fmt="%.5f", delimiter=",")
+    
+    # persist the coefficients of the model to file
+    f = open(resultsFile, 'a')
+    f.write(str(classifier.get_params(deep=True)))
+    f.flush()
+    f.close()
     
     print "Classifier %correct classifications:: ", str( np.round(numberCorrectPredictions / totalCases * 100 , 4))
 
