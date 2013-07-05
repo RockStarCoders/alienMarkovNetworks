@@ -24,10 +24,12 @@ def scaleInputData(inputFeatureData):
     # Assumes numeric numpy array [[ data....] , [data....] ... ]
     return preprocessing.scale(inputFeatureData.astype('float'))
 
+
 def readClassifierFromFile(classifierFileLocation):
     classifier = joblib.load(classifierFileLocation)
     # TODO do a type check type if there is some inheritence/abstraction in sklearn
     return classifier
+
 
 def splitInputDataset_msrcData(msrcDataLocation, train=0.6, validation=0.2, test = 0.2):
     assert (train + validation + test) == 1, "values for train, validation and test must sum to 1"
@@ -72,7 +74,7 @@ def reshapeImageFeatures(imageFeatures):
     
     return np.reshape(imageFeatures, (numDatapoints, numFeatures))
 
-
+# TODO: Add a feature to maintain class distributions from source dataset
 def sampleFromList(data, numberSamples):
     idx = 0
     result = []
@@ -100,40 +102,55 @@ def trainLogisticRegressionModel(features, labels, Cvalue, outputClassifierFile,
     lrc = LogisticRegression(penalty='l1' , dual=False, tol=0.0001, C=Cvalue, fit_intercept=True, intercept_scaling=1)
     lrc.fit(features, labels)
     # See http://stackoverflow.com/questions/10592605/save-naivebayes-classifier-to-disk-in-scikits-learn
-    joblib.dump(lrc, outputClassifierFile)
+    joblib.dump(lrc, outputClassifierFile, compress=1)
     print "LogisticRegression classifier saved to " + str(outputClassifierFile)
     
     return lrc
     
-
+def loadClassifier(filename):
+    return joblib.load(filename)
+    
 
 
 # Utility functions for train, validation and test for classifier
 def testClassifier(classifier, testFeatures, testClassLabels, resultsFile, scaleData=True):
-    # predict on testFeatures, compare to testClassLabels, return the rsults
+    # predict on testFeatures, compare to testClassLabels, return the results
+    print "Generating predictions for input data..."
     predictions = classifier.predict(testFeatures)
     
     numberCorrectPredictions = 0 
     
     totalCases = np.shape(testClassLabels)[0]
+    results = None
     
     for valueIdx in range(0 , totalCases):
+#         print "\tPrediction =" + str(predictions[valueIdx]) + ", ground truth=" + str(testClassLabels[valueIdx])
+        result = np.array([ predictions[valueIdx] , testClassLabels[valueIdx] ])
+        
+        # Compile results
+        if results == None:
+            results = result
+        else:
+            results = np.vstack((results, result))
+        # increment count of correct classifications    
         if predictions[valueIdx] == testClassLabels[valueIdx]:
             numberCorrectPredictions = numberCorrectPredictions + 1
     
-    classifierResult = np.array( [classifier.get_params(deep=True) , numberCorrectPredictions, totalCases ] )
+    # Save case-by-case scores
+    np.savetxt(resultsFile, results, fmt="%.5f", delimiter=",")
     
-    # Save test score
-    np.savetxt(resultsFile, classifierResult, fmt="%.5f", delimiter=",")
-    
-    # persist the coefficients of the model to file
+    # persist summary
+    summary = np.array( [ numberCorrectPredictions, totalCases ] )
+    sio = StringIO()
+    np.savetxt(sio, summary, fmt="%.3f", delimiter=",")
     f = open(resultsFile, 'a')
-    f.write(str(classifier.get_params(deep=True)))
+    f.write(sio.getvalue())
     f.flush()
     f.close()
     
-    print "Classifier %correct classifications:: ", str( np.round(numberCorrectPredictions / totalCases * 100 , 4))
-
+    print "\Results::\n" + str(numberCorrectPredictions) + " from " + str(totalCases) + " cases\n"
+    print "Classifier %correct=:: ", str( np.round(float(numberCorrectPredictions) / float(totalCases) * 100 , 2))
+    
 
 def processLabelledImageData(inputMsrcImages, outputFileLocation, persistenceType):
     # Assume we get a list / array of msrcImage objects.  We need reshape the labels, and compute+reshape features
@@ -141,6 +158,7 @@ def processLabelledImageData(inputMsrcImages, outputFileLocation, persistenceTyp
     assert (persistenceType == "pickle" or persistenceType == "csv") , "persistenceType must be either pickle or csv"
     
     totalImages = np.size(inputMsrcImages)
+    print "Generating feature data for total of" + str(totalImages) + " MSRC images"
     totalPixels = 0
     
     if(persistenceType == "csv"):
@@ -153,8 +171,6 @@ def processLabelledImageData(inputMsrcImages, outputFileLocation, persistenceTyp
             
             totalPixels = totalPixels + numPixels
             
-            print "\nImage#" + str(idx+1) + " has " + str(numPixels) + " pixels"
-        
             # TODO refactor this into FeatureGenerator.py as a util method (you give me image, I give you image feature data over pixels)
             imageFeatures = generateFeaturesForImage(inputMsrcImages[idx])
             
@@ -162,10 +178,8 @@ def processLabelledImageData(inputMsrcImages, outputFileLocation, persistenceTyp
             writeFeaturesToFile(imageFeatures, str(outputFileLocation + "Data.csv"))
             writeFeaturesToFile(imageLabels , str(outputFileLocation + "Labels.csv"))
             
-            print "Processed " + str(idx+1) + " of " + str(totalImages) + " images & " + str(totalPixels) + " pixels"
-            
     elif(persistenceType == "pickle"):
-        print "In pickle mode, accumulate feature data in memeory, then serialize to file"
+        print "In pickle mode, accumulate feature data in memory, then serialize to file"
         
         allFeatures = None
         allLabels = None
@@ -177,8 +191,6 @@ def processLabelledImageData(inputMsrcImages, outputFileLocation, persistenceTyp
             numPixels = np.size(inputMsrcImages[idx].m_img[:,:,0])
             totalPixels = totalPixels + numPixels
             
-            print "\nImage#" + str(idx+1) + " has " + str(numPixels) + " pixels"
-        
             # TODO refactor this into FeatureGenerator.py as a util method (you give me image, I give you image feature data over pixels)
             imageFeatures = generateFeaturesForImage(inputMsrcImages[idx])
             
@@ -192,12 +204,11 @@ def processLabelledImageData(inputMsrcImages, outputFileLocation, persistenceTyp
             else:
                 allLabels = np.append( allLabels , imageLabels )
             
-            # save data to files suitable for classifier by appending to CSV - one for features, one for class labels
-            print "Processed " + str(idx+1) + " of " + str(totalImages) + " images & " + str(totalPixels) + " pixels"
-            
         # Now serialize entire arrays to file 
         pickleNumpyData(imageFeatures, str(outputFileLocation + "Data.npy"))
         pickleNumpyData(imageLabels , str(outputFileLocation + "Labels.npy"))
+    
+    print "Feature generation and persistence completed."
         
 
 def generateFeaturesForImage(msrcImage):
@@ -221,8 +232,6 @@ def generateFeaturesForImage(msrcImage):
     imageFeatures = np.hstack( [hogFeatures, lbpFeatures, filterResponseFeatures ] )
         
     return imageFeatures
-
-
 
 
 def writeFeaturesToFile(features, filename):
@@ -290,17 +299,6 @@ classifierFile = "/home/amb/dev/mrf/classifiers/logisticRegression/pixelLevelMod
 # processLabelledImageData(trainData, trainingPixelFile)
 
 
-# print "Attempt to load training data from previously generated files..."
-# print "\t" + trainingPixelDataFile + " & " + trainingPixelLabelFile
-# print "First the class label data..."
-# labels  = readArrayDataFromFile(trainingPixelLabelFile)
-# print "Now the feature data..."
-# data = readArrayDataFromFile(trainingPixelDataFile)
-# print "\nNow build logistic regression classifier from input data:" + str(np.shape(trainingPixelDataFile)) + ", " + str(np.shape(trainingPixelLabelFile))
-# classifier = trainLogisticRegressionModel(data, labels, 1, classifierFile, scaleData=True)
-# print "Completed classifier training:: " + str(classifier.getParams)
-
-
 # toy example with small number of training images
 toyTrainPixelFile = "/home/amb/dev/mrf/data/training/pixelLevelData/toyPixelFeature"
 toyTestPixelFile = "/home/amb/dev/mrf/data/test/pixelLevelData/toyPixelFeature"
@@ -312,33 +310,34 @@ toyTestPixelFile = "/home/amb/dev/mrf/data/test/pixelLevelData/toyPixelFeature"
 
 toyTrainPixelFeaturesPickle = toyTrainPixelFile + "Data.npy"
 toyTrainPixelLabelsPickle = toyTrainPixelFile + "Labels.npy"
+
 toyTestPixelFeaturesPickle = toyTestPixelFile + "Data.npy"
 toyTestPixelLabelsPickle = toyTestPixelFile + "Labels.npy"
 
 toyClassifierFile = "/home/amb/dev/mrf/classifiers/logisticRegression/pixelLevelModels/toyLogRegClassifier_C1_joblib.pkl"
-
 testResultsFile = "/home/amb/dev/mrf/data/test/pixelLevelData/toyClassifier_testResults.csv"
 
 msrcData = pomio.msrc_loadImages(msrcData)
-toyTrainData, reducedData = sampleFromList(msrcData, 2)
-toyTestData, reducedData = sampleFromList(reducedData, 1)
 
-# Generate training data
+toyTrainData, reducedData = sampleFromList(msrcData, 250)
+toyTestData, reducedData = sampleFromList(reducedData, 20)
+
+
+print "\n***Generating train data"
 processLabelledImageData(toyTrainData, toyTrainPixelFile , "pickle")
+
+print "\n***Generating test data"
+processLabelledImageData(toyTestData, toyTestPixelFile , "pickle")
 
 trainFeatureData = unpickleNumpyData(toyTrainPixelFeaturesPickle)
 trainLabelData = unpickleNumpyData(toyTrainPixelLabelsPickle)
-
+ 
 print "\n***Now training classifier..."
-toyClassifier = trainLogisticRegressionModel(trainFeatureData, trainLabelData, 1.0, toyClassifierFile, True)
+toyClassifier = trainLogisticRegressionModel(trainFeatureData, trainLabelData, 0.1, toyClassifierFile, True)
 
-# Generate testing data (pickle or csv)
-processLabelledImageData(toyTestData, toyTestPixelFile , "pickle")
-
+print "\n***Now reading test data.."
 testFeatureData = unpickleNumpyData(toyTestPixelFeaturesPickle)
-testLabelData = readArrayDataFromFile(toyTestPixelLabelsPickle)
+testLabelData = unpickleNumpyData(toyTestPixelLabelsPickle)
 
 print "\n***Now testing classifier..."
 testClassifier(toyClassifier, testFeatureData, testLabelData, testResultsFile, True)
-
-
