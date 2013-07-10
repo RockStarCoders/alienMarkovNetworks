@@ -13,37 +13,81 @@ from skimage import exposure
 
 
 
-def plot1dRGBImageHistogram(rgbFrequencies, histRange):
+def plot1dRGBHistogram(rgbFrequencies, histRange):
     
-    numberBins = np.shape(histRange)[0] -1
-
-    print "\nRed histogram:\n", rgbFrequencies[0]
-    print "\nGreen histogram:\n", rgbFrequencies[1]
-    print "\nBlue histogram:\n", rgbFrequencies[2]
-    print "\nHistogram bins:\n", histRange
+    numberBins = np.shape(histRange)[0]
+    
+    print "\nRed histogram:\n", rgbFrequencies[0] , "\nsize=" , rgbFrequencies[0].size
+    print "\nGreen histogram:\n", rgbFrequencies[1], "\nsize=" , rgbFrequencies[1].size
+    print "\nBlue histogram:\n", rgbFrequencies[2], "\nsize=" , rgbFrequencies[2].size
+    print "\nHistogram bins:\n", histRange, "\nsize=" , histRange.size
+    print "\nNumber bins = " + str(numberBins)
+    print "\nHistogram range = " , histRange
+    print "Histogram bin edges::" , histRange[0 : (histRange.size-1)]
+    
+    plotRange = histRange[0 : (histRange.size-1)]
     
     fig = plt.figure()
-    ax = fig.add_subplot(1,1,1)
+    plt.subplot(1,1,1)
 
     # matplotlib.pyplot.bar(left, height, width=0.8, bottom=None, hold=None, **kwargs)
     # left     the x coordinates of the left sides of the bars
     # height     the heights of the bars
-
-    ind = np.arange(0,256,(256 / numberBins))  # the x locations for the groups
+    
+    
     width = int( (256 / (numberBins * 3.5) ) )    # the width of the bars
 
-    ax.bar( ind , rgbFrequencies[0] , width, color=['red'] )
-    ax.bar( ind+width , rgbFrequencies[1] , width, color=['green'] )
-    ax.bar( ind+2*width , rgbFrequencies[2] , width, color=['blue'] )
-
-    ax.set_xticks(histRange)
+    plt.bar( plotRange , rgbFrequencies[0] , width, color=['red'] )
+    plt.bar( plotRange+width , rgbFrequencies[1] , width, color=['green'] )
+    plt.bar( plotRange+2*width , rgbFrequencies[2] , width, color=['blue'] )
+    plt.axis([0,255,0,160000])
     
+    plt.title("RGB Histogram")
     plt.show()
 
 
-def plotHOGResult(image, hogImage):
-    plt.figure(figsize=(8, 4))
+def plot1dHSVHistogram(hsvHist):
+    
+    hueHist = hsvHist[0]
+    satHist = hsvHist[1]
+    valHist = hsvHist[2]
+    
+    assert np.shape(hueHist[1])[0] == np.shape(satHist[1])[0] == np.shape(valHist[1])[0] , "The number of bins in the HSV channel are not equal"
+    
+    # matplotlib.pyplot.bar(left, height, width=0.8, bottom=None, hold=None, **kwargs)
+    # left     the x coordinates of the left sides of the bars
+    # height     the heights of the bars
+    fig = plt.figure()
+    plt.subplot(3,1,1)
+    hueFreq = hueHist[0]
+    hueRange = hueHist[1][0 : (hueHist[1].size-1)]
+    hueWidth = hueRange[1]-hueRange[0]
+    plt.bar( hueRange , hueFreq , hueWidth , color=['yellow'])
+    plt.title("Hue Channel")
+    plt.axis([0, 1, 0, 160000])
+    # The first two values are the rows columns, the last is the index for the subplot
+    plt.subplot(3,1,2)
+    satFreq = satHist[0]
+    satRange = satHist[1][0 : (satHist[1].size-1)]
+    satWidth = satRange[1]-satRange[0]
+    plt.bar( satRange, satFreq , satWidth, color=['gray'])
+    plt.title("Saturation Channel")
+    plt.axis([0,1,0,160000])
 
+    plt.subplot(3,1,3)
+    valFreq = valHist[0]
+    valRange = valHist[1][0 : (valHist[1].size-1)]
+    valWidth = valRange[1]-valRange[0]
+    plt.bar(valRange, valFreq , valWidth, color=['gray'])
+    plt.axis([0,1,0,160000])
+    plt.title("Value Channel")
+    
+    fig.tight_layout()
+
+    plt.show()
+
+def plotHOGResult(image, hogImage):
+    
     plt.subplot(121).set_axis_off()
     plt.imshow(image, cmap=plt.cm.get_cmap('gray'))
     plt.title('Input image')
