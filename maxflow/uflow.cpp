@@ -8,6 +8,12 @@
 
 #include "graph.h"
 
+// NOTE: numpy arrays are stored so that the last dimension changes fastest.
+//  for example, a 3-d matrix RxCxD would be indexed by: x[d + c*D + r*(C*D)]
+
+// todo: nclass need to make edge callback return 0 for non a-b edges
+//   Need to explicitly compute energy for whole graph.
+
 // Type used in computations.
 typedef double DType;
 typedef Graph<DType,DType,DType> GraphType;
@@ -44,14 +50,19 @@ double ultraflow_inference2(
   const int (*nhood)[2] = ( nhoodSize == 4 ) ? s_nhood4 : s_nhood8;
   const int nhoodLen    = ( nhoodSize == 4 ) ? 2        : 4;
 
-  std::cout << "ultraflow_inference2: nhoodSize = " << nhoodSize
-            << ", img size = (" << rows << ", " << cols << ", " 
-            << nbImgChannels << ")"
-            << std::endl;
+  const bool dbg = false;
 
-  std::cout << "nhood offsets:" << std::endl;
-  for ( int i=0; i<nhoodLen; ++i ){
-    std::cout << "  " << nhood[i][0] << ", " << nhood[i][1] << std::endl;
+  if (dbg)
+  {
+    std::cout << "ultraflow_inference2: nhoodSize = " << nhoodSize
+              << ", img size = (" << rows << ", " << cols << ", " 
+              << nbImgChannels << ")"
+              << std::endl;
+
+    std::cout << "nhood offsets:" << std::endl;
+    for ( int i=0; i<nhoodLen; ++i ){
+      std::cout << "  " << nhood[i][0] << ", " << nhood[i][1] << std::endl;
+    }
   }
 
   const int nbNEdges = ( nhoodSize==4 ) ? (rows-1)*cols + (cols-1)*rows 
@@ -85,9 +96,9 @@ double ultraflow_inference2(
   for ( int r=0; r<rows; ++r ){
     for ( int c=0; c<cols; ++c, ++idx ){
       // Assume planar rgb storage
-      double pixR = cMatInputImage[idx],
-        pixG = cMatInputImage[idx + n],
-        pixB = cMatInputImage[idx + 2*n];
+      double pixR = cMatInputImage[idx*3+0],
+        pixG = cMatInputImage[idx*3+1],
+        pixB = cMatInputImage[idx*3+2];
 
       for ( int j=0; j<nhoodLen; ++j ){
         const int nr = r + nhood[j][0];
@@ -95,9 +106,9 @@ double ultraflow_inference2(
         if ( 0 <= nr && nr < rows && 0 <= nc && nc < cols )
         {
           const int nidx = nr*cols + nc;
-          double nbrR = cMatInputImage[nidx],
-            nbrG = cMatInputImage[nidx + n],
-            nbrB = cMatInputImage[nidx + 2*n];
+          double nbrR = cMatInputImage[nidx*3+0],
+            nbrG = cMatInputImage[nidx*3+1],
+            nbrB = cMatInputImage[nidx*3+2];
 
           const double wt = nbrEdgeCostCallback(
             pixR, pixG, pixB,
@@ -116,7 +127,10 @@ double ultraflow_inference2(
   // inference time
 	double flow = g->maxflow();
 
-  std::cout << "Flow = " << flow << std::endl;
+  if (dbg)
+  {
+    std::cout << "Flow = " << flow << std::endl;
+  }
 
   // Store min cut labels in output array.
   for ( int i=0; i<n; ++i )
@@ -142,6 +156,7 @@ void inferenceNABSwap(
   int32_t*        cMatOut
 )
 {
+  std::cout << "N-label AB swap algorithm, " << nbLabels << " labels.\n";
   // todo: for now include whole graph.  But actually the graph only needs to
   // have nodes whose label is alpha or beta.  See PyMaxFlow for example.  It's
   // more complicated because then the cut weight is not the energy of the
@@ -149,6 +164,10 @@ void inferenceNABSwap(
   
   const int maxIterations = 100;
   const int npix = rows*cols;
+
+  std::cout << "I think image ul pix = " << cMatInputImage[0]
+            << ", " << cMatInputImage[1] << ", "
+            << cMatInputImage[2] << "\n";
 
   // start with arbitrary labelling.  Note our current labelling is called "x"
   // in the alg (chaper 3 of the MRF book), here x == cMatOut.
@@ -164,12 +183,16 @@ void inferenceNABSwap(
 
   for ( int ic=0; ic<maxIterations; ++ic )
   {
+    std::cout << "\t** iteration " << ic << "\n";
+
     success = false;
     // for each pair of labels {a,b} in L
     for ( int a=0; a<nbLabels; ++a )
     {
       for ( int b=0; b<nbLabels; ++b )
       {
+        if (a==b) continue;
+        std::cout << "\t**  ab = " << a << "," << b << "\n";
         // find xhat = argmin E(x') among x' within one a-b swap of x
 
         // Use our 2-class inference to determine the transformation labels t.
@@ -182,19 +205,19 @@ void inferenceNABSwap(
           if ( cMatOut[i] == a || cMatOut[i] == b )
           {
             // t == 0 case, label a is assigned.
-            srcEdges[i] = cMatLabelWeights[ i + npix*a ];
+            srcEdges[i] = cMatLabelWeights[ i*nbLabels + a ];
             // t == 1 case, label b is assigned.
-            snkEdges[i] = cMatLabelWeights[ i + npix*b ];
+            snkEdges[i] = cMatLabelWeights[ i*nbLabels + b ];
           }
           else
           {
             // This pixel is not a candidate for swapping.  Arbitrarily
             // associate with the source.  Guarantee that by setting one
             // weight to Inf.
-            srcEdges[i] = cMatLabelWeights[ i + npix*cMatOut[i] ];
+            srcEdges[i] = cMatLabelWeights[ i*nbLabels + cMatOut[i] ];
             snkEdges[i] = std::numeric_limits<double>::infinity();
           }
-        }
+        }// for i
         
         // For the edge weight we need to wrap the simple 2-class callback 
         // with a function of the 
@@ -226,6 +249,7 @@ void inferenceNABSwap(
             }
           }
           Ex = Exhat;
+          std::cout << "\t**  criterion Ex = " << Ex << "\n";
           success = true;
         }
 
@@ -243,6 +267,7 @@ void inferenceNABSwap(
     std::cerr << "Warning: maximum iterations reached in inferenceNABSwap"
               << std::endl;
   }
+  std::cout << "** abswap complete!\n";
 }
 
 ////////////////////////////////////////////////////////////////////////////////

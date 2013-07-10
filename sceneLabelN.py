@@ -1,10 +1,27 @@
 #!/usr/bin/env python
 
-# SUMMARY: this is a simple N-class labelling example, without higher
-# order cliques.
+# SUMMARY: this is a 2-class foreground/background labelling example, really
+# using a hidden MRF (obs not used in nbr potentials).  Fixed training
+# rectangles are used to construct histograms, used for probability a pixel is
+# foreground or background.  Grid weights encourage smoothness.  The
+# segmentation is performed for various values of the smoothness parameter.
 #
-# The example uses the PyMaxflow library. In the previous example I was wrong,
-# it can handle multi-label crfs.
+# The example uses the PyMaxflow library.  It exposes the main limitation, that
+# the library can only accommodate one form of neighbourhood potential (unless
+# I'm just not seeing it).  Would be better if we could supply a matrix with a
+# probability table, to be more general.
+
+
+# todo:
+#   found this link too late:
+#      http://opencvpython.blogspot.com/2013/03/histograms-4-back-projection.html
+#   has much more succinct code
+
+# todo: DONE convert this from cv to cv2.  See these links:
+#    http://stackoverflow.com/questions/10417108/what-is-different-between-all-these-opencv-python-interfaces
+#    
+# OpenCV is dodgy as.  I couldn't use the histogram normalisation I wanted, 
+#  and backproject doesn't work with 3D histograms.
 
 import sys
 import cv2
@@ -12,14 +29,16 @@ import maxflow
 import numpy as np
 import scipy
 from scipy.misc import imread
-import maxflow
 from matplotlib import pyplot as ppl
 import scipy.ndimage.filters
+import cython_uflow as uflow
+
 
 def extractHist( img, channels, ranges ):
     nc = img.shape[2]
     # controls resolution of histogram
     nbBins = len(channels) * [4]#[32, 32, 32]
+    #nbBins = [32, 32]
     hist = cv2.calcHist( [img], channels, None, nbBins, ranges )
     return hist
 
@@ -39,11 +58,13 @@ def feq(a,b,tol):
 #
 # MAIN
 #
-cvimg = cv2.imread("ship-at-sea.jpg")
-dimg = cvimg.copy()
+imgRGB = cv2.imread("ship-at-sea.jpg")
+dimg = imgRGB.copy()
+cvimg = imgRGB.copy()
 
 dohsv = True
 dointeract = False
+usePyMaxflow = False
 
 if dohsv:
     # I would love to do this on rgb, but calcBackProject has a bug for
@@ -149,32 +170,85 @@ if dointeract:
 # 
 # which doesn't use the image at all.  That's cool, this is just a demo.
 
+nhoodSz = 8
+# estimate neighbourhood average diff
+sigsq = 0
+cnt = 0
+rows = imgRGB.shape[0]
+cols = imgRGB.shape[1]
+# vertical diffs
+idiffs = imgRGB[0:rows-1,:,:] - imgRGB[1:rows,:,:]
+sigsq += np.power(idiffs,2.0).sum()
+cnt += (rows-1)*cols
+# horizontal diffs
+idiffs = imgRGB[:,0:cols-1,:] - imgRGB[:,1:cols,:]
+sigsq += np.power(idiffs,2.0).sum()
+cnt += rows*(cols-1)
+
+if nhoodSz == 8:
+    # diagonal to right
+    idiffs = imgRGB[0:rows-1,0:cols-1,:] - imgRGB[1:rows,1:cols,:]
+    sigsq += np.power(idiffs,2.0).sum()
+    cnt += (rows-1)*(cols-1)
+    # diagonal to left
+    idiffs = imgRGB[0:rows-1,1:cols,:] - imgRGB[1:rows,0:cols-1,:]
+    sigsq += np.power(idiffs,2.0).sum()
+    cnt += (rows-1)*(cols-1)
+
+sigsq /= cnt
+print "Estimated neighbour RMS pixel diff = ", np.sqrt(sigsq)
+
 print "Performing maxflow for various smoothness K..."
 
+# In Shotton, K0 and K in the edge potentials are selected manually from
+# validation data results.
+K0 = 0.5
+
 # for K in np.linspace(1,100,10):
-for K in np.logspace(0,3,10):
-   # Create the graph.  Float capacities.
-   g = maxflow.Graph[float]()
-   # Add the nodes. nodeids has the identifiers of the nodes in the grid.
-   # Same x-y extent as the image, but just 1 channel/band.
-   nodeids = g.add_grid_nodes(cvimg.shape[0:2])
-   # Add non-terminal edges with the same capacity.
-   g.add_grid_edges(nodeids, K)
-   # Add the terminal edges. The image pixels are the capacities
-   # of the edges from the source node. The inverted image pixels
-   # are the capacities of the edges to the sink node.
-   # Don't let log arg drop to zero.
-   g.add_grid_tedges(nodeids, \
-                         -np.log(np.maximum(1E-10,pImgGivenFg.astype(float)/255.0)),\
-                         -np.log(np.maximum(1E-10,pImgGivenBg.astype(float)/255.0)) )
-   
-   # Find the maximum flow.
-   g.maxflow()
-   # Get the segments of the nodes in the grid.  A boolean array that is true
-   # where foreground (sink), and false where background (source).
-   segResult = g.get_grid_segments(nodeids)
-   
-   # Show the result.
-   cv2.imshow("scenelabel2", segResult.astype('uint8')*255)
-   print "segmentation result, K = ", K 
-   cv2.waitKey(500)
+for K in np.logspace(0,2.5,10):
+    srcEdgeCosts = -np.log(np.maximum(1E-10,pImgGivenFg.astype(float)/255.0))
+    snkEdgeCosts = -np.log(np.maximum(1E-10,pImgGivenBg.astype(float)/255.0))
+    if usePyMaxflow:
+        # Create the graph.  Float capacities.
+        g = maxflow.Graph[float]()
+        # Add the nodes. nodeids has the identifiers of the nodes in the grid.
+        # Same x-y extent as the image, but just 1 channel/band.
+        nodeids = g.add_grid_nodes(cvimg.shape[0:2])
+        # Add non-terminal edges with the same capacity.
+        g.add_grid_edges(nodeids, K)
+        # Add the terminal edges. The image pixels are the capacities
+        # of the edges from the source node. The inverted image pixels
+        # are the capacities of the edges to the sink node.
+        # Don't let log arg drop to zero.
+        g.add_grid_tedges(nodeids, srcEdgeCosts, snkEdgeCosts )
+        
+        # Find the maximum flow.
+        g.maxflow()
+        # Get the segments of the nodes in the grid.  A boolean array that is true
+        # where foreground (sink), and false where background (source).
+        segResult = g.get_grid_segments(nodeids)
+    else:
+        print srcEdgeCosts.shape
+        print snkEdgeCosts.shape
+        def nbrCallback( pixR, pixG, pixB, nbrR, nbrG, nbrB ):
+            #print "*** Invoking callback"
+            idiffsq = (pixR-nbrR)**2 + (pixG-nbrG)**2 + (pixB-nbrB)**2
+            #idiffsq = (pixB-nbrB)**2
+            res = np.exp( -idiffsq / (2 * sigsq) )
+            #print res
+            # According to Shotton, adding the constant can help remove
+            # isolated pixels.
+            res = K0 + res * K
+            return res
+
+        segResult = uflow.inferenceN( \
+            cvimg.astype(float),\
+            np.dstack( ( srcEdgeCosts, snkEdgeCosts ) ),\
+            'abswap',\
+            nhoodSz, \
+            nbrCallback )
+ 
+    # Show the result.
+    cv2.imshow("scenelabel2", segResult.astype('uint8')*255)
+    print "labelling result, K = ", K 
+    cv2.waitKey(500)

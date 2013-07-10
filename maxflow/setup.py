@@ -10,5 +10,6 @@ setup(
     ext_modules = [Extension("cython_uflow", 
                              sources=["cython_uflow.pyx", "uflow.cpp", "graph.cpp", "maxflow.cpp"],
                              include_dirs=[numpy.get_include()],
-                             language = "c++")],
+                             language = "c++", 
+                             extra_compile_args=['-w'])],
 )

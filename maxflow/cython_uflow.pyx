@@ -104,7 +104,7 @@ def inference2( np.ndarray[double, ndim=3, mode="c"] inputImage not None,
 
 
 
-
+# 'method' can be aexpansion or abswap
 def inferenceN( np.ndarray[double, ndim=3, mode="c"] inputImage not None,
                 np.ndarray[double, ndim=3, mode="c"] labelWeights not None,
                 method,
@@ -112,6 +112,8 @@ def inferenceN( np.ndarray[double, ndim=3, mode="c"] inputImage not None,
                 nbrEdgeCallback ):
     rows = labelWeights.shape[0]
     cols = labelWeights.shape[1]
+
+    print "***!!! img ul = %f,%f,%f" % (inputImage[0,0,0], inputImage[0,0,1], inputImage[0,0,2] )
 
     assert( method == 'abswap' or method == 'aexpansion' )
     assert( nhoodSize == 4 or nhoodSize == 8 )
