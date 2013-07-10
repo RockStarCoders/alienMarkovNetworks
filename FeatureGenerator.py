@@ -14,15 +14,9 @@ from scipy import signal
 from skimage import color, feature, io
 
 
-import matplotlib.pyplot as plt
-from pylab import meshgrid, cm, imshow, contour, clabel, colorbar, axis, title, show
-
-
-from mpl_toolkits.mplot3d import Axes3D
-from matplotlib.ticker import LinearLocator, FormatStrFormatter
-
-
-from DataVisualisation import createKernalWindowRanges, plotKernel, plotImageComparison, plot1dRGBImageHistogram,plotHOGResult
+from src.amb.seg.DataVisualisation import createKernalWindowRanges
+import DataVisualisation
+from DataVisualisation import plot1dHSVHistogram, plot1dRGBHistogram
 
 increment = 1
 
@@ -32,12 +26,13 @@ def create1dRGBColourHistogram(imageRGB, numberBins):
     
     # fail if user-input number of bins is not a permitted value
     assert numberBins in bins, "User specified number of bins is not one of the permitted values:: " + str(bins)
+    # Now add 1 to number of bins, so we get the correct number of bin edges
     
-    numColours = np.shape(imageRGB)[2]
+    numColourChannels = np.shape(imageRGB)[2]
     
     histograms = None
     
-    if(numColours < 3 or numColours > 4):
+    if(not numColourChannels == 3):
         
         return histograms
     
@@ -46,22 +41,24 @@ def create1dRGBColourHistogram(imageRGB, numberBins):
         histograms = np.zeros([numberBins, 3]);
     
     # should have a non-null histograms matrix, get colours and normalise to [0-255]
-    red = imageRGB[0]
+    red = imageRGB[:,:,0]
     maxRed = float(np.max(red))
-    red = (red / maxRed) * 255.0
+    if not int(np.round(maxRed,0)) == 0:
+        red = (red / maxRed) * 255.0
     
-    green = imageRGB[1]
+    green = imageRGB[:,:,1]
     maxGreen = float(np.max(green))
-    green = (green / maxGreen) * 255.0
+    if not int(np.round(maxGreen,0)) == 0:
+        green = (green / maxGreen) * 255.0
     
-    blue = imageRGB[2]
-    maxBlue = np.max(green);
-    blue = (blue / maxBlue) * 255.0
+    blue = imageRGB[:,:,2]
+    maxBlue = np.max(blue)
+    if not int(np.round(maxBlue,0)) == 0:
+        blue = (blue / maxBlue) * 255.0
     
-    histogramRange = np.arange(0, 256 +1 , (256 / numberBins) , dtype=int )
+    histogramRange = np.arange(0, 256 , (255 / numberBins) , dtype=int )
     
     redHist, redRange = np.histogram(red, histogramRange)
-    
     greenHist, greenRange = np.histogram(green, histogramRange)
     blueHist, blueRange = np.histogram(blue, histogramRange)
     
@@ -76,15 +73,93 @@ def create3dRGBColourHistogramFeature(imageRGB, numberBins):
     assert numberBins in bins, "User specified number of bins is not one of the permitted values:: " + str(bins)
     
     numPixels = np.shape(imageRGB[:,:,0])[0] * np.shape(imageRGB[:,:,0])[1]
+    numColourChannels = 3
+    data = imageRGB.reshape((numPixels, numColourChannels))
     
-    data = imageRGB.reshape((numPixels, 3))
-    
-    hist, edges = np.histogramdd( data, bins=numberBins, range=[[-0.5,255.5],[-0.5,255.5],[-0.5,255.5]] )
+    hist, edges = np.histogramdd( data, bins=numberBins, range=[[-0.1,255.1],[-0.1,255.1],[-0.1,255.1]] )
     
     return hist, edges
 
 
-# TODO implement a HSV or HS colour histogram
+# TODO implement a HSV or HS colour histogram (polar and carteasian)
+
+
+def create1dHSVColourHistogram(imageRGB, numberBins):
+    # http://scikit-image.org/docs/dev/api/skimage.color.html?highlight=hsv#skimage.color.rgb2hsv
+    # HSV stands for hue, saturation, and value.
+    # In each cylinder, the angle around the central vertical axis corresponds to hue, the distance from the axis corresponds to saturation, and the distance along the axis corresponds to value.
+    # H = [0,360], S= [0,1] and V=[0,1]
+    bins = np.array([2, 4, 8, 10, 12, 14, 16, 18, 20])
+    assert numberBins in bins, "User specified number of bins is not one of the permitted values:: " + str(bins)
+    numberBinEdges = numberBins + 1
+    
+    imageHSV = color.rgb2hsv(imageRGB)
+    imageRGB = None
+    
+    # assume the 3D array is in H, S, V order
+    numColourChannels = np.shape(imageHSV)[2]
+    
+    histograms = None
+    
+    if(not numColourChannels == 3):
+        return histograms
+    else:
+        histograms = np.zeros([numberBinEdges, 3]);
+    
+    # should have a non-null histograms matrix, get channels
+    hueMax = 1.0
+    saturationMax = 1.0
+    valueBrightMax = 1.0
+    
+    # Need to slice and dice the result from the n,n,3 np array correctly....
+    imageHue = imageHSV[:,:,0]
+    
+    print "Shape of HSV image object::"
+    print imageHue.shape
+    print imageHSV[:,:,0].shape
+    
+    imageSaturation = imageHSV[:,:,1]
+    imageValueBrightness = imageHSV[:,:,2]
+    
+#     maxImageHue = float(np.max(imageHue))
+#     maxImageSaturation = float(np.max(imageSaturation))
+#     maxImageValue_brightness = float(np.max(imageValueBrightness))
+    
+#     hueHistogramRange = np.arange(0, hueMax , float(float(hueMax) / float(numberBins) ) , dtype=float)
+#     saturationHistogramRange = np.arange(0,  saturationMax , float( float(saturationMax) / float(numberBins) ) , dtype=float)
+#     valueBrightHistogramRange = np.arange(0,  valueBrightMax , float( float(valueBrightMax) / float(numberBins) ) , dtype=float )
+    
+
+    hueHistogramRange = np.linspace(0, hueMax, numberBinEdges)
+    saturationHistogramRange = np.linspace(0, saturationMax, numberBinEdges)
+    valueBrightHistogramRange = np.linspace(0, valueBrightMax, numberBinEdges)
+    
+    
+    hueFreq, hueRange = np.histogram(imageHue, hueHistogramRange)
+    saturationFreq, saturationRange = np.histogram(imageSaturation, saturationHistogramRange)
+    valueBrightFreq, valueBrightRange = np.histogram(imageValueBrightness, valueBrightHistogramRange)
+    
+    hue = np.array([ hueFreq, hueRange ] )
+    print "Hue histogram result"
+    print hue
+    sat = np.array([ saturationFreq, saturationRange ] )
+    valueBright = np.array( [ valueBrightFreq, valueBrightRange] )
+    
+    return [ hue, sat, valueBright ]
+
+
+
+def create3dHSVHistogram(sourceImage):
+    print "Finish me!"
+
+
+# TODO Fix up cartesian conversion of HSV HSxyV :)
+
+def createCIELab1DHistogram(sourceImage):
+    print "Finish me!"
+
+def createCIEDLab3DHistogram():
+    print "Finish me!"
 
 
 def createHistogramOfOrientedGradientFeatures(sourceImage, numOrientations, cellForm, cellsPerBlock, visualise, smoothImage):
@@ -306,18 +381,21 @@ def getGrayscaleImage(imageRGB):
 
 # Some simple testing
 #     
-# sourceImage = readImageFileRGB("../ship-at-sea.jpg");
+sourceImage = readImageFileRGB("ship-at-sea.jpg");
 # grayImage = color.rgb2gray(sourceImage)
-# 
-# histFreq, histRange = create1dRGBColourHistogram(sourceImage, 8)
-# plot1dRGBImageHistogram(histFreq, histRange)
-# 
+numberBins = 16
+
+# histFreq, histRange = create1dRGBColourHistogram(sourceImage, numberBins)
+# DataVisualisation.plot1dRGBHistogram(histFreq, histRange)
+
+hsvHist = create1dHSVColourHistogram(sourceImage, numberBins)
+plot1dHSVHistogram(hsvHist)
+
 # numBins = 2
 # freqs, rangeEdges = create3dRGBColourHistogramFeature(sourceImage, numBins)
 # 
 # hogFeature, hogImage = createHistogramOfOrientedGradientFeatures(sourceImage, 8, (8,8), (2,2), True, True)
 # plotHOGResult(sourceImage, hogImage)
-# 
 # 
 # xWindow = 9
 # yWindow = 9
