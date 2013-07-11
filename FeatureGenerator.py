@@ -13,10 +13,162 @@ from scipy import signal
 
 from skimage import color, feature, io
 
-import DataVisualisation
+
 from DataVisualisation import createKernalWindowRanges, plot1dHSVHistogram, plot1dRGBHistogram
+import pomio
 
 increment = 1
+
+#
+# Image and label array reshape utils
+#
+
+def reshapeImageLabelData(msrcImage):
+    groundTruth = msrcImage.m_gt
+    numPixels = np.shape(groundTruth)[0] * np.shape(groundTruth)[1]
+    return np.reshape(groundTruth, (numPixels))
+    
+def reshapeImageFeatures(imageFeatures):
+    # assume (i, j, f) feature data, so feature array per pixel.  Reshape to (i*j , f) array
+    numDatapoints = np.shape(imageFeatures)[0] * np.shape(imageFeatures)[1]
+    numFeatures = np.shape(imageFeatures)[2]
+    
+    return np.reshape(imageFeatures, (numDatapoints, numFeatures))
+
+
+
+#
+#  Aggregated feature generation utils
+#
+
+def generateLabeledImageFeatures(msrcImage, numGradientBins, numHistBins, ignoreVoid=False):
+    """This function takes an msrcImage object and returns a 2-element list.  The first element contains an array of pixel feature values, the second contains an array of pixel class label.
+    The ignoreVoid flag is used to handle the void class label; when True void class pixels are not included in result set, when False void pixels are included."""
+    # Make me user input!
+    numGradientBins = 9
+    numHistBins = 12
+    
+    if ignoreVoid == False:
+        # Just process all pixels, whether void or not
+        allPixelFeatures = generatePixelFeaturesForImage(msrcImage.m_img, numGradientBins, numHistBins)
+        allPixelLabels = reshapeImageLabelData(msrcImage)
+        
+        assert (np.size(allPixelLabels) == np.shape(allPixelFeatures)[0] ), ("Image pixel labels & features are different size! labelSize="\
+                                                                            + str(np.size(allPixelLabels)) + ", featureSize=" + str(np.size(allPixelFeatures[0])) + "")
+        return [ allPixelFeatures, allPixelLabels ]
+        
+    else:
+        # Need to check result pixel before inclusion in result feature vector
+        voidIdx = pomio.msrc_classLabels.index("void")
+        nonVoidFeatures = None
+        nonVoidLabels = None
+        
+        allPixelFeatures = generatePixelFeaturesForImage(msrcImage.m_img, numGradientBins, numHistBins)
+        allPixelLabels = reshapeImageLabelData(msrcImage)
+        
+        assert (np.size(allPixelLabels) == np.shape(allPixelFeatures)[0] ), ("Image pixel labels & features are different size! labelSize="\
+                                                                            + str(np.size(allPixelLabels)) + ", featureSize=" + str(np.size(allPixelFeatures[0])) + "")
+        
+        # check each pixel label, add to result list iff != void
+        numFeatures = np.shape(allPixelFeatures)[1]
+        
+        # get boolean array of labels != void index
+        nonVoidLabelCondition = (allPixelLabels != voidIdx)
+        
+        nonVoidLabels = allPixelLabels[nonVoidLabelCondition]
+        
+        nonVoidRowIdxs = np.arange(0, np.size(allPixelLabels))[nonVoidLabelCondition]
+        nonVoidFeatures = allPixelFeatures[nonVoidRowIdxs]
+        
+        assert (np.size(nonVoidLabels) == np.shape(nonVoidFeatures)[0] ), ("Non-void pixel label & feature data are different size! Non void labelSize=" + str(np.size(nonVoidLabels)) + ", Non void featureSize=" + str(np.shape(nonVoidFeatures)[0]) + "")
+        
+        return [nonVoidFeatures, nonVoidLabels]
+
+
+
+def generatePixelFeaturesForImage(rgbSourceImage, numGradientBins, numHistBins):
+    """This function takes an RGB image as numpy (i,j, 3) array as input and returns pixel-wise features (i * j , numFeatures) array.
+    numGraidentBins is used in Historgram of Orientation (HOG) feature generation.
+    numHistBins is used in the colour histogram feature generation (RGB & HSV)"""
+    totalImagePixels = np.size(rgbSourceImage[:,:,0])
+    
+    # RGB features
+    
+    rgbColourValuesFeature =  createRGBColourValues(rgbSourceImage)
+        
+    rgbColour1DHistogramFeatures, range =  create1dRGBColourHistogram(rgbSourceImage, numHistBins)
+    rgbColour1DHistogramFeatures = np.resize(rgbColour1DHistogramFeatures, (totalImagePixels, np.size(rgbColour1DHistogramFeatures[1]) ) )
+    
+    rgbColour3DHistogramFeatures, range =  create3dRGBColourHistogramFeature(rgbSourceImage, numHistBins)
+    rgbColour3DHistogramFeatures = np.resize(rgbColour3DHistogramFeatures, (totalImagePixels, np.size(rgbColour3DHistogramFeatures[1]) ) )
+    range = None
+        
+    # HSV features
+    
+    hsvColourValueFeature =  createHSVColourValues(rgbSourceImage)
+    
+    hsvSourceImage = color.rgb2hsv(rgbSourceImage)
+        
+    hsvColour1DHistogramFeatures, range =  create1dHSVColourHistogram(hsvSourceImage, numHistBins) 
+    hsvColour1DHistogramFeatures = np.resize(hsvColour1DHistogramFeatures, (totalImagePixels, np.size(hsvColour1DHistogramFeatures[1]) ) )
+        
+    hsvColour3DHistogramFeatures, range =  create3dHSVColourHistogramFeature(hsvSourceImage, numHistBins)
+    hsvColour3DHistogramFeatures = np.resize(hsvColour3DHistogramFeatures, (totalImagePixels, np.size(hsvColour3DHistogramFeatures[1]) ) )
+    range = None
+    
+    # HOG features
+    hog1Darray, hogFeatures =  createHistogramOfOrientedGradientFeatures(rgbSourceImage, numGradientBins, (9,9), (3,3), True, True)
+    hog1Darray = None
+    hogFeatures = np.reshape(hogFeatures, (totalImagePixels , np.size(hogFeatures) / totalImagePixels) )
+    
+    # Local binary pattern features
+    lbpFeatures =  createLocalBinaryPatternFeatures(rgbSourceImage, 4, 2, "default")
+    lbpFeatures = np.reshape(lbpFeatures, (totalImagePixels , np.size(lbpFeatures) / totalImagePixels) )
+   
+    # Testure filter response features
+    filterResponseFeatures =  createFilterbankResponse(rgbSourceImage, 15)
+    filterResponseFeatures = np.reshape(filterResponseFeatures, ( totalImagePixels , np.size(filterResponseFeatures) / totalImagePixels))
+     
+    # Test shapes of resized features
+    assert (np.shape(rgbColourValuesFeature)[0] == totalImagePixels) , ("Number of RGB value features ros not equal to total pixels:: " +str(np.shape(rgbColourValuesFeature)[0]) + ", " + str(totalImagePixels))
+    assert (np.shape(rgbColour1DHistogramFeatures)[0] == totalImagePixels) , ("Number of of RGB 1D histogram features:: " + str(np.shape(rgbColour1DHistogramFeatures)[0]) + ", " + str(totalImagePixels))
+    assert (np.shape(rgbColour3DHistogramFeatures)[0] == totalImagePixels) , ("Number of RGB 3D histogram features rows not equal to total pixels:: " , np.shape(rgbColour3DHistogramFeatures)[0] + ", " + str(totalImagePixels))
+    assert (np.shape(hsvColourValueFeature)[0] == totalImagePixels) , ("Number of HSV value features not equal to total pixels:: " + str(np.shape(hsvColourValueFeature)[0]) + ", " + str(totalImagePixels))
+    assert (np.shape(hsvColour1DHistogramFeatures)[0] == totalImagePixels) , ("Number of HSV 1D histogram features not equal to total pixels:: " + str(np.shape(hsvColour1DHistogramFeatures)[0]) + ", " + str(totalImagePixels))
+    assert (np.shape(hsvColour3DHistogramFeatures)[0] == totalImagePixels) , ("Number of HSC 3D histogram features not equal to total pixels:: " + str(np.shape(hsvColour3DHistogramFeatures)[0]) + ", " + str(totalImagePixels))
+    assert (np.shape(hogFeatures)[0] == totalImagePixels) , ("Number of HOG features not equal to total pixels:: " + str(np.shape(hogFeatures)[0]) + ", " + str(totalImagePixels))
+    assert (np.shape(lbpFeatures)[0] == totalImagePixels) , ("Number of LBP features not equal to total pixels:: " + str(np.shape(lbpFeatures)[0]) + ", " + str(totalImagePixels))
+    assert (np.shape(filterResponseFeatures)[0] == totalImagePixels) , ("Number of filter response features not equal to total pixels:: " + str(np.shape(filterResponseFeatures)[0]) + ", " + str(totalImagePixels) )
+    
+    # Consolidate all features for image, per pixel - skip colors and 1d hists for sake of filesize!
+    imageFeatures = np.hstack( [ \
+                                rgbColourValuesFeature, \
+#                                 rgbColour1DHistogramFeatures, \
+                                rgbColour3DHistogramFeatures, \
+                                hsvColourValueFeature, \
+#                                 hsvColour1DHistogramFeatures, \
+                                hsvColour3DHistogramFeatures,  \
+                                hogFeatures, \
+                                lbpFeatures, \
+                                filterResponseFeatures \
+                                ] )
+    
+    assert (np.shape(imageFeatures)[0] == totalImagePixels) , ("Number of ImageFeatures rows not equal to total pixels:: " + str(np.shape(imageFeatures)[0]) + ", " + str(totalImagePixels))
+    
+    return imageFeatures
+
+
+
+
+def createRGBColourValues(imageRGB):
+    totalPixels = np.shape(imageRGB)[0] * np.shape(imageRGB)[1]
+        # RGB features
+    allRed = np.reshape(imageRGB[:,:,0] , (totalPixels, 1) )
+    allGreen = np.reshape(imageRGB[:,:,1] , (totalPixels, 1) )
+    allBlue = np.reshape(imageRGB[:,:,2] , (totalPixels, 1) ) 
+    rgbColourValuesFeature = np.hstack( ( allRed, allGreen, allBlue ) )
+    
+    return rgbColourValuesFeature
 
 def create1dRGBColourHistogram(imageRGB, numberBins):
     # check number of bins is an even number [2, 256]
@@ -60,7 +212,7 @@ def create1dRGBColourHistogram(imageRGB, numberBins):
     greenHist, greenRange = np.histogram(green, histogramRange)
     blueHist, blueRange = np.histogram(blue, histogramRange)
     
-    return np.array([redHist, greenHist, blueHist]) , histogramRange
+    return np.array([redHist, greenHist, blueHist] , dtype='float') , histogramRange
 
 
 def create3dRGBColourHistogramFeature(imageRGB, numberBins):
@@ -80,7 +232,18 @@ def create3dRGBColourHistogramFeature(imageRGB, numberBins):
 
 
 # TODO implement a HSV or HS colour histogram (polar and carteasian)
-
+def createHSVColourValues(imageRGB):
+    totalPixels = np.shape(imageRGB)[0] * np.shape(imageRGB)[1]
+    
+    hsvSourceImage = color.rgb2hsv(imageRGB)
+    
+    allHuePixels = np.reshape(hsvSourceImage[:,:,0] , (totalPixels, 1) )
+    allSaturationPixels = np.reshape(hsvSourceImage[:,:,1] , (totalPixels, 1) )
+    allValueBrightPixels = np.reshape(hsvSourceImage[:,:,2] , (totalPixels, 1) ) 
+    
+    hsvColourValueFeature = np.hstack( ( allHuePixels, allSaturationPixels, allValueBrightPixels ) )
+    
+    return hsvColourValueFeature
 
 def create1dHSVColourHistogram(imageHSV, numberBins):
     # http://scikit-image.org/docs/dev/api/skimage.color.html?highlight=hsv#skimage.color.rgb2hsv
@@ -111,19 +274,17 @@ def create1dHSVColourHistogram(imageHSV, numberBins):
     imageSaturation = imageHSV[:,:,1]
     imageValueBrightness = imageHSV[:,:,2]
 
-    hueHistogramRange = np.linspace(0, hueMax, numberBinEdges)
-    saturationHistogramRange = np.linspace(0, saturationMax, numberBinEdges)
-    valueBrightHistogramRange = np.linspace(0, valueBrightMax, numberBinEdges)
+    histRange = np.linspace(0, hueMax, numberBinEdges)
     
-    hueFreq, hueRange = np.histogram(imageHue, hueHistogramRange)
-    saturationFreq, saturationRange = np.histogram(imageSaturation, saturationHistogramRange)
-    valueBrightFreq, valueBrightRange = np.histogram(imageValueBrightness, valueBrightHistogramRange)
+    hueFreq, histRange = np.histogram(imageHue, histRange)
+    saturationFreq, histRange = np.histogram(imageSaturation, histRange)
+    valueBrightFreq, histRange = np.histogram(imageValueBrightness, histRange)
     
-    hue = np.array([ hueFreq, hueRange ] )
-    sat = np.array([ saturationFreq, saturationRange ] )
-    valueBright = np.array( [ valueBrightFreq, valueBrightRange] )
+#     hue = np.array([ hueFreq, histRange ] )
+#     sat = np.array([ saturationFreq, histRange ] )
+#     valueBright = np.array( [ valueBrightFreq, histRange] )
     
-    return [ hue, sat, valueBright ]
+    return np.array( [ hueFreq, saturationFreq, valueBrightFreq ] , dtype='float' ), histRange
 
 
 def create3dHSVColourHistogramFeature(imageHSV, numberBins):
