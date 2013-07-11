@@ -12,8 +12,8 @@ from sklearn.linear_model import LogisticRegression
 
 import joblib
 
-from amb.seg import pomio, FeatureGenerator, PossumStats
-from amb.seg.FeatureGenerator import *
+import pomio, PossumStats
+from FeatureGenerator import *
 
 #
 # Data preparation utils
