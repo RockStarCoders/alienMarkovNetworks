@@ -238,7 +238,13 @@ Classification
 
 Pixel-based logistic regression.  take each pixel in each image as a data point, build a logistic regression classifier to be used as a unary potential within the CRF.
 
-Take image, generate features and then convert to ( 1 x numPixels) array.  Convert labels to array of same same shape.
+Ignore "void" pixels
+	Shotton et al state that "void pixels are ignored for training and testing".  How best to "ignore" void pixels?
+	If pixels are simply "dropped" from an input image before feature generation, the number of image has missing pixels, which makes generating features from neighbourhoods 		(LBP or filter responses) imposible without some kind of substitution regime.
+	Possible to  features for all pixels, then discard pixels with void ground truth before appending into the "image result" feature vector.  Since our classifier is learning a pixel model, there is no need for the size of the feature vector to be (numPixels x numFeatures) for every image, since input data is at the pixel level.
+
+
+Take image, generate features and then convert to ( 1 x numPixelsNotVoid) array.  Convert labels to array of same same shape.
 For all images in training/validation datasets:
 	create image features
 	reshape to (numPixels x numFeatures) np array per image

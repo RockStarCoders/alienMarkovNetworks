@@ -13,16 +13,14 @@ from scipy import signal
 
 from skimage import color, feature, io
 
-
-from src.amb.seg.DataVisualisation import createKernalWindowRanges
 import DataVisualisation
-from DataVisualisation import plot1dHSVHistogram, plot1dRGBHistogram
+from DataVisualisation import createKernalWindowRanges, plot1dHSVHistogram, plot1dRGBHistogram
 
 increment = 1
 
 def create1dRGBColourHistogram(imageRGB, numberBins):
     # check number of bins is an even number [2, 256]
-    bins = np.array([2,4,8,16,32,64,128,256])
+    bins = np.array([2,4,6,8,10,12,14,16,18,20,24,32,64,128,256])
     
     # fail if user-input number of bins is not a permitted value
     assert numberBins in bins, "User specified number of bins is not one of the permitted values:: " + str(bins)
@@ -67,10 +65,10 @@ def create1dRGBColourHistogram(imageRGB, numberBins):
 
 def create3dRGBColourHistogramFeature(imageRGB, numberBins):
     
-    bins = np.array([2,4,8,16,32,64,128,256])
+    bins = np.array([2,4,6,8,10,12,14,16,18,20,24,32,64,128,256])
     
     # fail if user-input number of bins is not a permitted value
-    assert numberBins in bins, "User specified number of bins is not one of the permitted values:: " + str(bins)
+    assert numberBins in bins, ("User specified number of bins is not one of the permitted values:: " + str(bins))
     
     numPixels = np.shape(imageRGB[:,:,0])[0] * np.shape(imageRGB[:,:,0])[1]
     numColourChannels = 3
@@ -84,17 +82,14 @@ def create3dRGBColourHistogramFeature(imageRGB, numberBins):
 # TODO implement a HSV or HS colour histogram (polar and carteasian)
 
 
-def create1dHSVColourHistogram(imageRGB, numberBins):
+def create1dHSVColourHistogram(imageHSV, numberBins):
     # http://scikit-image.org/docs/dev/api/skimage.color.html?highlight=hsv#skimage.color.rgb2hsv
     # HSV stands for hue, saturation, and value.
     # In each cylinder, the angle around the central vertical axis corresponds to hue, the distance from the axis corresponds to saturation, and the distance along the axis corresponds to value.
     # H = [0,360], S= [0,1] and V=[0,1]
-    bins = np.array([2, 4, 8, 10, 12, 14, 16, 18, 20])
+    bins = np.array([2, 4, 6, 8, 10, 12, 14, 16, 18, 20,24,32])
     assert numberBins in bins, "User specified number of bins is not one of the permitted values:: " + str(bins)
     numberBinEdges = numberBins + 1
-    
-    imageHSV = color.rgb2hsv(imageRGB)
-    imageRGB = None
     
     # assume the 3D array is in H, S, V order
     numColourChannels = np.shape(imageHSV)[2]
@@ -113,11 +108,6 @@ def create1dHSVColourHistogram(imageRGB, numberBins):
     
     # Need to slice and dice the result from the n,n,3 np array correctly....
     imageHue = imageHSV[:,:,0]
-    
-    print "Shape of HSV image object::"
-    print imageHue.shape
-    print imageHSV[:,:,0].shape
-    
     imageSaturation = imageHSV[:,:,1]
     imageValueBrightness = imageHSV[:,:,2]
 
@@ -130,8 +120,6 @@ def create1dHSVColourHistogram(imageRGB, numberBins):
     valueBrightFreq, valueBrightRange = np.histogram(imageValueBrightness, valueBrightHistogramRange)
     
     hue = np.array([ hueFreq, hueRange ] )
-    print "Hue histogram result"
-    print hue
     sat = np.array([ saturationFreq, saturationRange ] )
     valueBright = np.array( [ valueBrightFreq, valueBrightRange] )
     
@@ -140,7 +128,7 @@ def create1dHSVColourHistogram(imageRGB, numberBins):
 
 def create3dHSVColourHistogramFeature(imageHSV, numberBins):
     
-    bins = np.array([2,4,8,16,32,64,128,256])
+    bins = np.array([2, 4, 6, 8, 10, 12, 14, 16, 18, 20,24,32])
     
     # fail if user-input number of bins is not a permitted value
     assert numberBins in bins, "User specified number of bins is not one of the permitted values:: " + str(bins)
