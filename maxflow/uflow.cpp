@@ -346,12 +346,11 @@ void inferenceNABSwap(
     std::cout << "\t** iteration " << ic << "\n";
 
     success = false;
-    // for each pair of labels {a,b} in L
+    // for each UNIQUE pair of labels {a,b} in L
     for ( int a=0; a<nbLabels; ++a )
     {
-      for ( int b=0; b<nbLabels; ++b )
+      for ( int b=a+1; b<nbLabels; ++b )
       {
-        if (a==b) continue;
         std::cout << "\t**  ab = " << a << "," << b << "\n";
         // find xhat = argmin E(x') among x' within one a-b swap of x
 
