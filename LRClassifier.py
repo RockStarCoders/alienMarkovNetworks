@@ -419,7 +419,7 @@ def readLabeledDataFromCsv(baseFilename):
     return [featureData, labelData]
 
 
-# Pickle serialisation utils
+# Numpy serialisation utils
 
 def serialiseLabeledDataToFile(features, labels, baseFileLocation):
     saveNumpyData(features, str(baseFileLocation + "Data.npy"))
@@ -429,8 +429,8 @@ def saveNumpyData(data, filename):
     np.save(filename, data)
 
 def readLabeledNumpyData(baseFileLocation):
-    features = saveNumpyData(str(baseFileLocation + "Data.npy"))
-    labels = saveNumpyData(str(baseFileLocation + "Labels.npy"))
+    features = loadNumpyData(str(baseFileLocation + "Data.npy"))
+    labels = loadNumpyData(str(baseFileLocation + "Labels.npy"))
     return [features, labels]
     
 def loadNumpyData(filename):
@@ -484,16 +484,16 @@ numHistBins = 8
 # processLabeledImageData(trainDataset, trainingPixelBaseFilename, "csv", numGradientBins, numHistBins, ignoreVoid=True)
 
 
-print "Now creating data for classifier development, using 20% of MSRC data, serialisation for persistence."
-splitData = splitInputDataset_msrcData(msrcData, datasetScale=0.2, keepClassDist=False, train=0.6, validation=0.2, test=0.2)
-trainDataset = splitData[0]
-validationDataset = splitData[1]
-testDataset = splitData[2]
-
-print "Re-processing validation and serialising for IO::"
-processLabeledImageData(validationDataset, validationPixelBaseFilename, "pickle", numGradientBins, numHistBins, ignoreVoid=True)
-processLabeledImageData(trainDataset, trainingPixelBaseFilename, "pickle", numGradientBins, numHistBins, ignoreVoid=True)
-processLabeledImageData(testDataset, testingPixelBaseFilename, "pickle", numGradientBins, numHistBins, ignoreVoid=True)
+# print "Now creating data for classifier development, using 20% of MSRC data, serialisation for persistence."
+# splitData = splitInputDataset_msrcData(msrcData, datasetScale=0.2, keepClassDist=False, train=0.6, validation=0.2, test=0.2)
+# trainDataset = splitData[0]
+# validationDataset = splitData[1]
+# testDataset = splitData[2]
+# 
+# print "Re-processing validation and serialising for IO::"
+# processLabeledImageData(validationDataset, validationPixelBaseFilename, "pickle", numGradientBins, numHistBins, ignoreVoid=True)
+# processLabeledImageData(trainDataset, trainingPixelBaseFilename, "pickle", numGradientBins, numHistBins, ignoreVoid=True)
+# processLabeledImageData(testDataset, testingPixelBaseFilename, "pickle", numGradientBins, numHistBins, ignoreVoid=True)
 
 print "Now reading training & validation datasets for LRclassifier development"
 validationData = readLabeledNumpyData(validationPixelBaseFilename)
