@@ -207,7 +207,7 @@ def testClassifier(classifier, testFeatures, testClassLabels, resultsFile, scale
 def crossValidation_Cparam(trainingData, validationData, classifierBaseFile, classifierBaseTestOutputFile, C_min, C_max, C_increment):
     
     assert (C_min <= C_max) , "C_min param value should be less than or equal to C_max param value."
-    assert C_increment == 0, "You specified min and max for C param; C_increment value must NOT be 0"
+    assert C_increment != 0, "You specified min and max for C param; C_increment value must NOT be 0"
     assert (np.size(np.shape(trainingData)) == 2 and np.size(np.shape(validationData)) == 2) , ("Training data and test data must be list of length 2 (first element giving feature array, second giving label array. #Training=" + str(np.size(np.shape(trainingData)) + ", #test=" + str(np.shape(validationData)))) 
     
     # Get training data
