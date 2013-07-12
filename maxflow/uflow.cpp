@@ -41,9 +41,13 @@ double ultraflow_inference2(
   double*         cMatSinkEdge,
   NbrCallbackType nbrEdgeCostCallback,
   void*           nbrEdgeCostCallbackData,
-  int32_t*        cMatOut
+  int32_t*        cMatOut,
+  bool*           validMask
 )
 {
+  // The wxh array validMask indicates whether each pixel is a valid part of the
+  // optimisation.  For example in ab-swaps non-ab pixels are not part of it so
+  // have different nbr weights.  If the array is null then not used at all.
   const int n = rows*cols;  
   assert( nbImgChannels == 3 ); // currently only support RGB
   assert( nhoodSize == 4 || nhoodSize == 8 );
@@ -100,21 +104,33 @@ double ultraflow_inference2(
         pixG = cMatInputImage[idx*3+1],
         pixB = cMatInputImage[idx*3+2];
 
+      bool validPix = validMask==NULL || validMask[idx];
+
       for ( int j=0; j<nhoodLen; ++j ){
         const int nr = r + nhood[j][0];
         const int nc = c + nhood[j][1];
         if ( 0 <= nr && nr < rows && 0 <= nc && nc < cols )
         {
           const int nidx = nr*cols + nc;
-          double nbrR = cMatInputImage[nidx*3+0],
-            nbrG = cMatInputImage[nidx*3+1],
-            nbrB = cMatInputImage[nidx*3+2];
+          bool nbrValidPix = validMask==NULL || validMask[nidx];
+          double wt;
 
-          const double wt = nbrEdgeCostCallback(
-            pixR, pixG, pixB,
-            nbrR, nbrG,  nbrB,
-            nbrEdgeCostCallbackData 
-          );
+          if ( validPix && nbrValidPix )
+          {
+            double nbrR = cMatInputImage[nidx*3+0],
+              nbrG = cMatInputImage[nidx*3+1],
+              nbrB = cMatInputImage[nidx*3+2];
+            
+            wt = nbrEdgeCostCallback(
+              pixR, pixG, pixB,
+              nbrR, nbrG,  nbrB,
+              nbrEdgeCostCallbackData 
+            );
+          }
+          else
+          {
+            wt = 0.0;
+          }
           g->add_edge( idx, nidx, wt, wt );
           ++edgeCt;
         }
@@ -125,7 +141,7 @@ double ultraflow_inference2(
   assert( edgeCt == nbNEdges );
 
   // inference time
-	double flow = g->maxflow();
+  double flow = g->maxflow();
 
   if (dbg)
   {
@@ -142,171 +158,174 @@ double ultraflow_inference2(
 }
 
 
-////////////////////////////////////////////////////////////////////////////////
-void inferenceNABSwap(
-  int             nhoodSize,
-  int             rows,
-  int             cols,
-  int             nbImgChannels,
-  int             nbLabels,
-  double*         cMatInputImage,
-  double*         cMatLabelWeights,
-  NbrCallbackType nbrEdgeCostCallback,
-  void*           nbrEdgeCostCallbackData,
-  int32_t*        cMatOut
-)
-{
-  std::cout << "N-label AB swap algorithm, " << nbLabels << " labels.\n";
-  // todo: for now include whole graph.  But actually the graph only needs to
-  // have nodes whose label is alpha or beta.  See PyMaxFlow for example.  It's
-  // more complicated because then the cut weight is not the energy of the
-  // labelling.
-  
-  const int maxIterations = 100;
-  const int npix = rows*cols;
-
-  std::cout << "I think image ul pix = " << cMatInputImage[0]
-            << ", " << cMatInputImage[1] << ", "
-            << cMatInputImage[2] << "\n";
-
-  // start with arbitrary labelling.  Note our current labelling is called "x"
-  // in the alg (chaper 3 of the MRF book), here x == cMatOut.
-  std::fill( cMatOut, cMatOut + npix, 0 );
-  // Rather than complicated computation of the energy of this labelling, assume
-  // it's not the optimal result and so the next result will be better.
-  // todo: fix?
-  double Ex = std::numeric_limits<double>::infinity();
-  bool success;
-  boost::scoped_array< int32_t > t( new int32_t[npix] );
-  boost::scoped_array< double > srcEdges( new double[npix] );
-  boost::scoped_array< double > snkEdges( new double[npix] );
-
-  for ( int ic=0; ic<maxIterations; ++ic )
+  ////////////////////////////////////////////////////////////////////////////////
+  void inferenceNABSwap(
+    int             nhoodSize,
+    int             rows,
+    int             cols,
+    int             nbImgChannels,
+    int             nbLabels,
+    double*         cMatInputImage,
+    double*         cMatLabelWeights,
+    NbrCallbackType nbrEdgeCostCallback,
+    void*           nbrEdgeCostCallbackData,
+    int32_t*        cMatOut
+  )
   {
-    std::cout << "\t** iteration " << ic << "\n";
+    std::cout << "N-label AB swap algorithm, " << nbLabels << " labels.\n";
+    // todo: for now include whole graph.  But actually the graph only needs to
+    // have nodes whose label is alpha or beta.  See PyMaxFlow for example.  It's
+    // more complicated because then the cut weight is not the energy of the
+    // labelling.
+  
+    const int maxIterations = 100;
+    const int npix = rows*cols;
 
-    success = false;
-    // for each pair of labels {a,b} in L
-    for ( int a=0; a<nbLabels; ++a )
+    std::cout << "I think image ul pix = " << cMatInputImage[0]
+              << ", " << cMatInputImage[1] << ", "
+              << cMatInputImage[2] << "\n";
+
+    // start with arbitrary labelling.  Note our current labelling is called "x"
+    // in the alg (chaper 3 of the MRF book), here x == cMatOut.
+    std::fill( cMatOut, cMatOut + npix, 0 );
+    // Rather than complicated computation of the energy of this labelling, assume
+    // it's not the optimal result and so the next result will be better.
+    // todo: fix?
+    double Ex = std::numeric_limits<double>::infinity();
+    bool success;
+    boost::scoped_array< int32_t > t( new int32_t[npix] );
+    boost::scoped_array< double > srcEdges( new double[npix] );
+    boost::scoped_array< double > snkEdges( new double[npix] );
+    boost::scoped_array< bool >   validMask( new bool[npix] );
+
+    for ( int ic=0; ic<maxIterations; ++ic )
     {
-      for ( int b=0; b<nbLabels; ++b )
+      std::cout << "\t** iteration " << ic << "\n";
+
+      success = false;
+      // for each pair of labels {a,b} in L
+      for ( int a=0; a<nbLabels; ++a )
       {
-        if (a==b) continue;
-        std::cout << "\t**  ab = " << a << "," << b << "\n";
-        // find xhat = argmin E(x') among x' within one a-b swap of x
-
-        // Use our 2-class inference to determine the transformation labels t.
-
-        // Set up source and sink edges.
-        for ( int i=0; i<npix; ++i )
+        for ( int b=0; b<nbLabels; ++b )
         {
-          assert( 0 <= cMatOut[i] && cMatOut[i] < nbLabels );
+          if (a==b) continue;
+          std::cout << "\t**  ab = " << a << "," << b << "\n";
+          // find xhat = argmin E(x') among x' within one a-b swap of x
 
-          if ( cMatOut[i] == a || cMatOut[i] == b )
-          {
-            // t == 0 case, label a is assigned.
-            srcEdges[i] = cMatLabelWeights[ i*nbLabels + a ];
-            // t == 1 case, label b is assigned.
-            snkEdges[i] = cMatLabelWeights[ i*nbLabels + b ];
-          }
-          else
-          {
-            // This pixel is not a candidate for swapping.  Arbitrarily
-            // associate with the source.  Guarantee that by setting one
-            // weight to Inf.
-            srcEdges[i] = cMatLabelWeights[ i*nbLabels + cMatOut[i] ];
-            snkEdges[i] = std::numeric_limits<double>::infinity();
-          }
-        }// for i
-        
-        // For the edge weight we need to wrap the simple 2-class callback 
-        // with a function of the 
-        // todo: make nbr cost as function of a-b class labels
-        const double Exhat = ultraflow_inference2(
-          nhoodSize,
-          rows,
-          cols,
-          nbImgChannels,
-          cMatInputImage,
-          srcEdges.get(),
-          snkEdges.get(),
-          nbrEdgeCostCallback,
-          nbrEdgeCostCallbackData,
-          t.get()
-        );
-       
-        // If E(xhat) < E(x) set x = xhat and success = 1
-        if ( Exhat < Ex )
-        {
-          // We set x = xhat, which means use optimal move / transformation to
-          // construct xhat.
+          // Use our 2-class inference to determine the transformation labels t.
+
+          // Set up source and sink edges.
           for ( int i=0; i<npix; ++i )
           {
+            assert( 0 <= cMatOut[i] && cMatOut[i] < nbLabels );
+
             if ( cMatOut[i] == a || cMatOut[i] == b )
             {
-              // A candidate for swap.  Depends on t.
-              cMatOut[i] = t[i] ? b : a;
+              // t == 0 case, label a is assigned.
+              srcEdges[i] = cMatLabelWeights[ i*nbLabels + a ];
+              // t == 1 case, label b is assigned.
+              snkEdges[i] = cMatLabelWeights[ i*nbLabels + b ];
+              validMask[i] = true;
             }
+            else
+            {
+              // This pixel is not a candidate for swapping.  Arbitrarily
+              // associate with the source.  Guarantee that by setting one
+              // weight to Inf.
+              srcEdges[i] = cMatLabelWeights[ i*nbLabels + cMatOut[i] ];
+              snkEdges[i] = std::numeric_limits<double>::infinity();
+              validMask[i] = false;
+            }
+          }// for i
+        
+          // For the edge weight we need to wrap the simple 2-class callback 
+          // with a function of the 
+          // todo: make nbr cost as function of a-b class labels
+          const double Exhat = ultraflow_inference2(
+            nhoodSize,
+            rows,
+            cols,
+            nbImgChannels,
+            cMatInputImage,
+            srcEdges.get(),
+            snkEdges.get(),
+            nbrEdgeCostCallback,
+            nbrEdgeCostCallbackData,
+            t.get()
+          );
+       
+          // If E(xhat) < E(x) set x = xhat and success = 1
+          if ( Exhat < Ex )
+          {
+            // We set x = xhat, which means use optimal move / transformation to
+            // construct xhat.
+            for ( int i=0; i<npix; ++i )
+            {
+              if ( cMatOut[i] == a || cMatOut[i] == b )
+              {
+                // A candidate for swap.  Depends on t.
+                cMatOut[i] = t[i] ? b : a;
+              }
+            }
+            Ex = Exhat;
+            std::cout << "\t**  criterion Ex = " << Ex << "\n";
+            success = true;
           }
-          Ex = Exhat;
-          std::cout << "\t**  criterion Ex = " << Ex << "\n";
-          success = true;
-        }
 
-      }// for b
-    }// for a
+        }// for b
+      }// for a
 
-    if ( !success )
+      if ( !success )
+      {
+        break;
+      }
+    }// for ic
+
+    if ( success )
     {
-      break;
+      std::cerr << "Warning: maximum iterations reached in inferenceNABSwap"
+                << std::endl;
     }
-  }// for ic
+    std::cout << "** abswap complete!\n";
+  }
 
-  if ( success )
+  ////////////////////////////////////////////////////////////////////////////////
+  void ultraflow_inferenceN(
+    char*           method,
+    int             nhoodSize,
+    int             rows,
+    int             cols,
+    int             nbImgChannels,
+    int             nbLabels,
+    double*         cMatInputImage,
+    double*         cMatLabelWeights,
+    NbrCallbackType nbrEdgeCostCallback,
+    void*           nbrEdgeCostCallbackData,
+    int32_t*        cMatOut
+  )
   {
-    std::cerr << "Warning: maximum iterations reached in inferenceNABSwap"
-              << std::endl;
+    if ( method == std::string("abswap") )
+    {
+      inferenceNABSwap(
+        nhoodSize,
+        rows,
+        cols,
+        nbImgChannels,
+        nbLabels,
+        cMatInputImage,
+        cMatLabelWeights,
+        nbrEdgeCostCallback,
+        nbrEdgeCostCallbackData,
+        cMatOut
+      );
+    }
+    else if ( method == std::string("aexpansion") )
+    {
+      throw( UflowException( "alpha expansion not yet implemented" ) );
+    }
+    else
+    {
+      throw( UflowException( ("Unrecognised inferenceN method '"
+            + std::string(method) + "'").c_str() ) );
+    }
   }
-  std::cout << "** abswap complete!\n";
-}
-
-////////////////////////////////////////////////////////////////////////////////
-void ultraflow_inferenceN(
-  char*           method,
-  int             nhoodSize,
-  int             rows,
-  int             cols,
-  int             nbImgChannels,
-  int             nbLabels,
-  double*         cMatInputImage,
-  double*         cMatLabelWeights,
-  NbrCallbackType nbrEdgeCostCallback,
-  void*           nbrEdgeCostCallbackData,
-  int32_t*        cMatOut
-)
-{
-  if ( method == std::string("abswap") )
-  {
-    inferenceNABSwap(
-      nhoodSize,
-      rows,
-      cols,
-      nbImgChannels,
-      nbLabels,
-      cMatInputImage,
-      cMatLabelWeights,
-      nbrEdgeCostCallback,
-      nbrEdgeCostCallbackData,
-      cMatOut
-    );
-  }
-  else if ( method == std::string("aexpansion") )
-  {
-    throw( UflowException( "alpha expansion not yet implemented" ) );
-  }
-  else
-  {
-    throw( UflowException( ("Unrecognised inferenceN method '"
-          + std::string(method) + "'").c_str() ) );
-  }
-}
