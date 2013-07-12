@@ -148,19 +148,21 @@ def randomSampleFromData(data):
 
 
 
-def trainLogisticRegressionModel(features, labels, Cvalue, outputClassifierFile, scaleData=True):
+def trainLogisticRegressionModel(featureData, labels, Cvalue, outputClassifierFile, scaleData=True):
     # See [http://scikit-learn.org/dev/modules/generated/sklearn.linear_model.LogisticRegression.html]
     # Features are numPixel x unmFeature np arrays, labels are numPixel np array
+    numTrainDataPoints = np.shape(featureData)[0]
+    numLabels = np.size(labels)
     
     assert ( np.size( np.shape(labels) ) == 1) , ("Labels should be a 1d array.  Shape of labels = " + str(np.shape(labels)))
-    assert (np.size(features[0]) == np.size(labels)) , ("The length of the feature and label data arrays must be equal.  Features=" + str(np.size(features[0])) + ", labels=" + str(np.size(labels)))
-    
-    if scaleData:
-        features = preprocessing.scale(features)
+    assert ( numTrainDataPoints == numLabels) , ("The length of the feature and label data arrays must be equal.  Num data points=" + str(numTrainDataPoints) + ", labels=" + str(numLabels) )
+     
+    if scaleData == True:
+        featureData = preprocessing.scale(featureData)
     
     # sklearn.linear_model.LogisticRegression(penalty='l2', dual=False, tol=0.0001, C=1.0, fit_intercept=True, intercept_scaling=1, class_weight=None, random_state=None)
     lrc = LogisticRegression(penalty='l1' , dual=False, tol=0.0001, C=Cvalue, fit_intercept=True, intercept_scaling=1)
-    lrc.fit(features, labels)
+    lrc.fit(featureData, labels)
     # See http://stackoverflow.com/questions/10592605/save-naivebayes-classifier-to-disk-in-scikits-learn
     joblib.dump(lrc, outputClassifierFile, compress=1)
     print "LogisticRegression classifier saved to " + str(outputClassifierFile)
@@ -213,33 +215,51 @@ def crossValidation_Cparam(trainingData, validationData, classifierBaseFile, cla
     # Get training data
     trainFeatureData = trainingData[0]
     trainLabelData = trainingData[1]
-    assert ((np.size(trainFeatureData[0]) == np.size(trainLabelData))) , "TRAIN data error:: Number of feature vectors must equal number of labels. #trainingFeatures=" + ""
+    numTrainData = np.shape(trainFeatureData)[0]
+    numTrainLabels = np.size(trainLabelData)
+    
+    assert ( numTrainData == numTrainLabels ) , "TRAIN data error:: Number of feature vectors must equal number of labels. #trainingFeatures=" + ""
     
     # Get test data
     validationFeatureData = validationData[0]
     validationLabelData = validationData[1]
-    assert ((np.size(validationFeatureData[0]) == np.size(validationLabelData))) , "VALIDATION data error:: Number of feature vectors must equal number of labels. #trainingFeatures=" + ""
+    numValidData = np.shape(validationFeatureData)[0]
+    numValidLabels = np.size(validationLabelData)
+    
+    assert ( numValidData == numValidLabels ) , "VALIDATION data error:: Number of feature vectors must equal number of labels. #trainingFeatures=" + ""
+    
+    print "Now training classifiers for specified C params::"
     
     cvResult = None
     
-    # Just traing and test on single C_value
+    # Just train and test on single C_value
     if C_min == C_max:
+        
         print "\nTraining classifier C="+str(C_min)
-        classifier = trainLogisticRegressionModel(trainFeatureData, trainLabelData, 0.1, classifierBaseFile + "_" + str(C_min) + "_joblib.pkl", True)
+        classifierName = classifierBaseFile + "_" + str(C_min) + "_joblib.pkl"
+        classifier = trainLogisticRegressionModel(trainFeatureData, trainLabelData, 0.1, classifierName, True)
         meanAccuracy = testClassifier(classifier, validationFeatureData, validationLabelData, classifierBaseTestOutputFile + "_" + str(C_min) + ".csv", True)
-        cvResult = np.array( [ C_min, meanAccuracy]) 
+        
+        cvResult = np.array( [ C_min, meanAccuracy])
+        return cvResult
+    
     else:
+
         # Now run cross-validation on each C param, persisting classifier CV performance and corresponding classifier object to file
-        for C_param in np.linspace(C_min, C_max, C_increment):
+        Crange = np.arange(0, C_max+C_increment, C_increment)
+        print "Training classifiers with C params in range:" , Crange
+         
+        for idx in range(0, len(Crange)):
+            C_param = Crange[idx]
             print "\nTraining classifier C="+str(C_param)
             classifier = trainLogisticRegressionModel(trainFeatureData, trainLabelData, 0.1, classifierBaseFile + "_" + str(C_param) + "_joblib.pkl", True)
+            print "Classifier trained, now using scikit learn test function"
             meanAccuracy = testClassifier(classifier, validationFeatureData, validationLabelData, classifierBaseTestOutputFile + str(C_param) + "_" + ".csv", True)
             if cvResult == None:
                 cvResult = np.array( [C_param , meanAccuracy ])
             else:
                 cvResult = np.vstack( [ cvResult , np.array( [ C_param, meanAccuracy] ) ] )
-                
-    return cvResult
+        return cvResult
 
 
 def processLabeledImageData(inputMsrcImages, outputFileLocation, persistenceType, numGradientBins, numHistBins, ignoreVoid=False,):
@@ -503,7 +523,7 @@ trainingData = readLabeledNumpyData(trainingPixelBaseFilename)
 # cross-validation on C param
 # TODO refactor to use test method
 C_min = 0.1
-C_max = 1
+C_max = 1.0
 C_increment = 0.1
 cvResult = crossValidation_Cparam(trainingData, validationData, classifierBaseFilename, validationResultsBaseFilename, C_min, C_max, C_increment)
-print "CV results for different C params:n" , cvResult
+print "CV results for different C params:\n" , cvResult
