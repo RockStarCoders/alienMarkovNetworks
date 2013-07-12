@@ -1,4 +1,7 @@
+#!/usr/bin/env python
+
 import numpy as np
+import sys
 
 from scipy.misc import factorial as factorial
 
@@ -215,7 +218,7 @@ def neighbourClassImageCount(msrcDataLocation, outputFileLocation):
     
     
 # Simple tests
-msrcData = "/home/amb/dev/mrf/data/MSRC_ObjCategImageDatabase_v2"
+msrcData = sys.argv[1]#"/home/amb/dev/mrf/data/MSRC_ObjCategImageDatabase_v2"
 
 imageCountPerClass(msrcData)
 
