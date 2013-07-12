@@ -169,43 +169,22 @@ def trainLogisticRegressionModel(featureData, labels, Cvalue, outputClassifierFi
     
     return lrc
 
-def testClassifier(classifier, testFeatures, testClassLabels, resultsFile, scaleData=True):
+
+def testClassifier(classifier, testFeatureData, testLabels, resultsFile, scaleData=True):
     # predict on testFeatures, compare to testClassLabels, return the results
-    meanAccuracy = classifier.test(testFeatures, testClassLabels)
+    predictions = classifier.predict(testFeatureData)
+    probs = classifier.predict_proba(testFeatureData)
+    probs = probs[:,0]
+    probs = probs / np.sum(probs)
     
+    for idx in range(0 , len(predictions)):
+        if predictions[idx] == testLabels[idx]:   
+            print "\tMiracle!  Prediction#" + str(idx) + "=(" + str(predictions[idx]) + " , " + str(probs[idx]) + " testLabel= " + str(testLabels[idx]) 
+
+    meanAccuracy = classifier.score(testFeatureData, testLabels)
     return meanAccuracy
-#     numberCorrectPredictions = 0 
-#     
-#     totalCases = np.shape(testClassLabels)[0]
-#     results = None
-#     
-#     for valueIdx in range(0 , totalCases):
-#         
-#         result = np.array([ predictions[valueIdx] , testClassLabels[valueIdx] ])
-#         
-#         # Compile results
-#         if results == None:
-#             results = result
-#         else:
-#             results = np.vstack((results, result))
-#         # increment count of correct classifications    
-#         if predictions[valueIdx] == testClassLabels[valueIdx]:
-#             numberCorrectPredictions = numberCorrectPredictions + 1
-#     
-#     # Save case-by-case scores
-#     np.savetxt(resultsFile, results, fmt="%.5f", delimiter=",")
-#     
-#     # persist summary
-#     summary = np.array( [ numberCorrectPredictions, totalCases ] )
-#     sio = StringIO()
-#     np.savetxt(sio, summary, fmt="%.3f", delimiter=",")
-#     f = open(resultsFile, 'a')
-#     f.write(sio.getvalue())
-#     f.flush()
-#     f.close()
-#     
-#     print "Classifier %correct=:: ", str( np.round(float(numberCorrectPredictions) / float(totalCases) * 100 , 4))
-    
+
+
 def crossValidation_Cparam(trainingData, validationData, classifierBaseFile, classifierBaseTestOutputFile, C_min, C_max, C_increment):
     
     assert (C_min <= C_max) , "C_min param value should be less than or equal to C_max param value."
@@ -214,19 +193,29 @@ def crossValidation_Cparam(trainingData, validationData, classifierBaseFile, cla
     
     # Get training data
     trainFeatureData = trainingData[0]
-    trainLabelData = trainingData[1]
+    trainLabels = trainingData[1]
     numTrainData = np.shape(trainFeatureData)[0]
-    numTrainLabels = np.size(trainLabelData)
+    numTrainLabels = np.size(trainLabels)
     
     assert ( numTrainData == numTrainLabels ) , "TRAIN data error:: Number of feature vectors must equal number of labels. #trainingFeatures=" + ""
     
     # Get test data
     validationFeatureData = validationData[0]
-    validationLabelData = validationData[1]
+    validationLabels = validationData[1]
     numValidData = np.shape(validationFeatureData)[0]
-    numValidLabels = np.size(validationLabelData)
+    numValidLabels = np.size(validationLabels)
     
     assert ( numValidData == numValidLabels ) , "VALIDATION data error:: Number of feature vectors must equal number of labels. #trainingFeatures=" + ""
+    
+    
+    # Trim the data for testing!
+    maxTrain = 20000
+    maxValid = 30
+    trainFeatureData = trainFeatureData[0:maxTrain]
+    trainLabels = trainLabels[0:maxTrain]
+    validationFeatureData = validationFeatureData[0:maxValid]
+    validationLabels = validationLabels[0:maxValid]
+    print "Trim the data to " + str(maxTrain) + " examples for train, " + str(maxValid) + " for valid:" , np.shape(trainFeatureData) , np.shape(trainLabels) , np.shape(validationFeatureData) , np.shape(validationLabels)
     
     print "Now training classifiers for specified C params::"
     
@@ -237,8 +226,8 @@ def crossValidation_Cparam(trainingData, validationData, classifierBaseFile, cla
         
         print "\nTraining classifier C="+str(C_min)
         classifierName = classifierBaseFile + "_" + str(C_min) + "_joblib.pkl"
-        classifier = trainLogisticRegressionModel(trainFeatureData, trainLabelData, 0.1, classifierName, True)
-        meanAccuracy = testClassifier(classifier, validationFeatureData, validationLabelData, classifierBaseTestOutputFile + "_" + str(C_min) + ".csv", True)
+        classifier = trainLogisticRegressionModel(trainFeatureData, trainLabels, 0.1, classifierName, True)
+        meanAccuracy = testClassifier(classifier, validationFeatureData, validationLabels, classifierBaseTestOutputFile + "_" + str(C_min) + ".csv", True)
         
         cvResult = np.array( [ C_min, meanAccuracy])
         return cvResult
@@ -252,9 +241,9 @@ def crossValidation_Cparam(trainingData, validationData, classifierBaseFile, cla
         for idx in range(0, len(Crange)):
             C_param = Crange[idx]
             print "\nTraining classifier C="+str(C_param)
-            classifier = trainLogisticRegressionModel(trainFeatureData, trainLabelData, 0.1, classifierBaseFile + "_" + str(C_param) + "_joblib.pkl", True)
+            classifier = trainLogisticRegressionModel(trainFeatureData, trainLabels, 0.1, classifierBaseFile + "_" + str(C_param) + "_joblib.pkl", True)
             print "Classifier trained, now using scikit learn test function"
-            meanAccuracy = testClassifier(classifier, validationFeatureData, validationLabelData, classifierBaseTestOutputFile + str(C_param) + "_" + ".csv", True)
+            meanAccuracy = testClassifier(classifier, validationFeatureData, validationLabels, classifierBaseTestOutputFile + str(C_param) + "_" + ".csv", True)
             if cvResult == None:
                 cvResult = np.array( [C_param , meanAccuracy ])
             else:
@@ -359,10 +348,16 @@ def generateImagePredictionClassDist(rgbImage, classifier, numberLabels, numGrad
     allImagePixelFeatures = FeatureGenerator.generatePixelFeaturesForImage(rgbImage, numGradientBins, numHistBins)
     
     allPixelClassPredictions = classifier.predict(allImagePixelFeatures)
-    allPixelClassProbs = classifier.probabilities(allImagePixelFeatures)
     
+    # Multi-class LR gives "one versus all" i.e. [ P(Class) , P(not Class) ]  rather than [P(class1), P(class2) , ... , P(classN) ]
+    # Get P(class) column values
+    allPixelClassProbs = classifier.predict_proba(allImagePixelFeatures)
+    allPixelClassProbs = allPixelClassProbs[:,0]
+    print "Shape of predicted class probs::" , np.shape(allPixelClassProbs)
     # TODO Investigate whether need some sorting mechanism or if class labels are returned sorted classidx0, classidx1... classidxN
     imageClassPredictions = np.reshape(allPixelClassPredictions , (xPixels, yPixels, numClasses) )
+    
+    
     imageClassProbs = np.reshape(allPixelClassProbs , (xPixels, yPixels, numClasses) )
     
     for classIdx in range(0, numClasses):
