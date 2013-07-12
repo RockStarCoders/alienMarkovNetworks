@@ -46,7 +46,7 @@ def imageCountPerClass(msrcDataLocation):
     return result
     
 
-def pixelCountPerClass(msrcDataLocation):
+def totalPixelCountPerClass(msrcDataLocation):
     classes = pomio.msrc_classLabels
     totalClasses = np.size(classes)
     
@@ -91,7 +91,32 @@ def pixelCountPerClass(msrcDataLocation):
     print "\nPixel count difference = " + str(totalPixels - np.sum(result[1].astype('uint'))) 
     
     return result
+
+
+def imagePixelCountPerClass(msrcImage):
+    classes = pomio.msrc_classLabels
+    totalClasses = np.size(classes)
     
+    totalPixels = 0
+    classPixelCount = np.arange(0,totalClasses)
+    
+    
+    for classIdx in range(0,totalClasses):
+        
+        classValue = classes[classIdx]
+        
+        imageGroundTruth = msrcImage.m_gt
+            
+        pixelCountForClass = imageGroundTruth[(imageGroundTruth == classIdx)].size
+            
+        # add total count to the class count result
+        print "Class name = " + str(classValue), "class index=" , classIdx, ", pixel count=" + str(pixelCountForClass)
+        
+        classPixelCount[classIdx] = int(pixelCountForClass)
+    
+    result = np.array([classes, classPixelCount])
+    
+    return result    
 
 def areAllMsrcGroundTruthImagesTheSameSize(msrcDataLocation):
     msrcImages = pomio.msrc_loadImages(msrcDataLocation)
@@ -214,15 +239,15 @@ def neighbourClassImageCount(msrcDataLocation, outputFileLocation):
                         
     print "Shape of result data::", np.shape(result)
     print "Class pair image count result::",  result
-    np.savetxt(outputFileLocation, result, delimiter=",", fmt="%s")
+    np.savetxt(outputFileLocation, result, delimiter=",", fmt="%.32f")
     
     
 # Simple tests
 msrcData = sys.argv[1]#"/home/amb/dev/mrf/data/MSRC_ObjCategImageDatabase_v2"
 
-imageCountPerClass(msrcData)
+# imageCountPerClass(msrcData)
 
-pixelCountPerClass(msrcData)
+# pixelCountPerClass(msrcData)
 
 # print "Are images in the MSRC ground truth dataset all the same size?", areAllMsrcGroundTruthImagesTheSameSize(msrcData)
 
