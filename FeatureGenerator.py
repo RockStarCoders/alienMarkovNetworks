@@ -144,8 +144,8 @@ def generatePixelFeaturesForImage(rgbSourceImage, numGradientBins, numHistBins):
     imageFeatures = np.hstack( [ \
                                 rgbColourValuesFeature, \
 #                                 rgbColour1DHistogramFeatures, \
-                                rgbColour3DHistogramFeatures, \
-                                hsvColourValueFeature, \
+#                                 rgbColour3DHistogramFeatures, \
+#                                 hsvColourValueFeature, \
 #                                 hsvColour1DHistogramFeatures, \
                                 hsvColour3DHistogramFeatures,  \
                                 hogFeatures, \

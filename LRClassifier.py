@@ -12,7 +12,7 @@ from sklearn.linear_model import LogisticRegression
 
 import joblib
 
-import pomio, PossumStats
+import pomio, FeatureGenerator, PossumStats
 from FeatureGenerator import *
 
 #
@@ -169,39 +169,40 @@ def trainLogisticRegressionModel(features, labels, Cvalue, outputClassifierFile,
 
 def testClassifier(classifier, testFeatures, testClassLabels, resultsFile, scaleData=True):
     # predict on testFeatures, compare to testClassLabels, return the results
-    predictions = classifier.predict(testFeatures)
+    meanAccuracy = classifier.test(testFeatures, testClassLabels)
     
-    numberCorrectPredictions = 0 
-    
-    totalCases = np.shape(testClassLabels)[0]
-    results = None
-    
-    for valueIdx in range(0 , totalCases):
-        
-        result = np.array([ predictions[valueIdx] , testClassLabels[valueIdx] ])
-        
-        # Compile results
-        if results == None:
-            results = result
-        else:
-            results = np.vstack((results, result))
-        # increment count of correct classifications    
-        if predictions[valueIdx] == testClassLabels[valueIdx]:
-            numberCorrectPredictions = numberCorrectPredictions + 1
-    
-    # Save case-by-case scores
-    np.savetxt(resultsFile, results, fmt="%.5f", delimiter=",")
-    
-    # persist summary
-    summary = np.array( [ numberCorrectPredictions, totalCases ] )
-    sio = StringIO()
-    np.savetxt(sio, summary, fmt="%.3f", delimiter=",")
-    f = open(resultsFile, 'a')
-    f.write(sio.getvalue())
-    f.flush()
-    f.close()
-    
-    print "Classifier %correct=:: ", str( np.round(float(numberCorrectPredictions) / float(totalCases) * 100 , 4))
+    return meanAccuracy
+#     numberCorrectPredictions = 0 
+#     
+#     totalCases = np.shape(testClassLabels)[0]
+#     results = None
+#     
+#     for valueIdx in range(0 , totalCases):
+#         
+#         result = np.array([ predictions[valueIdx] , testClassLabels[valueIdx] ])
+#         
+#         # Compile results
+#         if results == None:
+#             results = result
+#         else:
+#             results = np.vstack((results, result))
+#         # increment count of correct classifications    
+#         if predictions[valueIdx] == testClassLabels[valueIdx]:
+#             numberCorrectPredictions = numberCorrectPredictions + 1
+#     
+#     # Save case-by-case scores
+#     np.savetxt(resultsFile, results, fmt="%.5f", delimiter=",")
+#     
+#     # persist summary
+#     summary = np.array( [ numberCorrectPredictions, totalCases ] )
+#     sio = StringIO()
+#     np.savetxt(sio, summary, fmt="%.3f", delimiter=",")
+#     f = open(resultsFile, 'a')
+#     f.write(sio.getvalue())
+#     f.flush()
+#     f.close()
+#     
+#     print "Classifier %correct=:: ", str( np.round(float(numberCorrectPredictions) / float(totalCases) * 100 , 4))
     
 def crossValidation_Cparam(trainingData, validationData, classifierBaseFile, classifierBaseTestOutputFile, C_min, C_max, C_increment):
     
@@ -219,18 +220,26 @@ def crossValidation_Cparam(trainingData, validationData, classifierBaseFile, cla
     validationLabelData = validationData[1]
     assert ((np.size(validationFeatureData[0]) == np.size(validationLabelData))) , "VALIDATION data error:: Number of feature vectors must equal number of labels. #trainingFeatures=" + ""
     
+    cvResult = None
+    
     # Just traing and test on single C_value
     if C_min == C_max:
         print "\nTraining classifier C="+str(C_min)
         classifier = trainLogisticRegressionModel(trainFeatureData, trainLabelData, 0.1, classifierBaseFile + "_" + str(C_min) + "_joblib.pkl", True)
-        testClassifier(classifier, validationFeatureData, validationLabelData, classifierBaseTestOutputFile + "_" + str(C_min) + ".csv", True)
+        meanAccuracy = testClassifier(classifier, validationFeatureData, validationLabelData, classifierBaseTestOutputFile + "_" + str(C_min) + ".csv", True)
+        cvResult = np.array( [ C_min, meanAccuracy]) 
     else:
         # Now run cross-validation on each C param, persisting classifier CV performance and corresponding classifier object to file
         for C_param in np.linspace(C_min, C_max, C_increment):
             print "\nTraining classifier C="+str(C_param)
             classifier = trainLogisticRegressionModel(trainFeatureData, trainLabelData, 0.1, classifierBaseFile + "_" + str(C_param) + "_joblib.pkl", True)
-            testClassifier(classifier, validationFeatureData, validationLabelData, classifierBaseTestOutputFile + str(C_param) + "_" + ".csv", True)
-
+            meanAccuracy = testClassifier(classifier, validationFeatureData, validationLabelData, classifierBaseTestOutputFile + str(C_param) + "_" + ".csv", True)
+            if cvResult == None:
+                cvResult = np.array( [C_param , meanAccuracy ])
+            else:
+                cvResult = np.vstack( [ cvResult , np.array( [ C_param, meanAccuracy] ) ] )
+                
+    return cvResult
 
 
 def processLabeledImageData(inputMsrcImages, outputFileLocation, persistenceType, numGradientBins, numHistBins, ignoreVoid=False,):
@@ -310,20 +319,45 @@ def processLabeledImageData(inputMsrcImages, outputFileLocation, persistenceType
 
 
 
-def generatePredictedPixelClassDist(rgbImage, classifier, numberLabels, numGradientBins, numHistBins):
-    """This image taks an RGB image as an (i,j,3) numpy array, a scikit-learn classifier and produces probability distribution over each pixel and class.
+def generateImagePredictionClassDist(rgbImage, classifier, numberLabels, numGradientBins, numHistBins):
+    """This image takes an RGB image as an (i,j,3) numpy array, a scikit-learn classifier and produces probability distribution over each pixel and class.
     Returns an (i,j,N) numpy array where N= total number of classes for use in subsequent modelling."""
     
+    # TODO Broaden to cope with more classifiers :)
+    assert (type(classifier) == type(LogisticRegression)) , "You didn't provide a classifier"
+    
+    imageDimensions = rgbImage[:,:,0]
+    xPixels = imageDimensions[0]
+    yPixels = imageDimensions[0]
+    
+    numClasses = np.size(classifier.classes_)
     # Take image, generate features, use classifier to predict labels, ensure normalised dist and shape to (i,j,N) np.array
     
-    imagePixelFeatures = FeatureGenerator.generatePixelFeaturesForImage(rgbImage, numGradientBins, numHistBins)
+    # generate predictions for the image
+    classifier = LogisticRegression(penalty='l1' , dual=False, tol=0.0001, C=1.0, fit_intercept=True, intercept_scaling=1)
+    
+    allImagePixelFeatures = FeatureGenerator.generatePixelFeaturesForImage(rgbImage, numGradientBins, numHistBins)
+    
+    allPixelClassPredictions = classifier.predict(allImagePixelFeatures)
+    allPixelClassProbs = classifier.probabilities(allImagePixelFeatures)
+    
+    # TODO Investigate whether need some sorting mechanism or if class labels are returned sorted classidx0, classidx1... classidxN
+    imageClassPredictions = np.reshape(allPixelClassPredictions , (xPixels, yPixels, numClasses) )
+    imageClassProbs = np.reshape(allPixelClassProbs , (xPixels, yPixels, numClasses) )
+    
+    for classIdx in range(0, numClasses):
+        if np.sum(imageClassProbs[:,:,classIdx]) != 0:
+            imageClassProbs = imageClassProbs / np.sum(imageClassProbs[:,:,classIdx])
+    
     print "Finish me!"
+    return imageClassProbs
+
+
 
 
 #
 # File IO util functions
 #
-
 
 def persistLabeledDataToFile(features, labels, baseFileLocation, persistenceType):
     
@@ -333,7 +367,7 @@ def persistLabeledDataToFile(features, labels, baseFileLocation, persistenceType
         writeLabeledDataToCSVFile(features, labels, baseFileLocation)
         
     elif persistenceType == "pickle":
-        pickleLabeledDataToFile(features, labels, baseFileLocation)
+        serialiseLabeledDataToFile(features, labels, baseFileLocation)
 
 
 # CSV file utils
@@ -387,21 +421,19 @@ def readLabeledDataFromCsv(baseFilename):
 
 # Pickle serialisation utils
 
-def pickleLabeledDataToFile(features, labels, baseFileLocation):
-    pickleNumpyData(features, str(baseFileLocation + "Data.npy"))
-    pickleNumpyData(labels , str(baseFileLocation + "Labels.npy"))
+def serialiseLabeledDataToFile(features, labels, baseFileLocation):
+    saveNumpyData(features, str(baseFileLocation + "Data.npy"))
+    saveNumpyData(labels , str(baseFileLocation + "Labels.npy"))
     
-def pickleNumpyData(data, filename):
-    print "Pickle my shizzle"
+def saveNumpyData(data, filename):
     np.save(filename, data)
-    print "Shizzle is pickled"
 
-def unpickleLabeledData(baseFileLocation):
-    features = unpickleNumpyData(str(baseFileLocation + "Data.npy"))
-    labels = unpickleNumpyData(str(baseFileLocation + "Labels.npy"))
+def readLabeledNumpyData(baseFileLocation):
+    features = saveNumpyData(str(baseFileLocation + "Data.npy"))
+    labels = saveNumpyData(str(baseFileLocation + "Labels.npy"))
     return [features, labels]
     
-def unpickleNumpyData(filename):
+def loadNumpyData(filename):
     data = np.load(filename)
     return data
 
@@ -410,11 +442,6 @@ def unpickleNumpyData(filename):
 
 def loadClassifier(filename):
     return joblib.load(filename)
-
-def readClassifierFromFile(classifierFileLocation):
-    classifier = joblib.load(classifierFileLocation)
-    # TODO do a type check type if there is some inheritence/abstraction in sklearn
-    return classifier
 
 def scaleInputData(inputFeatureData):
     # Assumes numeric numpy array [[ data....] , [data....] ... ]
@@ -439,54 +466,44 @@ testingPixelBaseFilename = "/home/amb/dev/mrf/classifiers/logisticRegression/pix
 testingResultsBaseFilename = "/home/amb/dev/mrf/classifiers/logisticRegression/pixelLevelModels/testing/results/testPixelFeature"
  
 classifierBaseFilename = "/home/amb/dev/mrf/classifiers/logisticRegression/pixelLevelModels/classifierModels/logRegClassifier"
- 
-# Generate data from images and save to file
-splitData = splitInputDataset_msrcData(msrcData, datasetScale=0.7, keepClassDist=False, train=0.6, validation=0.2, test=0.2)
-trainDataset = splitData[0]
-validationDataset = splitData[1]
-testDataset = splitData[2]
-
 
 numGradientBins = 9
 numHistBins = 8
 
-# Create & persist feature & label data for training, cross-validation of C apram and classifier testing
-# Validation
-print "Processing validation data set & writing to CSV::"
-processLabeledImageData(validationDataset, validationPixelBaseFilename, "csv", numGradientBins, numHistBins, ignoreVoid=True)
-print "Reading persisted validation CSV data to python object::"
-validationData = readLabeledDataFromCsv(validationPixelBaseFilename)
-print "Serialising validation numpy data object for easier file IO::"
-pickleLabeledDataToFile(validationData[0], validationData[1], validationPixelBaseFilename)
-print "Initialisation of validation data complete"
-validationData = None
+ 
+# Generate data from images and save to file
+# splitData = splitInputDataset_msrcData(msrcData, datasetScale=1.0, keepClassDist=False, train=0.6, validation=0.2, test=0.2)
+# trainDataset = splitData[0]
+# validationDataset = splitData[1]
+# testDataset = splitData[2]
 
-# Test
-print "Processing validation data set & writing to CSV::"
-processLabeledImageData(testDataset, testingPixelBaseFilename, "csv", numGradientBins, numHistBins, ignoreVoid=True)
-print "Reading persisted testing CSV data set::"
-testingData = readLabeledDataFromCsv(testingPixelBaseFilename)
-print "Serialising testing numpy data objects for easier file IO::"
-pickleLabeledDataToFile(testingData[0], testingData[1], testingPixelBaseFilename)
-print "Initialisation of test data complete."
-testingData = None
+# 
+# print "Processing all data on a 60/20/20 split to CSV for other apps."
+# processLabeledImageData(validationDataset, validationPixelBaseFilename, "csv", numGradientBins, numHistBins, ignoreVoid=True)
+# processLabeledImageData(testDataset, testingPixelBaseFilename, "csv", numGradientBins, numHistBins, ignoreVoid=True)
+# processLabeledImageData(trainDataset, trainingPixelBaseFilename, "csv", numGradientBins, numHistBins, ignoreVoid=True)
 
-# Training
-print "Processing training dataset & writing to CSV::"
-processLabeledImageData(trainDataset, trainingPixelBaseFilename, "csv", numGradientBins, numHistBins, ignoreVoid=True)
-print "Reading persisted training CSV data to python object::"
-trainingData = readLabeledDataFromCsv(trainingPixelBaseFilename)
-print "Serialising training numpy data objects for easier file IO::"
-pickleLabeledDataToFile(trainingData[0], trainingData[1], trainingPixelBaseFilename)
-print "Initialisation of training data complete."
-trainingData = None
 
-# Now load generated data for classification
-trainingData = unpickleLabeledData(trainingPixelBaseFilename)
-validationData = unpickleLabeledData(validationPixelBaseFilename)
+print "Now creating data for classifier development, using 20% of MSRC data, serialisation for persistence."
+splitData = splitInputDataset_msrcData(msrcData, datasetScale=0.2, keepClassDist=False, train=0.6, validation=0.2, test=0.2)
+trainDataset = splitData[0]
+validationDataset = splitData[1]
+testDataset = splitData[2]
+
+print "Re-processing validation and serialising for IO::"
+processLabeledImageData(validationDataset, validationPixelBaseFilename, "pickle", numGradientBins, numHistBins, ignoreVoid=True)
+processLabeledImageData(trainDataset, trainingPixelBaseFilename, "pickle", numGradientBins, numHistBins, ignoreVoid=True)
+processLabeledImageData(testDataset, testingPixelBaseFilename, "pickle", numGradientBins, numHistBins, ignoreVoid=True)
+
+print "Now reading training & validation datasets for LRclassifier development"
+validationData = readLabeledNumpyData(validationPixelBaseFilename)
+testingData = readLabeledNumpyData(testingPixelBaseFilename)
+trainingData = readLabeledNumpyData(trainingPixelBaseFilename)
 
 # cross-validation on C param
+# TODO refactor to use test method
 C_min = 0.1
 C_max = 1
 C_increment = 0.1
-crossValidation_Cparam(trainingData, validationData, classifierBaseFilename, validationResultsBaseFilename, C_min, C_max, C_increment)
+cvResult = crossValidation_Cparam(trainingData, validationData, classifierBaseFilename, validationResultsBaseFilename, C_min, C_max, C_increment)
+print "CV results for different C params:n" , cvResult
