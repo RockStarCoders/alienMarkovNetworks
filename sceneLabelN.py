@@ -29,10 +29,9 @@ import maxflow
 import numpy as np
 import scipy
 from scipy.misc import imread
-from matplotlib import pyplot as ppl
+from matplotlib import pyplot as plt
 import scipy.ndimage.filters
 import cython_uflow as uflow
-
 
 def extractHist( img, channels, ranges ):
     nc = img.shape[2]
@@ -110,9 +109,10 @@ histBg = processHist( histBg )
 # So to treat these _like_ probabilities, divide by 255 first.
 cv2.normalize( histFg, histFg, 0, 255, cv2.NORM_MINMAX)#, cv2.CV_64F )
 cv2.normalize( histBg, histBg, 0, 255, cv2.NORM_MINMAX)#, cv2.CV_64F )
-
+#print "hist is ", histFg.dtype
 
 print "Background histogram: ", histBg
+print "Foreground histogram: ", histFg
 
 # If you increase the resolution of the histogram you should blur it.
 #sigma = 5
@@ -136,19 +136,24 @@ cv2.namedWindow("scenelabel2", 1)
 #cv2.moveWindow("scenelabel2-input",100,100)
 #cv2.moveWindow("scenelabel2",500,100)
 
-cv2.imshow("scenelabel2-input", dimg)
+plt.interactive(1)
+plt.imshow(dimg)
 #print "Original image, press a key"
 #if dointeract:
 #    cv2.waitKey(0)
 # now fg,bg probs
-cv2.imshow("scenelabel2", pImgGivenFg)
+plt.imshow(pImgGivenFg)
+plt.set_cmap('gray')
+plt.title('fg probs')
 print "foreground probs"
 if dointeract:
-    cv2.waitKey(0)
-cv2.imshow("scenelabel2", pImgGivenBg)
+    plt.waitforbuttonpress()
+plt.imshow(pImgGivenBg)
+plt.set_cmap('gray')
+plt.title('bg probs')
 print "background probs"
 if dointeract:
-    cv2.waitKey(0)
+    plt.waitforbuttonpress()
 
 # Looking in slides by S Gould, the interactive segmenation model (slide 18)
 #
@@ -170,7 +175,7 @@ if dointeract:
 # 
 # which doesn't use the image at all.  That's cool, this is just a demo.
 
-nhoodSz = 8
+nhoodSz = 4
 # estimate neighbourhood average diff
 sigsq = 0
 cnt = 0
@@ -202,14 +207,14 @@ print "Performing maxflow for various smoothness K..."
 
 # In Shotton, K0 and K in the edge potentials are selected manually from
 # validation data results.
-K0 = 0.5
+K0 = 0#0.5
 
 # for K in np.linspace(1,100,10):
 for K in np.logspace(0,2.5,10):
-    srcEdgeCosts = -np.log(np.maximum(1E-10,pImgGivenFg.astype(float)/255.0))
-    snkEdgeCosts = -np.log(np.maximum(1E-10,pImgGivenBg.astype(float)/255.0))
     if usePyMaxflow:
         # Create the graph.  Float capacities.
+        srcEdgeCosts = -np.log(np.maximum(1E-10,pImgGivenFg.astype(float)/255.0))
+        snkEdgeCosts = -np.log(np.maximum(1E-10,pImgGivenBg.astype(float)/255.0))
         g = maxflow.Graph[float]()
         # Add the nodes. nodeids has the identifiers of the nodes in the grid.
         # Same x-y extent as the image, but just 1 channel/band.
@@ -228,8 +233,6 @@ for K in np.logspace(0,2.5,10):
         # where foreground (sink), and false where background (source).
         segResult = g.get_grid_segments(nodeids)
     else:
-        print srcEdgeCosts.shape
-        print snkEdgeCosts.shape
         def nbrCallback( pixR, pixG, pixB, nbrR, nbrG, nbrB ):
             #print "*** Invoking callback"
             idiffsq = (pixR-nbrR)**2 + (pixG-nbrG)**2 + (pixB-nbrB)**2
@@ -243,12 +246,21 @@ for K in np.logspace(0,2.5,10):
 
         segResult = uflow.inferenceN( \
             cvimg.astype(float),\
-            np.dstack( ( srcEdgeCosts, snkEdgeCosts ) ),\
+            np.dstack( ( \
+                   -np.log(np.maximum(1E-10,pImgGivenBg.astype(float)/255.0)),\
+                   -np.log(np.maximum(1E-10,pImgGivenFg.astype(float)/255.0)))),\
             'abswap',\
             nhoodSz, \
             nbrCallback )
  
     # Show the result.
-    cv2.imshow("scenelabel2", segResult.astype('uint8')*255)
+    plt.imshow(segResult.astype('uint8')*255)
+    plt.title( 'Segmentation with K=%f' % K )
+    plt.draw()
     print "labelling result, K = ", K 
-    cv2.waitKey(500)
+    if dointeract:
+        plt.waitforbuttonpress()
+
+plt.interactive(False)
+plt.show()
+

@@ -5,6 +5,17 @@ import cython
 #   https://github.com/cython/cython/tree/master/Demos/callback
 #
 
+# The purpose of this cython module is to make calls to uflow functions
+# available from python.  So we have to turn numpy nd arrays into c pointers
+# to pass to uflow functions.
+#
+# to build:
+#
+#   > cd maxflow
+#   > python setup.py build_ext --inplace
+
+
+
 # import both numpy and the Cython declarations for numpy
 import numpy as np
 cimport numpy as np
@@ -59,16 +70,6 @@ cdef double callbackWrapper(
     double  nbrR, double nbrG, double nbrB,
     void *f ):
     return (<object>f)( pixR, pixG, pixB, nbrR, nbrG, nbrB )
-
-# The purpose of this cython module is to make calls to uflow functions
-# available from python.  So we have to turn numpy nd arrays into c pointers
-# to pass to uflow functions.
-#
-# to build:
-#
-#   > cd maxflow
-#   > python setup.py build_ext --inplace
-
 
 def inference2( np.ndarray[double, ndim=3, mode="c"] inputImage not None,
                 np.ndarray[double, ndim=2, mode="c"] sourceEdgeCosts not None,

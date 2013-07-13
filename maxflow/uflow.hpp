@@ -19,7 +19,8 @@ extern double ultraflow_inference2(
   double*         cMatSinkEdge,
   NbrCallbackType nbrEdgeCostCallback,
   void*           nbrEdgeCostCallbackData,
-  int32_t*        cMatOut
+  int32_t*        cMatOut,
+  bool*           validMask = NULL
 );
 
 
