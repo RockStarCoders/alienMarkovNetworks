@@ -50,8 +50,8 @@ Performance
 
 Evaluated three classifiers (note C param required to be > 0)
 
-	*C parameter*		*training accuracy*		*cv accuracy*
-	0.000001				XXXX%					XXX%
+	*C parameter*		*training accuracy*		*cv accuracy*	*filename*
+	0.000001				5.37%					0.0%			
 	0.5				
 	1.0
 
