@@ -1,5 +1,7 @@
 import random
 
+import datetime
+
 import numpy as np
 
 from cStringIO import StringIO
@@ -10,152 +12,23 @@ from sklearn import preprocessing
 
 from sklearn.linear_model import LogisticRegression
 
-import joblib
+import pickle
 
 import pomio, FeatureGenerator, PossumStats
-from FeatureGenerator import *
-
-#
-# Data preparation utils
-#
-
-def splitInputDataset_msrcData(msrcDataLocation, datasetScale=1.0 , keepClassDist=True, train=0.6, validation=0.2, test = 0.2):
-    assert (train + validation + test) == 1, "values for train, validation and test must sum to 1"
-    
-    # go for a random 60, 20, 20 split for train, validate and test
-    # use train to build model, validate to find good regularisation parameters and test for performance
-    print "Loading images from msrc dataset"
-    msrcImages = pomio.msrc_loadImages(msrcDataLocation)
-    print "Completed loading"
-    
-    totalImages = np.size(msrcImages)
-    totalSampledImages = np.round(totalImages * datasetScale , 0).astype('int')
-    
-    trainDataSize = np.round(totalSampledImages * train , 0)
-    testDataSize = np.round(totalSampledImages * test , 0)
-    validDataSize = np.round(totalSampledImages * validation , 0)
-    
-    
-    # Get random samples from list
-    if keepClassDist == False:
-        trainData, msrcImages = selectRandomSetFromList(msrcImages, trainDataSize)
-        testData, msrcImages = selectRandomSetFromList(msrcImages, testDataSize)
-        if datasetScale == 1.0:
-            validationData = msrcImages
-        else:
-            validationData, msrcImages = selectRandomSetFromList(msrcImages, validDataSize)
-            
-        print "\nRandomly assigned " + str(np.shape(trainData)) + " subset of msrc data to TRAIN set"
-        print "Randomly assigned " + str(np.shape(testData)) + " subset of msrc data to TEST set"
-        print "Randomly assigned " + str(np.shape(validationData)) + " msrc data to VALIDATION set"
-        
-    elif keepClassDist == False:
-        # Get class frequency count from image set
-        classPixelCount = PossumStats.totalPixelCountPerClass(msrcDataLocation)
-        
-        # normalise the frequency values to give ratios for each class
-        classDist = float(classPixelCount) / float(np.max(classPixelCount))
-        
-        # use class sample function to create sample sets with same class ratios
-        trainData, msrcImages = classSampleFromList(msrcImages, trainDataSize, classDist)
-        testData, msrcImages = classSampleFromList(msrcImages, testDataSize, classDist)
-        if datasetScale == 1.0:
-            validationData = msrcImages
-        else:
-            validationData, msrcImages = selectRandomSetFromList(msrcImages, validDataSize)
-        
-        print "\nAssigned " + str(np.shape(trainData)) + " randomly selected, class ratio preserved samples subset of msrc data to TRAIN set"
-        print "Assigned " + str(np.shape(testData)) + " randomly selected, class ratio preserved samples subset of msrc data to TEST set"
-        print "Assigned " + str(np.shape(validationData)) + " randomly selected, class ratio preserved samples subset of msrc data to VALIDATION set"
-    
-    return [trainData, validationData, testData]
-
-
-
-def classSampleFromList(data, dataLabels , numberSamples, classDist):
-    """This function takes random samples from input dataset (wihout replacement) maintaining a preset class label ratio.
-    The indices of the are assumed to align with the indicies of the class labels.
-    Returns a list of data samples and the reduced input dataset."""
-    
-    classSampleSizes = np.round((numberSamples * classDist) , 0).astype('int')
-    
-    assert (numberSamples == np.sum(classSampleSizes)) , "Some rounding error on total smalpes versus samples by class ::"
-    
-    sampleResult = []
-    
-    if np.min(classSampleSizes) == 0:
-        print "Check my shizzle!"
-        # need to see how many zeros, and either edit the dist or throw an error
-    
-    # track total samples
-    sampleCount = 0
-    
-    # for each class label    
-    for labelIdx in range(0 , np.size(classDist)):
-        
-        classSampleSize = classSampleSizes[labelIdx]
-        
-        # reset the value for each class
-        classSampleCount = 0
-        
-        # Get samples and add to list while less than desired sample size for the class
-        while classSampleCount < classSampleSize:
-            
-            # get a random sample from input list
-            sample =  randomSampleFromData(data)
-            sampleData = sample[0]
-            sampleIdx = sample[1]
-            
-            # check to see if it is the right label
-            if sampleIdx == labelIdx:
-                
-                # if so, add to the sample list and increment counters
-                sampleResult = sampleResult.insert( sampleData , np.size(sampleCount) )
-                
-                data.pop(sampleIdx)
-                classSampleCount = classSampleCount + 1
-                sampleCount = sampleCount + 1
-    
-    return sampleResult, data
-
-def selectRandomSetFromList(data, numberSamples):
-    """This function randomly selects a number of smaples from an array without replacement.
-    Returns an array of the samples, and the resultant reduced data array."""
-    idx = 0
-    result = []
-    while idx < numberSamples:
-        # randomly sample from imageset, and assign to sample array
-        # randIdx = np.round(random.randrange(0,numImages), 0).astype(int)
-        randIdx = np.random.randint(0, np.size(data))
-        result.insert(idx, data[randIdx])
-        # now remove the image from the dataset to avoid duplication
-        data.pop(randIdx)
-        idx = idx+1
-        
-    return result, data
-
-def randomSampleFromData(data):
-    """This function selects a member of a data array at random.
-    Returns the random sample, and the index of the smaple in the original data array."""
-    randIdx = np.random.randint(0, np.size(data))
-    
-    return [ data[randIdx] , randIdx]
 
 
 #
 # Classifier construction & evaluation utils
 #
 
-
-
 def trainLogisticRegressionModel(featureData, labels, Cvalue, outputClassifierFile, scaleData=True):
     # See [http://scikit-learn.org/dev/modules/generated/sklearn.linear_model.LogisticRegression.html]
     # Features are numPixel x unmFeature np arrays, labels are numPixel np array
     numTrainDataPoints = np.shape(featureData)[0]
-    numLabels = np.size(labels)
+    numDataLabels = np.size(labels)
     
     assert ( np.size( np.shape(labels) ) == 1) , ("Labels should be a 1d array.  Shape of labels = " + str(np.shape(labels)))
-    assert ( numTrainDataPoints == numLabels) , ("The length of the feature and label data arrays must be equal.  Num data points=" + str(numTrainDataPoints) + ", labels=" + str(numLabels) )
+    assert ( numTrainDataPoints == numDataLabels) , ("The length of the feature and label data arrays must be equal.  Num data points=" + str(numTrainDataPoints) + ", labels=" + str(numDataLabels) )
      
     if scaleData == True:
         featureData = preprocessing.scale(featureData)
@@ -164,7 +37,7 @@ def trainLogisticRegressionModel(featureData, labels, Cvalue, outputClassifierFi
     lrc = LogisticRegression(penalty='l1' , dual=False, tol=0.0001, C=Cvalue, fit_intercept=True, intercept_scaling=1)
     lrc.fit(featureData, labels)
     # See http://stackoverflow.com/questions/10592605/save-naivebayes-classifier-to-disk-in-scikits-learn
-    joblib.dump(lrc, outputClassifierFile, compress=1)
+    pickleObject(lrc, outputClassifierFile)
     print "LogisticRegression classifier saved to " + str(outputClassifierFile)
     
     return lrc
@@ -172,17 +45,9 @@ def trainLogisticRegressionModel(featureData, labels, Cvalue, outputClassifierFi
 
 def testClassifier(classifier, testFeatureData, testLabels, resultsFile, scaleData=True):
     # predict on testFeatures, compare to testClassLabels, return the results
-    predictions = classifier.predict(testFeatureData)
-    probs = classifier.predict_proba(testFeatureData)
-    probs = probs[:,0]
-    probs = probs / np.sum(probs)
-    
-    for idx in range(0 , len(predictions)):
-        if predictions[idx] == testLabels[idx]:   
-            print "\tMiracle!  Prediction#" + str(idx) + "=(" + str(predictions[idx]) + " , " + str(probs[idx]) + " testLabel= " + str(testLabels[idx]) 
-
-    meanAccuracy = classifier.score(testFeatureData, testLabels)
-    return meanAccuracy
+    # TODO implement "ignore void class"
+    accuracy = classifier.score(testFeatureData, testLabels)
+    return accuracy
 
 
 def crossValidation_Cparam(trainingData, validationData, classifierBaseFile, classifierBaseTestOutputFile, C_min, C_max, C_increment):
@@ -209,8 +74,10 @@ def crossValidation_Cparam(trainingData, validationData, classifierBaseFile, cla
     
     
     # Trim the data for testing!
-    maxTrain = 20000
-    maxValid = 30
+    factor = 0.1
+    maxTrain = int(np.round(numTrainData * factor , 0))
+    maxValid = int(np.round(numValidData * factor , 0))
+    
     trainFeatureData = trainFeatureData[0:maxTrain]
     trainLabels = trainLabels[0:maxTrain]
     validationFeatureData = validationFeatureData[0:maxValid]
@@ -225,7 +92,11 @@ def crossValidation_Cparam(trainingData, validationData, classifierBaseFile, cla
     if C_min == C_max:
         
         print "\nTraining classifier C="+str(C_min)
-        classifierName = classifierBaseFile + "_" + str(C_min) + "_joblib.pkl"
+        classifierName = classifierBaseFile + "_" + str(C_min) + ".pkl"
+        if C_min <= 0:
+                print "C-param is 0 - must be greater than 0.  Added 10^-6 to give 0.000001 as first param value"
+                C_min = 0.0 + 10**(-6)
+                
         classifier = trainLogisticRegressionModel(trainFeatureData, trainLabels, 0.1, classifierName, True)
         meanAccuracy = testClassifier(classifier, validationFeatureData, validationLabels, classifierBaseTestOutputFile + "_" + str(C_min) + ".csv", True)
         
@@ -240,133 +111,59 @@ def crossValidation_Cparam(trainingData, validationData, classifierBaseFile, cla
          
         for idx in range(0, len(Crange)):
             C_param = Crange[idx]
+            if C_param <= 0:
+                print "Min C_param is 0 - must be greater than 0.  Added 10^-6 to give 0.000001 as first param value"
+                C_param = 0.0 + 10**(-6)
+            
             print "\nTraining classifier C="+str(C_param)
-            classifier = trainLogisticRegressionModel(trainFeatureData, trainLabels, 0.1, classifierBaseFile + "_" + str(C_param) + "_joblib.pkl", True)
-            print "Classifier trained, now using scikit learn test function"
-            meanAccuracy = testClassifier(classifier, validationFeatureData, validationLabels, classifierBaseTestOutputFile + str(C_param) + "_" + ".csv", True)
+            classifier = trainLogisticRegressionModel(trainFeatureData, trainLabels, C_param, classifierBaseFile + "_" + str(C_param) + ".pkl", True)
+            trainAccuracy = classifier.score(trainFeatureData, trainLabels)
+            print "Classifier trained, now using scikit learn test function, trainingAccuracy = " , (trainAccuracy * 100) , "%"
+            cvAccuracy = testClassifier(classifier, validationFeatureData, validationLabels, classifierBaseTestOutputFile + str(C_param) + "_" + ".csv", True)
+            
+            print "LR classifier, C_para =" , C_param , " cv_accuracy = ", (cvAccuracy * 100) , "%"
             if cvResult == None:
-                cvResult = np.array( [C_param , meanAccuracy ])
+                cvResult = np.array( [C_param , trainAccuracy, cvAccuracy ])
             else:
-                cvResult = np.vstack( [ cvResult , np.array( [ C_param, meanAccuracy] ) ] )
+                cvResult = np.vstack( [ cvResult , np.array( [ C_param, trainAccuracy, cvAccuracy ] ) ] )
         return cvResult
-
-
-def processLabeledImageData(inputMsrcImages, outputFileLocation, persistenceType, numGradientBins, numHistBins, ignoreVoid=False,):
-# TODO refactor this into FeatureGenerator.py as a util method (you give me image, I give you image feature data over pixels)
-    # Assume we get a list / array of msrcImage objects.  We need reshape the labels, and compute+reshape features
-    # http://stackoverflow.com/questions/16482895/convert-a-numpy-array-to-a-csv-string-and-a-csv-string-back-to-a-numpy-array
-    assert (persistenceType == "pickle" or persistenceType == "csv") , "persistenceType must be either pickle or csv"
-    
-    totalImages = np.size(inputMsrcImages)
-    
-    allFeatures = None
-    allLabels = None
-    
-    if ignoreVoid == True:
-        print "\nVoid class pixels WILL NOT be included in the processed feature dataset"
-        
-        for idx in range(0, totalImages):
-            
-            print "\tImage_" , (idx + 1) , " of " , totalImages
-            
-            imageResult = FeatureGenerator.generateLabeledImageFeatures(inputMsrcImages[idx] , numGradientBins, numHistBins, ignoreVoid=True)
-            resultFeatures = imageResult[0]
-            resultLabels = imageResult[1]
-            
-            if persistenceType == "csv":
-                # Write feature & label data to file, one row vector at a time
-                writeFeaturesToCsv(resultFeatures, outputFileLocation)
-                writeLabelsToCsv(resultLabels, outputFileLocation)
-                
-            else:
-                # Store results in allData and allLables object for pickle serialization    
-                if allFeatures == None:
-                    allFeatures = resultFeatures
-                else:
-                    allFeatures = np.vstack( [ allFeatures, resultFeatures])
-             
-                if allLabels == None:
-                    allLabels = resultLabels
-                else:
-                    allLabels = np.append( allLabels , resultLabels )
-        
-    else:
-        print "\nVoid class pixels WILL be included in the processed feature dataset"
-        for idx in range(0, totalImages):
-            imageResult = FeatureGenerator.generateLabeledImageFeatures(inputMsrcImages[idx], numGradientBins, numHistBins, ignoreVoid=False)
-            resultFeatures = imageResult[0]
-            resultLabels = imageResult[1]
-            
-            if persistenceType == "csv":
-                # Write feature & label data to file, one row vector at a time
-                writeFeaturesToCsv(resultFeatures, outputFileLocation)
-                writeLabelsToCsv(resultLabels, outputFileLocation)
-                
-            else:
-            
-                if allFeatures == None:
-                    allFeatures = resultFeatures
-                else:
-                    allFeatures = np.vstack( [ allFeatures, resultFeatures])
-             
-                if allLabels == None:
-                    allLabels = resultLabels
-                else:
-                    allLabels = np.append( allLabels , resultLabels )
-    
-    # Now serialize all result data to file
-    if persistenceType == "pickle":
-        print "\nNow serialising result data to file..."
-        persistLabeledDataToFile(allFeatures, allLabels, outputFileLocation, persistenceType)
-    
-
 
 
 #
 # Prediction util methods
 #
 
-
-
-def generateImagePredictionClassDist(rgbImage, classifier, numberLabels, numGradientBins, numHistBins):
+def generateImagePredictionClassDist(rgbImage, logisticRegressionClassifier):
     """This image takes an RGB image as an (i,j,3) numpy array, a scikit-learn classifier and produces probability distribution over each pixel and class.
     Returns an (i,j,N) numpy array where N= total number of classes for use in subsequent modelling."""
     
     # TODO Broaden to cope with more classifiers :)
-    assert (type(classifier) == type(LogisticRegression)) , "You didn't provide a classifier"
+    assert (str(type(classifier)) == "<class 'sklearn.linear_model.logistic.LogisticRegression'>") , "Check classifier type value:: " + str(type(classifier)) 
+    testClassifier = None
     
     imageDimensions = rgbImage[:,:,0]
     xPixels = imageDimensions[0]
     yPixels = imageDimensions[0]
+    params = classifier.get_params(deep=True)
     
-    numClasses = np.size(classifier.classes_)
+    print "Classifier paras::" , params
+    
     # Take image, generate features, use classifier to predict labels, ensure normalised dist and shape to (i,j,N) np.array
     
     # generate predictions for the image
-    classifier = LogisticRegression(penalty='l1' , dual=False, tol=0.0001, C=1.0, fit_intercept=True, intercept_scaling=1)
+    imagePixelFeatures = FeatureGenerator.generatePixelFeaturesForImage(rgbImage)
+    predictedPixelLabels = classifier.predict(imagePixelFeatures)
+    predictionProbs = classifier.predict_proba(imagePixelFeatures)
+    print "\nShape of predicted labels::" , np.shape(predictedPixelLabels)
+    print "\nShape of prediction probs::" , np.shape(predictionProbs)
+    numClasses = pomio.getNumClasses()
+    assert (np.shape(predictionProbs)[1] == numClasses)
+    print predictionProbs
     
-    allImagePixelFeatures = FeatureGenerator.generatePixelFeaturesForImage(rgbImage, numGradientBins, numHistBins)
-    
-    allPixelClassPredictions = classifier.predict(allImagePixelFeatures)
-    
-    # Multi-class LR gives "one versus all" i.e. [ P(Class) , P(not Class) ]  rather than [P(class1), P(class2) , ... , P(classN) ]
-    # Get P(class) column values
-    allPixelClassProbs = classifier.predict_proba(allImagePixelFeatures)
-    allPixelClassProbs = allPixelClassProbs[:,0]
-    print "Shape of predicted class probs::" , np.shape(allPixelClassProbs)
-    # TODO Investigate whether need some sorting mechanism or if class labels are returned sorted classidx0, classidx1... classidxN
-    imageClassPredictions = np.reshape(allPixelClassPredictions , (xPixels, yPixels, numClasses) )
-    
-    
-    imageClassProbs = np.reshape(allPixelClassProbs , (xPixels, yPixels, numClasses) )
-    
-    for classIdx in range(0, numClasses):
-        if np.sum(imageClassProbs[:,:,classIdx]) != 0:
-            imageClassProbs = imageClassProbs / np.sum(imageClassProbs[:,:,classIdx])
+    predictionProbs = np.reshape(predictionProbs, (xPixels, yPixels, numClasses ))
     
     print "Finish me!"
-    return imageClassProbs
-
+    return predictionProbs
 
 
 
@@ -376,16 +173,21 @@ def generateImagePredictionClassDist(rgbImage, classifier, numberLabels, numGrad
 
 def persistLabeledDataToFile(features, labels, baseFileLocation, persistenceType):
     
-    assert (persistenceType == "pickle" or persistenceType == "csv"), "persistenceType must be string value \"pickle\" or \"csv\""
+    assert (persistenceType == "numpy" or persistenceType == "pickle" or persistenceType == "csv"), "persistenceType must be string value \"pickle\" or \"csv\""
     
     if persistenceType == "csv":
         writeLabeledDataToCSVFile(features, labels, baseFileLocation)
-        
+    
+    elif persistenceType == "numpy":
+        saveLabeledDataToNumpyFile(features, labels, baseFileLocation)
+    
     elif persistenceType == "pickle":
-        serialiseLabeledDataToFile(features, labels, baseFileLocation)
+        info = [ features, labels ]
+        pickleObject(info , baseFileLocation)
 
-
+#
 # CSV file utils
+#
 
 def writeLabeledDataToCSVFile(features, labels, baseFileLocation):
     dataFile = str(baseFileLocation + "Data.csv")
@@ -436,7 +238,7 @@ def readLabeledDataFromCsv(baseFilename):
 
 # Numpy serialisation utils
 
-def serialiseLabeledDataToFile(features, labels, baseFileLocation):
+def saveLabeledDataToNumpyFile(features, labels, baseFileLocation):
     saveNumpyData(features, str(baseFileLocation + "Data.npy"))
     saveNumpyData(labels , str(baseFileLocation + "Labels.npy"))
     
@@ -449,14 +251,40 @@ def readLabeledNumpyData(baseFileLocation):
     return [features, labels]
     
 def loadNumpyData(filename):
-    data = np.load(filename)
+    data = np.load( open(filename , "r") )
     return data
 
 
 # Classifier IO utils
+def pickleObject(obj, filename):
+    if filename.endswith(".pkl"):
+        f = open( filename , "w")
+        pickle.dump(obj, f , True)
+        f.close()
+    else:
+        print "Input filename did not end in .pkl - adding .pkl to filename."
+        filename= str(filename)+".pkl"
+        f = open( filename , "w")
+        pickle.dump(obj, f , True)
+        f.close()
+    
+    
+def loadObject(filename):
+    filetype = '.pkl'
+    if filename.endswith(filetype):
+        f = open(filename, 'rb')
+        obj = pickle.load(f)
+        f.close()
+        return obj
+    else:
+        print "Input filename did not end in .pkl - trying filename with type appended...."
+        f = open( ( str(filename)+".pkl" ), "rb")
+        obj = pickle.load(f)
+        f.close()
+        return obj
 
-def loadClassifier(filename):
-    return joblib.load(filename)
+def loadClassifier(fullFilename):
+    return loadObject(fullFilename)
 
 def scaleInputData(inputFeatureData):
     # Assumes numeric numpy array [[ data....] , [data....] ... ]
@@ -468,12 +296,10 @@ def scaleInputData(inputFeatureData):
 #
 # TODO look at sklearn pipeline to get some automation here
 
-
 msrcData = "/home/amb/dev/mrf/data/MSRC_ObjCategImageDatabase_v2"
-
+timestamp = str(datetime.datetime.now())
 # Output file resources
-trainingPixelBaseFilename = "/home/amb/dev/mrf/classifiers/logisticRegression/pixelLevelModels/training/trainPixelFeature"
-
+trainingPixelBaseFilename = "/home/amb/dev/mrf/classifiers/logisticRegression/pixelLevelModels/training/trainPixelFeature" 
 validationPixelBaseFilename = "/home/amb/dev/mrf/classifiers/logisticRegression/pixelLevelModels/crossValidation/data/cvPixelFeature"
 validationResultsBaseFilename = "/home/amb/dev/mrf/classifiers/logisticRegression/pixelLevelModels/crossValidation/results/logRegClassifier_CrossValidResult"
  
@@ -482,43 +308,53 @@ testingResultsBaseFilename = "/home/amb/dev/mrf/classifiers/logisticRegression/p
  
 classifierBaseFilename = "/home/amb/dev/mrf/classifiers/logisticRegression/pixelLevelModels/classifierModels/logRegClassifier"
 
-numGradientBins = 9
-numHistBins = 8
 
- 
+scale = 0.1
 # Generate data from images and save to file
-# splitData = splitInputDataset_msrcData(msrcData, datasetScale=1.0, keepClassDist=False, train=0.6, validation=0.2, test=0.2)
-# trainDataset = splitData[0]
-# validationDataset = splitData[1]
-# testDataset = splitData[2]
-
-# 
-# print "Processing all data on a 60/20/20 split to CSV for other apps."
-# processLabeledImageData(validationDataset, validationPixelBaseFilename, "csv", numGradientBins, numHistBins, ignoreVoid=True)
-# processLabeledImageData(testDataset, testingPixelBaseFilename, "csv", numGradientBins, numHistBins, ignoreVoid=True)
-# processLabeledImageData(trainDataset, trainingPixelBaseFilename, "csv", numGradientBins, numHistBins, ignoreVoid=True)
-
-
-# print "Now creating data for classifier development, using 20% of MSRC data, serialisation for persistence."
-# splitData = splitInputDataset_msrcData(msrcData, datasetScale=0.2, keepClassDist=False, train=0.6, validation=0.2, test=0.2)
-# trainDataset = splitData[0]
-# validationDataset = splitData[1]
-# testDataset = splitData[2]
-# 
-# print "Re-processing validation and serialising for IO::"
-# processLabeledImageData(validationDataset, validationPixelBaseFilename, "pickle", numGradientBins, numHistBins, ignoreVoid=True)
-# processLabeledImageData(trainDataset, trainingPixelBaseFilename, "pickle", numGradientBins, numHistBins, ignoreVoid=True)
-# processLabeledImageData(testDataset, testingPixelBaseFilename, "pickle", numGradientBins, numHistBins, ignoreVoid=True)
-
-print "Now reading training & validation datasets for LRclassifier development"
-validationData = readLabeledNumpyData(validationPixelBaseFilename)
-testingData = readLabeledNumpyData(testingPixelBaseFilename)
-trainingData = readLabeledNumpyData(trainingPixelBaseFilename)
+splitData = pomio.splitInputDataset_msrcData(msrcData, datasetScale=scale, keepClassDist=True, trainSplit=0.6, validationSplit=0.2, testSplit=0.2)
+trainDataset = splitData[0]
+validationDataset = splitData[1]
+testDataset = splitData[2]
+ 
+print "\nProcessing " + str(scale*100) + "% of MSRC data on a 60/20/20 split serialised for easier file IO"   
+print "\nProcessing training data::"
+trainingData = FeatureGenerator.processLabeledImageData(trainDataset, ignoreVoid=True)
+print "\nProessing validation data::"
+validationData = FeatureGenerator.processLabeledImageData(validationDataset, ignoreVoid=True)
+print "\nProcessing test data::"
+testingData = FeatureGenerator.processLabeledImageData(testDataset, ignoreVoid=True)
+   
+# # try to save the data
+# print "\nTry to pickle the results..."
+# pickleObject(trainingData, trainingPixelBaseFilename) # Why you fail me Mr Pickle?
+# pickleObject(validationData, validationPixelBaseFilename)
+# pickleObject(testingData, testingPixelBaseFilename)
 
 # cross-validation on C param
-# TODO refactor to use test method
-C_min = 0.1
+print "\nNow using validation data set to evaluate different C param values @" , datetime.datetime.now()
+C_min = 0
 C_max = 1.0
-C_increment = 0.1
+C_increment = 0.5
 cvResult = crossValidation_Cparam(trainingData, validationData, classifierBaseFilename, validationResultsBaseFilename, C_min, C_max, C_increment)
-print "CV results for different C params:\n" , cvResult
+print "Completed @ " + str(datetime.datetime.now()), "\nCV results for different C params:\n" , cvResult
+
+classifierVersion = "_0.5"
+filetype = ".pkl"
+classifierFilename = classifierBaseFilename + classifierVersion + filetype
+
+print "Reading pre-built classifier from file::" , classifierFilename , "@" , datetime.datetime.now()
+classifier = loadClassifier(classifierFilename)
+
+
+# predictImage = pomio.msrc_loadImages(msrcData)[0]
+predictImage = pomio.msrc_loadImages(msrcData)[1]
+print "\nRead in an image from the MSRC dataset::" , np.shape(predictImage.m_img)
+
+imageFeatures = FeatureGenerator.generatePixelFeaturesForImage(predictImage.m_img)
+
+print "\nGenerating prediction::" , classifier.predict(imageFeatures)
+
+print "\nGenerating the probability dist. for each pixel over class labels @" , datetime.datetime.now()
+imageClassDist = generateImagePredictionClassDist(predictImage.m_img, classifier)
+
+print "\tCompleted @ " + str(datetime.datetime.now())

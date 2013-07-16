@@ -1,7 +1,4 @@
-#!/usr/bin/env python
-
 import numpy as np
-import sys
 
 from scipy.misc import factorial as factorial
 
@@ -46,11 +43,11 @@ def imageCountPerClass(msrcDataLocation):
     return result
     
 
-def totalPixelCountPerClass(msrcDataLocation):
+def totalPixelCountPerClass(msrcDataLocation, printTotals=True):
     classes = pomio.msrc_classLabels
     totalClasses = np.size(classes)
     
-    classImageCount = np.arange(0,totalClasses)
+    classPixelCount = np.arange(0,totalClasses)
     
     msrcImages = pomio.msrc_loadImages(msrcDataLocation)
     
@@ -74,21 +71,22 @@ def totalPixelCountPerClass(msrcDataLocation):
             pixelCountForClass = pixelCountForClass + imageGroundTruth[(imageGroundTruth == classIdx)].size
             
         # add total count to the class count result
-        print "Class = " + str(classValue), ", pixel count=" + str(pixelCountForClass)
+        if printTotals == True:
+            print "Class = " + str(classValue), ", pixel count=" + str(pixelCountForClass)
         
-        classImageCount[classIdx] = int(pixelCountForClass)
+        classPixelCount[classIdx] = float(pixelCountForClass)
     
-    result = np.array([classes, classImageCount])
+    result = [classes, classPixelCount]
     
     # count up all the pixels
     for imageIdx in range(0,np.size(msrcImages)):
         totalPixels = totalPixels + msrcImages[imageIdx].m_gt.size
     
-    
-    print "\nTotal pixels in dataset=" + str(totalPixels)
-    print "Sum of class pixel counts=" + str(np.sum(result[1].astype('uint')))
-    print "\nPixel count per class::\n" , result
-    print "\nPixel count difference = " + str(totalPixels - np.sum(result[1].astype('uint'))) 
+    if printTotals == True:
+        print "\nTotal pixels in dataset=" + str(totalPixels)
+        print "Sum of class pixel counts=" + str(np.sum(result[1].astype('uint')))
+        print "\nPixel count per class::\n" , result
+        print "\nPixel count difference = " + str(totalPixels - np.sum(result[1].astype('uint'))) 
     
     return result
 
@@ -243,7 +241,7 @@ def neighbourClassImageCount(msrcDataLocation, outputFileLocation):
     
     
 # Simple tests
-msrcData = sys.argv[1]#"/home/amb/dev/mrf/data/MSRC_ObjCategImageDatabase_v2"
+msrcData = "/home/amb/dev/mrf/data/MSRC_ObjCategImageDatabase_v2"
 
 # imageCountPerClass(msrcData)
 
