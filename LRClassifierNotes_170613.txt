@@ -1,0 +1,60 @@
+Logistic Regression Notes
+
+Description of the process and result of generating the logisitc regression classifiers for pixel class labelling added to the repo on 17/06/2013.
+
+
+Features
+
+Trained the classifier on the following features:
+
+	*Feature*								*Values per pixel*
+	rgbColourValues								3
+	hsvColour3DHistogram						
+	histogram of oriented gradients				
+	local binary pattern						
+	texture filter response						
+
+
+This gives a total of 86 features per pixel.
+
+
+Feature Parameters
+
+The following parameters were used in feature generation:
+
+	*Parameter name*					 *Value*
+	increment (filter)						1
+	numHistBins								8
+	numGradientBins (HOG) 					9
+	cellForm (HOG)							(9,9)
+	cellsPerBlock (HOG)						(3,3)
+	orientationBins	(LBP)					4
+	neighbourhoodRadius (LBP)				2
+	filter (window size)					15
+	
+	
+100% shonky - I plucked them out of thin air.
+
+
+
+Input data
+
+Generated training, crossValidation and test data set using 5% of the MSRC images.
+
+Ensured the training dataset includes at least 1 example of each class; added a check in the data sampling process to provide this option.
+
+
+
+
+Performance
+
+Evaluated three classifiers (note C param required to be > 0)
+
+	*C parameter*		*training accuracy*		*cv accuracy*
+	0.000001				XXXX%					XXX%
+	0.5				
+	1.0
+
+
+
+
