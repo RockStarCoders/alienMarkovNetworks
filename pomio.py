@@ -159,7 +159,11 @@ def splitInputDataset_msrcData(msrcDataLocation, datasetScale=1.0 , keepClassDis
         # normalise the frequency values to give ratios for each class
         maxClassCount = np.max(classPixelCounts)
         
-        classDist = classPixelCounts / maxClassCount
+        if maxClassCount==0:
+            classDist = [0 for x in classPixelCounts]
+            print 'WARNING; maxClassCount = 0 in splitInputDataset_msrcData'
+        else:
+            classDist = classPixelCounts / maxClassCount
         
         # use class sample function to create sample sets with same class ratios
         trainData, msrcImages = classSampleFromList(msrcImages, trainDataSize, classDist, True)

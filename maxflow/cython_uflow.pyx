@@ -86,6 +86,11 @@ def inference2( np.ndarray[double, ndim=3, mode="c"] inputImage not None,
     assert( inputImage.ndim == 3 and inputImage.shape[0] == rows and 
             inputImage.shape[1] == cols )
 
+    # make sure arrays are c contiguous
+    assert inputImage.flags['C_CONTIGUOUS']
+    assert sourceEdgeCosts.flags['C_CONTIGUOUS']
+    assert sinkEdgeCosts.flags['C_CONTIGUOUS']
+
     imgChannels = inputImage.shape[2]
 
     #  create output label array
@@ -114,15 +119,20 @@ def inferenceN( np.ndarray[double, ndim=3, mode="c"] inputImage not None,
     rows = labelWeights.shape[0]
     cols = labelWeights.shape[1]
 
-    print "***!!! img ul = %f,%f,%f" % (inputImage[0,0,0], inputImage[0,0,1], inputImage[0,0,2] )
+    #print "***!!! img ul = %f,%f,%f" % (inputImage[0,0,0], inputImage[0,0,1], inputImage[0,0,2] )
 
     assert( method == 'abswap' or method == 'aexpansion' )
     assert( nhoodSize == 4 or nhoodSize == 8 )
-    assert( inputImage.ndim == 3 and inputImage.shape[0] == rows and 
-            inputImage.shape[1] == cols )
+    print 'Input image has shape %s, should be (%d,%d,3)' \
+        % (str(np.shape(inputImage)),rows,cols)
+    assert inputImage.ndim == 3 and inputImage.shape[0] == rows and inputImage.shape[1] == cols
 
     nbLabels = labelWeights.shape[2]
     assert( nbLabels > 1, "Only 1 label class?" );
+
+    # make sure contiguous
+    assert inputImage.flags['C_CONTIGUOUS']
+    assert labelWeights.flags['C_CONTIGUOUS']
 
     imgChannels = inputImage.shape[2]
 
