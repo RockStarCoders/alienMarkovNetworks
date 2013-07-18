@@ -7,7 +7,6 @@ import skimage.io
 
 import PossumStats
 
-
 # MSRC Image Segmentation database V2:
 #
 #   http://research.microsoft.com/en-us/projects/ObjectClassRecognition/
@@ -107,17 +106,13 @@ def msrc_loadImages( dataSetPath ):
 # Data preparation utils
 #
 
-def splitInputDataset_msrcData(msrcDataLocation, datasetScale=1.0 , keepClassDist=True, trainSplit=0.6, validationSplit=0.2, testSplit=0.2, ):
+def splitInputDataset_msrcData(msrcDataLocation, datasetScale=1.0 , keepClassDistForTraining=True, trainSplit=0.6, validationSplit=0.2, testSplit=0.2, ):
     assert (trainSplit + validationSplit + testSplit) == 1, "values for train, validation and test must sum to 1"
     # MUST ENSURE that the returned sample contains at least 1 example of each class label, or else the classifier doesn't consider all classes!
     # go for a random 60, 20, 20 split for train, validate and test
-    # use train to build model, validate to find good regularisation parameters and test for performance
-    print "Loading images from msrc dataset"
+    # use train to build model, validate to evaluate good regularisation parameter and test to evalaute generalised performance
     msrcImages = msrc_loadImages(msrcDataLocation)
-    print "Completed loading"
-    
     totalImages = np.shape(msrcImages)[0]
-    
     totalSampledImages = np.round(totalImages * datasetScale , 0).astype('int')
     
     trainDataSize = np.round(totalSampledImages * trainSplit , 0)
@@ -125,7 +120,7 @@ def splitInputDataset_msrcData(msrcDataLocation, datasetScale=1.0 , keepClassDis
     validDataSize = np.round(totalSampledImages * validationSplit , 0)
     
     # Get random samples from list
-    if keepClassDist == False:
+    if keepClassDistForTraining == False:
         
         trainData, msrcImages = selectRandomSetFromList(msrcImages, trainDataSize, True)
         testData, msrcImages = selectRandomSetFromList(msrcImages, testDataSize, False)
@@ -134,10 +129,6 @@ def splitInputDataset_msrcData(msrcDataLocation, datasetScale=1.0 , keepClassDis
         else:
             validationData, msrcImages = selectRandomSetFromList(msrcImages, validDataSize, False)
             
-        print "\nRandomly assigned " + str(np.shape(trainData)) + " subset of msrc data to TRAIN set"
-        print "Randomly assigned " + str(np.shape(testData)) + " subset of msrc data to TEST set"
-        print "Randomly assigned " + str(np.shape(validationData)) + " msrc data to VALIDATION set"
-        
         # make sure all classes are included in training set (note void is processed out later)
         trainClasses = None
     
@@ -148,31 +139,29 @@ def splitInputDataset_msrcData(msrcDataLocation, datasetScale=1.0 , keepClassDis
                 trainClasses = np.unique(np.append( trainClasses , np.unique(trainData[idx].m_gt) ) )
         
         numClasses = getNumClasses()
+        # Note here we don't filter out void - do that at the pixel level when generating features
         assert np.size(trainClasses) == numClasses , "Training failed to include each of the 24 classes:: trainClasses = " + str(trainClasses)
+        
+        print "\nAssigned " + str(np.shape(trainData)) + " images to TRAIN set, " + str(np.shape(testData)) + " samples to TEST set and "+ str(np.shape(validationData)) + " samples to VALIDATION set"
         
         return [trainData, validationData, testData]
         
-    elif keepClassDist == True:
+    elif keepClassDistForTraining == True:
         # Get class frequency count from image set
         classPixelCounts = PossumStats.totalPixelCountPerClass(msrcDataLocation, printTotals=False)[1]
         
         # normalise the frequency values to give ratios for each class
-        maxClassCount = np.max(classPixelCounts)
-        
-        if maxClassCount==0:
-            classDist = [0 for x in classPixelCounts]
-            print 'WARNING; maxClassCount = 0 in splitInputDataset_msrcData'
-        else:
-            classDist = classPixelCounts / maxClassCount
+        sumClassCount = np.sum(classPixelCounts)
+        classDist = classPixelCounts / float(sumClassCount)
         
         # use class sample function to create sample sets with same class ratios
         trainData, msrcImages = classSampleFromList(msrcImages, trainDataSize, classDist, True)
-        testData, msrcImages = classSampleFromList(msrcImages, testDataSize, classDist, False)
+        testData, msrcImages = selectRandomSetFromList(msrcImages, testDataSize, True)
         
         if datasetScale == 1.0:
             validationData = msrcImages
         else:
-            validationData, msrcImages = classSampleFromList(msrcImages, validDataSize, classDist, False)
+            validationData, msrcImages = selectRandomSetFromList(msrcImages, validDataSize, True)
         
         
         # make sure all classes are included in training set (note void is processed out later)
@@ -185,66 +174,83 @@ def splitInputDataset_msrcData(msrcDataLocation, datasetScale=1.0 , keepClassDis
                 trainClasses = np.unique(np.append( trainClasses , np.unique(trainData[idx].m_gt) ) )
         
         numClasses = getNumClasses()
-        assert np.size(trainClasses) == numClasses , "Training failed to include each of the 24 classes:: trainClasses = " + str(trainClasses)
+        assert np.size(trainClasses) == numClasses , "Training data does not include each of the 24 classes:: trainClasses = " + str(trainClasses)
         
-        print "\nAssigned " + str(np.shape(trainData)) + " randomly selected, class ratio preserved samples subset of msrc data to TRAIN set"
-        print "Assigned " + str(np.shape(testData)) + " randomly selected, class ratio preserved samples subset of msrc data to TEST set"
-        print "Assigned " + str(np.shape(validationData)) + " randomly selected, class ratio preserved samples subset of msrc data to VALIDATION set"
+        print "\nAssigned " + str(np.shape(trainData)) + " images to TRAIN set, " + str(np.shape(testData)) + " samples to TEST set and "+ str(np.shape(validationData)) + " samples to VALIDATION set"
         
         return [trainData, validationData, testData]
 
 
-def classSampleFromList(msrcData , numberSamples, classDist, keepZeroClasses=True):
+def classSampleFromList(msrcData , numberSamples, classDist, includeAllClassLabels=True):
     """This function takes random samples from input dataset (wihout replacement) maintaining a preset class label ratio.
     The indices of the are assumed to align with the indicies of the class labels.
     Returns a list of data samples and the reduced input dataset."""
     
+    assert( np.size(classDist) == getNumClasses()) , "\n\tWARN:: For some reason the class distribution array doesnt have 24 elements - " + str(np.size(classDist))
+    
     classSampleSizes = np.round((numberSamples * classDist) , 0).astype('int')
     
-    addedCount = 0
+    result = []
     
-    if keepZeroClasses == True:
-        print "\t Warn: Changing class sample 0 proportions to 1, before normalising"
+    addedCount = 0
+    if includeAllClassLabels == True:
         for idx in range(0, np.size(classSampleSizes)):
-            if classSampleSizes[idx] == 0:
+            if classSampleSizes[idx] == 0.0:
                 classSampleSizes[idx] = 1
                 addedCount = addedCount + 1
+        numClassSamples = int(np.sum(classSampleSizes) )
+        print "\tWARN: There were" , addedCount , "0 classes - each has been replaced by 1.  Returned sample size =" , numClassSamples
+    
+        # if number of required samples is less than number of class, over-rule
+        if numberSamples < getNumClasses():
+            print "\tWARN: You wanted all classes present, but requested #samples less than #classes.  Will return data including all classes."
+            return selectRandomSetFromList(msrcData, getNumClasses(), includeAllClassLabels=True)
+        else:
+            print "\tINFO: Seek to maintain class dist AND include all classes"
+            includedClasses = None
+            for labelIdx in range(0 , np.size(classDist)):
                 
-        # need to see how many zeros, and either edit the dist or throw an error
-    
-    classSum = int(np.sum(classSampleSizes) )
-    assert (numberSamples == classSum-addedCount) , "Some rounding error on total samples versus samples by class" + str(classSum) + " , " + str(addedCount) + str(numberSamples)
-    
-    sampleResult = []
-    
-    
-    # track total samples
-    sampleCount = 0
-    
-    # for each class label    
-    for labelIdx in range(0 , np.size(classDist)):
-        
-        classSampleSize = classSampleSizes[labelIdx]
-        
-        # reset the value for each class
-        classSampleCount = 0
-        
-        # Get samples and add to list while less than desired sample size for the class
-        while classSampleCount < classSampleSize:
-            # get a random sample from input list
-            sampleIdx = np.random.randint(0, np.size(msrcData))
-            sample = msrcData[sampleIdx]
-            
-            # check to see if image contains the required index
-            if labelIdx in sample.m_gt:
-                # if so, add to the sample list and increment counters
-                sampleResult.insert( np.size(sampleResult) , sample  )
+                classSampleSize = classSampleSizes[labelIdx]
+                classSampleCount = 0
                 
-                msrcData.pop(sampleIdx)
-                classSampleCount = classSampleCount + 1
-                sampleCount = sampleCount + 1
-    
-    return sampleResult, msrcData
+                # Get samples and add to list while less than desired sample size for the class
+                while classSampleCount < classSampleSize:
+                    
+                    sampleIdx = np.random.randint(0, np.size(msrcData))
+                    sample = msrcData[sampleIdx]
+                    
+                    if labelIdx in sample.m_gt:
+                        if includedClasses == None:
+                            includedClasses = np.unique(sample.m_gt)
+                            result.insert(np.size(result) , sample)
+                            msrcData.pop(sampleIdx)
+                            classSampleCount = classSampleCount+1
+                            
+                        else:
+                            # add to included classes
+                            imgClasses = np.unique(sample.m_gt)
+                            includedClasses = np.unique(sample.m_gt)
+                            result.insert(np.size(result) , sample)
+                            msrcData.pop(sampleIdx)
+                            classSampleCount = classSampleCount+1
+                            # update included classes list
+                            includedClasses = np.unique( np.append( includedClasses, imgClasses ) )
+                    
+            else:
+                # Simply run through class samples list
+                while classSampleCount < classSampleSize:
+                    
+                    sampleIdx = np.random.randint(0, np.size(msrcData))
+                    sample = msrcData[sampleIdx]
+                    
+                    if labelIdx in sample.m_gt:
+                        includedClasses = np.unique(sample.m_gt)
+                        result.insert(np.size(result) , sample)
+                        msrcData.pop(sampleIdx)
+                        classSampleCount = classSampleCount+1
+                        
+    return result, msrcData
+        
 
 
 def selectRandomSetFromList(data, numberSamples, includeAllClassLabels):
@@ -253,7 +259,6 @@ def selectRandomSetFromList(data, numberSamples, includeAllClassLabels):
     idx = 0
     result = []
     if includeAllClassLabels == True:
-        print "Will attempt to find samples that include at least one example of all 24 classes"
         includedClasses = None
         
         while idx < numberSamples:
