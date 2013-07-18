@@ -1,12 +1,8 @@
-import random
-
 import datetime
 
 import numpy as np
 
 from cStringIO import StringIO
-
-from skimage import color
 
 from sklearn import preprocessing
 
@@ -14,7 +10,7 @@ from sklearn.linear_model import LogisticRegression
 
 import pickle
 
-import pomio, FeatureGenerator, PossumStats
+import pomio, FeatureGenerator
 
 
 #
@@ -29,6 +25,8 @@ def trainLogisticRegressionModel(featureData, labels, Cvalue, outputClassifierFi
     
     assert ( np.size( np.shape(labels) ) == 1) , ("Labels should be a 1d array.  Shape of labels = " + str(np.shape(labels)))
     assert ( numTrainDataPoints == numDataLabels) , ("The length of the feature and label data arrays must be equal.  Num data points=" + str(numTrainDataPoints) + ", labels=" + str(numDataLabels) )
+    classLabels = np.unique(labels)
+    assert ( np.size(classLabels) == 23 or np.size(classLabels) == 24 ) , "Training data does not contains all classes::\n\t" + str(classLabels)
      
     if scaleData == True:
         featureData = preprocessing.scale(featureData)
@@ -36,7 +34,7 @@ def trainLogisticRegressionModel(featureData, labels, Cvalue, outputClassifierFi
     # sklearn.linear_model.LogisticRegression(penalty='l2', dual=False, tol=0.0001, C=1.0, fit_intercept=True, intercept_scaling=1, class_weight=None, random_state=None)
     lrc = LogisticRegression(penalty='l1' , dual=False, tol=0.0001, C=Cvalue, fit_intercept=True, intercept_scaling=1)
     lrc.fit(featureData, labels)
-    # See http://stackoverflow.com/questions/10592605/save-naivebayes-classifier-to-disk-in-scikits-learn
+    
     pickleObject(lrc, outputClassifierFile)
     print "LogisticRegression classifier saved to " + str(outputClassifierFile)
     
@@ -71,18 +69,6 @@ def crossValidation_Cparam(trainingData, validationData, classifierBaseFile, cla
     numValidLabels = np.size(validationLabels)
     
     assert ( numValidData == numValidLabels ) , "VALIDATION data error:: Number of feature vectors must equal number of labels. #trainingFeatures=" + ""
-    
-    
-    # Trim the data for testing!
-    factor = 0.1
-    maxTrain = int(np.round(numTrainData * factor , 0))
-    maxValid = int(np.round(numValidData * factor , 0))
-    
-    trainFeatureData = trainFeatureData[0:maxTrain]
-    trainLabels = trainLabels[0:maxTrain]
-    validationFeatureData = validationFeatureData[0:maxValid]
-    validationLabels = validationLabels[0:maxValid]
-    print "Trim the data to " + str(maxTrain) + " examples for train, " + str(maxValid) + " for valid:" , np.shape(trainFeatureData) , np.shape(trainLabels) , np.shape(validationFeatureData) , np.shape(validationLabels)
     
     print "Now training classifiers for specified C params::"
     
@@ -157,14 +143,14 @@ def generateImagePredictionClassDist(rgbImage, classifier):
     print "\nShape of predicted labels::" , np.shape(predictedPixelLabels)
     print "\nShape of prediction probs::" , np.shape(predictionProbs)
     numClasses = pomio.getNumClasses()
-    #!!assert (np.shape(predictionProbs)[1] == numClasses)
+    
+    assert (np.shape(predictionProbs)[1] == numClasses or np.shape(predictionProbs)[1] == numClasses) , "Classifer prediction does not match all classes (23 or 24):: " + str(np.shape(predictionProbs)[1])
     print predictionProbs
     
     #!!predictionProbs = np.reshape(predictionProbs, (nbCols, nbRows, numClasses ))
     print 'reshaping to ', (nbCols, nbRows, predictionProbs.shape[1] )
     predictionProbs = np.reshape(predictionProbs, (nbRows, nbCols, predictionProbs.shape[1] ))
     
-    print "Finish me!"
     return predictionProbs
 
 
@@ -292,7 +278,9 @@ def scaleInputData(inputFeatureData):
     # Assumes numeric numpy array [[ data....] , [data....] ... ]
     return preprocessing.scale(inputFeatureData.astype('float'))
 
+
 if __name__ == "__main__":
+    
     #
     # Simple runtime tests
     #
@@ -313,17 +301,29 @@ if __name__ == "__main__":
     
     scale = 0.1
     # Generate data from images and save to file
-    splitData = pomio.splitInputDataset_msrcData(msrcData, datasetScale=scale, keepClassDist=True, trainSplit=0.6, validationSplit=0.2, testSplit=0.2)
+    print "\nProcessing " + str(scale*100) + "% of MSRC data on a 60/20/20 split serialised for easier file IO"
+    splitData = pomio.splitInputDataset_msrcData(msrcData, datasetScale=scale, keepClassDistForTraining=True, trainSplit=0.6, validationSplit=0.2, testSplit=0.2)
     trainDataset = splitData[0]
+    
+    alTrainlLabels = None
+    
+    for idx in range(0, np.size(trainDataset)):
+        if alTrainlLabels == None:
+            alTrainlLabels = FeatureGenerator.reshapeImageLabels(trainDataset[idx])
+        else:
+            alTrainlLabels = np.append( alTrainlLabels , FeatureGenerator.reshapeImageLabels(trainDataset[idx]) )
+    
     validationDataset = splitData[1]
     testDataset = splitData[2]
-     
-    print "\nProcessing " + str(scale*100) + "% of MSRC data on a 60/20/20 split serialised for easier file IO"   
+    
+    
     print "\nProcessing training data::"
     trainingData = FeatureGenerator.processLabeledImageData(trainDataset, ignoreVoid=True)
-    print "\nProessing validation data::"
+    
+    print "Processing validation data::"
     validationData = FeatureGenerator.processLabeledImageData(validationDataset, ignoreVoid=True)
-    print "\nProcessing test data::"
+    
+    print "Processing test data::"
     testingData = FeatureGenerator.processLabeledImageData(testDataset, ignoreVoid=True)
        
     # # try to save the data
@@ -351,7 +351,6 @@ if __name__ == "__main__":
     # predictImage = pomio.msrc_loadImages(msrcData)[0]
     predictImage = pomio.msrc_loadImages(msrcData)[1]
     print "\nRead in an image from the MSRC dataset::" , np.shape(predictImage.m_img)
-    
     imageFeatures = FeatureGenerator.generatePixelFeaturesForImage(predictImage.m_img)
     
     print "\nGenerating prediction::" , classifier.predict(imageFeatures)
@@ -360,3 +359,4 @@ if __name__ == "__main__":
     imageClassDist = generateImagePredictionClassDist(predictImage.m_img, classifier)
     
     print "\tCompleted @ " + str(datetime.datetime.now())
+
