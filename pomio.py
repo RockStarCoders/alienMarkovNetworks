@@ -13,34 +13,34 @@ import PossumStats
 #
 # It comes with a html doc file describing the labels rgb signatures.
 
-msrc_classToRGB = {\
-'void'     : (0     ,0       ,0     ), \
-'building' : (128   ,0       ,0     ), \
-'grass'    : (0     ,128     ,0     ), \
-'tree'     : (128   ,128     ,0     ), \
-'cow'      : (0     ,0       ,128   ), \
-'horse'    : (128   ,0       ,128   ), \
-'sheep'    : (0     ,128     ,128   ), \
-'sky'      : (128   ,128     ,128   ), \
-'mountain' : (64    ,0       ,0     ), \
-'aeroplane': (192   ,0       ,0     ), \
-'water'    : (64    ,128     ,0     ), \
-'face'     : (192   ,128     ,0     ), \
-'car'      : (64    ,0       ,128   ), \
-'bicycle'  : (192   ,0       ,128   ), \
-'flower'   : (64    ,128     ,128   ), \
-'sign'     : (192   ,128     ,128   ), \
-'bird'     : (0     ,64      ,0     ), \
-'book'     : (128   ,64      ,0     ), \
-'chair'    : (0     ,192     ,0     ), \
-'road'     : (128   ,64      ,128   ), \
-'cat'      : (0     ,192     ,128   ), \
-'dog'      : (128   ,192     ,128   ), \
-'body'     : (64    ,64      ,0     ), \
-'boat'     : (192   ,64      ,0     )  \
-}
+msrc_classToRGB = [\
+('void'     , (0     ,0       ,0     )), \
+('building' , (128   ,0       ,0     )), \
+('grass'    , (0     ,128     ,0     )), \
+('tree'     , (128   ,128     ,0     )), \
+('cow'      , (0     ,0       ,128   )), \
+('horse'    , (128   ,0       ,128   )), \
+('sheep'    , (0     ,128     ,128   )), \
+('sky'      , (128   ,128     ,128   )), \
+('mountain' , (64    ,0       ,0     )), \
+('aeroplane', (192   ,0       ,0     )), \
+('water'    , (64    ,128     ,0     )), \
+('face'     , (192   ,128     ,0     )), \
+('car'      , (64    ,0       ,128   )), \
+('bicycle'  , (192   ,0       ,128   )), \
+('flower'   , (64    ,128     ,128   )), \
+('sign'     , (192   ,128     ,128   )), \
+('bird'     , (0     ,64      ,0     )), \
+('book'     , (128   ,64      ,0     )), \
+('chair'    , (0     ,192     ,0     )), \
+('road'     , (128   ,64      ,128   )), \
+('cat'      , (0     ,192     ,128   )), \
+('dog'      , (128   ,192     ,128   )), \
+('body'     , (64    ,64      ,0     )), \
+('boat'     , (192   ,64      ,0     ))  \
+]
 
-msrc_classLabels = msrc_classToRGB.keys()
+msrc_classLabels = [z[0] for z in msrc_classToRGB]
 
 def getNumClasses():
     return 24
@@ -48,9 +48,9 @@ def getNumClasses():
 def msrc_convertRGBToLabels( imgRGB ):
     imgL = 255 * np.ones( imgRGB.shape[0:2], dtype='uint8' )
     # For each label, find matching RGB and set that value
-    l = 0
-    for lname,clr in msrc_classToRGB.items():
+    for l,ctuple in enumerate(msrc_classToRGB):
         # Get a mask of matching pixels
+        clr = ctuple[1]
         msk = np.logical_and( imgRGB[:,:,0]==clr[0], \
                                   np.logical_and( imgRGB[:,:,1]==clr[1], \
                                                       imgRGB[:,:,2]==clr[2] ) )
@@ -97,6 +97,7 @@ def msrc_loadImages( dataSetPath ):
         # create an image object, stuff in list
         res.append( msrc_Image( fn, gtfn, hqfn ) )
         #break
+    assert len(res) > 0
     return res
 
 
