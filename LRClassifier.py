@@ -138,13 +138,14 @@ def generateImagePredictionClassDist(rgbImage, classifier):
     
     # generate predictions for the image
     imagePixelFeatures = FeatureGenerator.generatePixelFeaturesForImage(rgbImage)
+    #print imagePixelFeatures
     predictedPixelLabels = classifier.predict(imagePixelFeatures)
     predictionProbs = classifier.predict_proba(imagePixelFeatures)
     print "\nShape of predicted labels::" , np.shape(predictedPixelLabels)
     print "\nShape of prediction probs::" , np.shape(predictionProbs)
     numClasses = pomio.getNumClasses()
     
-    assert (np.shape(predictionProbs)[1] == numClasses or np.shape(predictionProbs)[1] == numClasses) , "Classifer prediction does not match all classes (23 or 24):: " + str(np.shape(predictionProbs)[1])
+    assert (np.shape(predictionProbs)[1] == numClasses or np.shape(predictionProbs)[1] == numClasses-1) , "Classifer prediction does not match all classes (23 or 24):: " + str(np.shape(predictionProbs)[1])
     print predictionProbs
     
     #!!predictionProbs = np.reshape(predictionProbs, (nbCols, nbRows, numClasses ))
