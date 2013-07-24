@@ -43,13 +43,11 @@ def imageCountPerClass(msrcDataLocation):
     return result
     
 
-def totalPixelCountPerClass(msrcDataLocation, printTotals=True):
+def totalPixelCountPerClass(msrcImages, printTotals=True):
     classes = pomio.msrc_classLabels
     totalClasses = np.size(classes)
     
     classPixelCount = np.arange(0,totalClasses)
-    
-    msrcImages = pomio.msrc_loadImages(msrcDataLocation)
     
     print "\t*Imported MSRC image data using pomio.py::" , np.shape(msrcImages)
     

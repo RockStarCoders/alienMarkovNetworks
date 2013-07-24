@@ -21,9 +21,9 @@ def createDefaultNeuralNet():
     print "\tb\tiasLayer=" , net['bias']
     return net
 
-def createTrainingSupervisedDataSet(msrcSource , scale , keepClassDistTrain):
+def createTrainingSupervisedDataSet(msrcImages , scale , keepClassDistTrain):
     print "\tSplitting MSRC data into train, test, valid data sets."
-    splitData = pomio.splitInputDataset_msrcData(msrcSource, scale, keepClassDistTrain)
+    splitData = pomio.splitInputDataset_msrcData(msrcImages, scale, keepClassDistTrain)
     
     print "\tNow generating features for each training image."
     trainData = FeatureGenerator.processLabeledImageData(splitData[0], ignoreVoid=True)

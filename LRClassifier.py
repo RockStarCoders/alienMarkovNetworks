@@ -1,23 +1,22 @@
+import os
+import sys
 import datetime
-
 import numpy as np
-
 from cStringIO import StringIO
-
 from sklearn import preprocessing
-
 from sklearn.linear_model import LogisticRegression
-
 import pickle
-
 import pomio, FeatureGenerator
-
+import matplotlib.pyplot as plt
+import matplotlib
 
 #
 # Classifier construction & evaluation utils
 #
 
-def trainLogisticRegressionModel(featureData, labels, Cvalue, outputClassifierFile, scaleData=True):
+def trainLogisticRegressionModel(
+    featureData, labels, Cvalue, outputClassifierFile, scaleData=True, requireAllClasses=True
+    ):
     # See [http://scikit-learn.org/dev/modules/generated/sklearn.linear_model.LogisticRegression.html]
     # Features are numPixel x unmFeature np arrays, labels are numPixel np array
     numTrainDataPoints = np.shape(featureData)[0]
@@ -26,7 +25,9 @@ def trainLogisticRegressionModel(featureData, labels, Cvalue, outputClassifierFi
     assert ( np.size( np.shape(labels) ) == 1) , ("Labels should be a 1d array.  Shape of labels = " + str(np.shape(labels)))
     assert ( numTrainDataPoints == numDataLabels) , ("The length of the feature and label data arrays must be equal.  Num data points=" + str(numTrainDataPoints) + ", labels=" + str(numDataLabels) )
     classLabels = np.unique(labels)
-    assert ( np.size(classLabels) == 23 or np.size(classLabels) == 24 ) , "Training data does not contains all classes::\n\t" + str(classLabels)
+    assert not requireAllClasses or \
+        ( np.size(classLabels) == 23 or np.size(classLabels) == 24 ), \
+        "Training data does not contains all classes::\n\t" + str(classLabels)
      
     if scaleData == True:
         featureData = preprocessing.scale(featureData)
@@ -119,7 +120,7 @@ def crossValidation_Cparam(trainingData, validationData, classifierBaseFile, cla
 # Prediction util methods
 #
 
-def generateImagePredictionClassDist(rgbImage, classifier):
+def generateImagePredictionClassDist(rgbImage, classifier, requireAllClasses=True):
     """This image takes an RGB image as an (i,j,3) numpy array, a scikit-learn classifier and produces probability distribution over each pixel and class.
     Returns an (i,j,N) numpy array where N= total number of classes for use in subsequent modelling."""
     
@@ -145,7 +146,11 @@ def generateImagePredictionClassDist(rgbImage, classifier):
     print "\nShape of prediction probs::" , np.shape(predictionProbs)
     numClasses = pomio.getNumClasses()
     
-    assert (np.shape(predictionProbs)[1] == numClasses or np.shape(predictionProbs)[1] == numClasses-1) , "Classifer prediction does not match all classes (23 or 24):: " + str(np.shape(predictionProbs)[1])
+    assert not requireAllClasses or \
+        (np.shape(predictionProbs)[1] == numClasses or \
+             np.shape(predictionProbs)[1] == numClasses-1) , \
+             "Classifer prediction does not match all classes (23 or 24):: " + \
+             str(np.shape(predictionProbs)[1])
     print predictionProbs
     
     #!!predictionProbs = np.reshape(predictionProbs, (nbCols, nbRows, numClasses ))
@@ -279,31 +284,75 @@ def scaleInputData(inputFeatureData):
     # Assumes numeric numpy array [[ data....] , [data....] ... ]
     return preprocessing.scale(inputFeatureData.astype('float'))
 
+def makedear( base, dirname ):
+    fn = base + dirname
+    if not os.path.isdir( fn ):
+        os.mkdir(fn)
 
 if __name__ == "__main__":
-    
+
     #
     # Simple runtime tests
     #
     # TODO look at sklearn pipeline to get some automation here
+    doVal = 0
+    doTest = 0
     
-    msrcData = "/home/amb/dev/mrf/data/MSRC_ObjCategImageDatabase_v2"
+    msrcData = sys.argv[1] #"/home/amb/dev/mrf/data/MSRC_ObjCategImageDatabase_v2"
     timestamp = str(datetime.datetime.now())
     # Output file resources
-    trainingPixelBaseFilename = "/home/amb/dev/mrf/classifiers/logisticRegression/pixelLevelModels/training/trainPixelFeature" 
-    validationPixelBaseFilename = "/home/amb/dev/mrf/classifiers/logisticRegression/pixelLevelModels/crossValidation/data/cvPixelFeature"
-    validationResultsBaseFilename = "/home/amb/dev/mrf/classifiers/logisticRegression/pixelLevelModels/crossValidation/results/logRegClassifier_CrossValidResult"
+    outDir = sys.argv[2]
+    trainingPixelBaseFilename     = outDir + "/training/trainPixelFeature" 
+    validationPixelBaseFilename   = outDir + "/crossValidation/data/cvPixelFeature"
+    validationResultsBaseFilename = outDir + "/crossValidation/results/logRegClassifier_CrossValidResult"
      
-    testingPixelBaseFilename = "/home/amb/dev/mrf/classifiers/logisticRegression/pixelLevelModels/testing/data/testPixelFeature"
-    testingResultsBaseFilename = "/home/amb/dev/mrf/classifiers/logisticRegression/pixelLevelModels/testing/results/testPixelFeature"
+    testingPixelBaseFilename      = outDir + "/testing/data/testPixelFeature"
+    testingResultsBaseFilename    = outDir + "/testing/results/testPixelFeature"
      
-    classifierBaseFilename = "/home/amb/dev/mrf/classifiers/logisticRegression/pixelLevelModels/classifierModels/logRegClassifier"
+    classifierBaseFilename        = outDir + "/classifierModels/logRegClassifier"
     
-    
-    scale = 0.1
-    # Generate data from images and save to file
-    print "\nProcessing " + str(scale*100) + "% of MSRC data on a 60/20/20 split serialised for easier file IO"
-    splitData = pomio.splitInputDataset_msrcData(msrcData, datasetScale=scale, keepClassDistForTraining=True, trainSplit=0.6, validationSplit=0.2, testSplit=0.2)
+    makedear( outDir, "/training" )
+    makedear( outDir, "/crossValidation" )
+    makedear( outDir, "/crossValidation/data" )
+    makedear( outDir, "/crossValidation/results" )
+    makedear( outDir, "/testing" )
+    makedear( outDir, "/testing/data" )
+    makedear( outDir, "/testing/results" )
+    makedear( outDir, "/classifierModels" )
+
+    # Load dem images
+    msrcImages = pomio.msrc_loadImages(msrcData, ['Images/7_3_s.bmp'])
+
+    if doVal or doTest:
+        scale = 0.1
+        # Generate data from images and save to file
+        print "\nProcessing " + str(scale*100) + \
+            "% of MSRC data on a 60/20/20 split serialised for easier file IO"
+        splitData = pomio.splitInputDataset_msrcData(
+            msrcImages,
+            datasetScale=scale,
+            keepClassDistForTraining=True,
+            trainSplit=0.6,
+            validationSplit=0.2,
+            testSplit=0.2
+            )
+        
+        validationDataset = splitData[1]
+        testDataset = splitData[2]
+        
+        
+        if doVal:
+            print "Processing validation data::"
+            validationData = FeatureGenerator.processLabeledImageData(validationDataset, ignoreVoid=True)
+        
+        if doTest:
+            print "Processing test data::"
+            testingData = FeatureGenerator.processLabeledImageData(testDataset, ignoreVoid=True)
+    else:
+        # Just training data
+        splitData = [msrcImages,None,None]
+
+    # prepare training data
     trainDataset = splitData[0]
     
     alTrainlLabels = None
@@ -313,51 +362,71 @@ if __name__ == "__main__":
             alTrainlLabels = FeatureGenerator.reshapeImageLabels(trainDataset[idx])
         else:
             alTrainlLabels = np.append( alTrainlLabels , FeatureGenerator.reshapeImageLabels(trainDataset[idx]) )
-    
-    validationDataset = splitData[1]
-    testDataset = splitData[2]
-    
-    
     print "\nProcessing training data::"
     trainingData = FeatureGenerator.processLabeledImageData(trainDataset, ignoreVoid=True)
-    
-    print "Processing validation data::"
-    validationData = FeatureGenerator.processLabeledImageData(validationDataset, ignoreVoid=True)
-    
-    print "Processing test data::"
-    testingData = FeatureGenerator.processLabeledImageData(testDataset, ignoreVoid=True)
-       
+        
+
     # # try to save the data
     # print "\nTry to pickle the results..."
     # pickleObject(trainingData, trainingPixelBaseFilename) # Why you fail me Mr Pickle?
     # pickleObject(validationData, validationPixelBaseFilename)
     # pickleObject(testingData, testingPixelBaseFilename)
     
-    # cross-validation on C param
-    print "\nNow using validation data set to evaluate different C param values @" , datetime.datetime.now()
-    C_min = 0
-    C_max = 1.0
-    C_increment = 0.5
-    cvResult = crossValidation_Cparam(trainingData, validationData, classifierBaseFilename, validationResultsBaseFilename, C_min, C_max, C_increment)
-    print "Completed @ " + str(datetime.datetime.now()), "\nCV results for different C params:\n" , cvResult
-    
-    classifierVersion = "_0.5"
-    filetype = ".pkl"
-    classifierFilename = classifierBaseFilename + classifierVersion + filetype
-    
-    print "Reading pre-built classifier from file::" , classifierFilename , "@" , datetime.datetime.now()
-    classifier = loadClassifier(classifierFilename)
-    
+    if doVal:
+        # cross-validation on C param
+        print "\nNow using validation data set to evaluate different C param values @" , datetime.datetime.now()
+        C_min = 0
+        C_max = 1.0
+        C_increment = 0.5
+        cvResult = crossValidation_Cparam(trainingData, validationData, classifierBaseFilename, validationResultsBaseFilename, C_min, C_max, C_increment)
+        print "Completed @ " + str(datetime.datetime.now()), "\nCV results for different C params:\n" , cvResult
+    else:
+        # Use fixed C
+        C = 0.5
+        # Just train on a subset!!
+        nbToTrainOn = 10000
+        print 'TRAINING CLASSIFIER on %d-sample subset of %d examples of dimension %d...' % \
+            ( nbToTrainOn, trainingData[0].shape[0], trainingData[0].shape[1] )
+        subset = np.random.choice( trainingData[0].shape[0], nbToTrainOn, replace=False )
+        classifier = trainLogisticRegressionModel(
+            trainingData[0][subset,:], trainingData[1][subset], C, classifierBaseFilename, \
+                scaleData=True, \
+                requireAllClasses=False
+            )
+
+
+    # 
+    #     classifierVersion = "_0.5"
+    #     filetype = ".pkl"
+    #     classifierFilename = classifierBaseFilename + classifierVersion + filetype
+    #     
+    #     print "Reading pre-built classifier from file::" , classifierFilename , "@" , datetime.datetime.now()
+    #     classifier = loadClassifier(classifierFilename)
+    #     
     
     # predictImage = pomio.msrc_loadImages(msrcData)[0]
-    predictImage = pomio.msrc_loadImages(msrcData)[1]
-    print "\nRead in an image from the MSRC dataset::" , np.shape(predictImage.m_img)
-    imageFeatures = FeatureGenerator.generatePixelFeaturesForImage(predictImage.m_img)
-    
-    print "\nGenerating prediction::" , classifier.predict(imageFeatures)
-    
-    print "\nGenerating the probability dist. for each pixel over class labels @" , datetime.datetime.now()
-    imageClassDist = generateImagePredictionClassDist(predictImage.m_img, classifier)
-    
+    clrs = [[z/255.0 for z in c[1]] for c in pomio.msrc_classToRGB]
+    plt.figure()
+    plt.interactive(1)
+    for img in msrcImages:
+        #print "\nRead in an image from the MSRC dataset::" , np.shape(predictImage.m_img)
+        imageFeatures = FeatureGenerator.generatePixelFeaturesForImage(img.m_img)
+        
+        predLabs = classifier.predict(imageFeatures)
+        print "\nGenerating prediction::" , predLabs
+        predImg = np.reshape( predLabs, img.m_img[:,:,0].shape )
+        #print "\nGenerating the probability dist. for each pixel over class labels @" , datetime.datetime.now()
+        imageClassDist = generateImagePredictionClassDist(img.m_img, classifier,False)
+        
+        # Display
+        print "Unique labels from clfr = ", np.unique(predLabs)
+        plt.imshow( predImg,
+                    cmap=matplotlib.colors.ListedColormap(clrs),
+                    vmin=0,
+                    vmax=23 )#imageClassDist.shape[2]-1 )
+        plt.waitforbuttonpress()
+
     print "\tCompleted @ " + str(datetime.datetime.now())
 
+plt.interactive(0)
+plt.show()

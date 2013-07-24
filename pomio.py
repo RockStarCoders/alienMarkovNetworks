@@ -112,12 +112,11 @@ def msrc_loadImages( dataSetPath, subset=None ):
 # Data preparation utils
 #
 
-def splitInputDataset_msrcData(msrcDataLocation, datasetScale=1.0 , keepClassDistForTraining=True, trainSplit=0.6, validationSplit=0.2, testSplit=0.2, ):
+def splitInputDataset_msrcData(msrcImages, datasetScale=1.0 , keepClassDistForTraining=True, trainSplit=0.6, validationSplit=0.2, testSplit=0.2, ):
     assert (trainSplit + validationSplit + testSplit) == 1, "values for train, validation and test must sum to 1"
     # MUST ENSURE that the returned sample contains at least 1 example of each class label, or else the classifier doesn't consider all classes!
     # go for a random 60, 20, 20 split for train, validate and test
     # use train to build model, validate to evaluate good regularisation parameter and test to evalaute generalised performance
-    msrcImages = msrc_loadImages(msrcDataLocation)
     totalImages = np.shape(msrcImages)[0]
     totalSampledImages = np.round(totalImages * datasetScale , 0).astype('int')
     
@@ -154,7 +153,7 @@ def splitInputDataset_msrcData(msrcDataLocation, datasetScale=1.0 , keepClassDis
         
     elif keepClassDistForTraining == True:
         # Get class frequency count from image set
-        classPixelCounts = PossumStats.totalPixelCountPerClass(msrcDataLocation, printTotals=False)[1]
+        classPixelCounts = PossumStats.totalPixelCountPerClass(msrcImages, printTotals=False)[1]
         
         # normalise the frequency values to give ratios for each class
         sumClassCount = np.sum(classPixelCounts)
