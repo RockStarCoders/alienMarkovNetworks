@@ -86,11 +86,16 @@ class msrc_Image:
         self.m_hqFn  = hqfn
    
 # dataSetPath is the base directory for the data set (subdirs are under this)
-# Returns a list of msrc_image objects.
-def msrc_loadImages( dataSetPath ):
+# Returns a list of msrc_image objects.  subset should be a list of 
+# filenames of the original image, relative to dataSetPath.
+def msrc_loadImages( dataSetPath, subset=None ):
     res = []
+    if subset == None:
+        subset = glob.glob( dataSetPath + '/Images/*.bmp' )
+    else:
+        subset = [ dataSetPath + '/' + fn for fn in subset ]
     # For each image file:
-    for fn in glob.glob( dataSetPath + '/Images/*.bmp' ):
+    for fn in subset:
         # load the ground truth, convert to discrete label
         gtfn = fn.replace('Images/', 'GroundTruth/').replace('.bmp','_GT.bmp')
         hqfn = fn.replace('Images/', 'SegmentationsGTHighQuality/').replace('.bmp','_HQGT.bmp')

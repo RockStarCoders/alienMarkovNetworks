@@ -7,7 +7,8 @@
 
 import numpy as np
 from numpy import exp
-
+import Image as pil
+import matplotlib.pyplot as plt
 from scipy import signal
 
 
@@ -172,13 +173,16 @@ def generatePixelFeaturesForImage(rgbSourceImage):
 #     hsvColour1DHistogramFeatures = np.resize(hsvColour1DHistogramFeatures, (totalImagePixels, np.size(hsvColour1DHistogramFeatures[1]) ) )
         
     hsvColour3DHistogramFeatures, range =  create3dHSVColourHistogramFeature(hsvSourceImage)
+    print 'At this point, the hist size is ', hsvColour3DHistogramFeatures.shape
     hsvColour3DHistogramFeatures = np.resize(hsvColour3DHistogramFeatures, (totalImagePixels, np.size(hsvColour3DHistogramFeatures[1]) ) )
     range = None
     
     # HOG features
-    hog1Darray, hogFeatures =  createHistogramOfOrientedGradientFeatures(rgbSourceImage, numGradientBins, (9,9), (3,3), True, True)
-    hog1Darray = None
-    hogFeatures = np.reshape(hogFeatures, (totalImagePixels , np.size(hogFeatures) / totalImagePixels) )
+    hogFeatureImage =  createHistogramOfOrientedGradientFeatures(rgbSourceImage, numGradientBins, (9,9), (3,3), True, True)
+    # this is RxCxNbOrients
+    hogFeatures = np.reshape( hogFeatureImage, ( rgbSourceImage[:,:,0].size, numGradientBins ) )
+    #hog1Darray = None
+    #hogFeatures = np.reshape(hogFeatures, (totalImagePixels , np.size(hogFeatures) / totalImagePixels) )
     
     # Local binary pattern features
     lbpFeatures =  createLocalBinaryPatternFeatures(rgbSourceImage, 4, 2, "default")
@@ -206,9 +210,9 @@ def generatePixelFeaturesForImage(rgbSourceImage):
 #                                 rgbColour3DHistogramFeatures, \
 #                                 hsvColourValueFeature, \
 #                                 hsvColour1DHistogramFeatures, \
-                                hsvColour3DHistogramFeatures,  \
+# prob not needed due to crf smoothing      hsvColour3DHistogramFeatures,  \
                                 hogFeatures, \
-                                lbpFeatures, \
+# !!come back to this later                                lbpFeatures, \
                                 filterResponseFeatures \
                                 ] )
     # 14/06/13 Reference feature set = rgbColourValuesFeature, hsvColour3DHistogramFeatures, hogFeatures, hogFeatures, lbpFeatures & filterResponseFeatures
@@ -354,7 +358,7 @@ def create3dHSVColourHistogramFeature(imageHSV):
     # fail if user-input number of bins is not a permitted value
     assert numHistBins in bins, "User specified number of bins is not one of the permitted values:: " + str(bins)
     
-    numPixels = np.shape(imageHSV[:,:,0])[0] * np.shape(imageHSV[:,:,0])[1]
+    numPixels = imageHSV[:,:,0].size
     numColourChannels = 3
     data = imageHSV.reshape((numPixels, numColourChannels))
     
@@ -375,11 +379,18 @@ def createCIEDLab3DHistogram():
 def createHistogramOfOrientedGradientFeatures(sourceImage, numOrientations, cellForm, cellsPerBlock, visualise, smoothImage):
     # Assume given sourceImage is RGB numpy n-array.
     # wraps scikit-sourceImage HOG function.  We convert an input sourceImage to 8-bit grayscale
+    #  RETURNS: R x C x Orients array
     sourceImage = color.rgb2gray(sourceImage)
     
-    return feature.hog(sourceImage, numOrientations, cellForm, cellsPerBlock, visualise=visualise, normalise=smoothImage)
-    
-
+    hogVec = feature.hog(sourceImage, numOrientations, (8,8), (1,1), visualise=False, normalise=smoothImage)#cellForm, cellsPerBlock, visualise=visualise, normalise=smoothImage)
+    hogBlocks = np.reshape( hogVec, (sourceImage.shape[0]/8, sourceImage.shape[1]/8, numOrientations) )
+    assert hogBlocks.max() <= 1.0
+    # resize 
+    hogImg = np.zeros( ( sourceImage.shape[0], sourceImage.shape[1], numOrientations ) )
+    for o in range(numOrientations):
+        hogImg[:,:,o] = np.array( pil.fromarray( (255*hogBlocks[:,:,o]).astype('uint8') ).resize( \
+                [z for z in reversed(sourceImage.shape)], pil.NEAREST ) )
+    return hogImg
 
 def createLocalBinaryPatternFeatures(imageRGB, orientationBins, neighbourhoodRadius, inputMethod):
     """Returns (i, j) array of Local Binary Pattern values for (i, j) input sourceImage, using scikit-sourceImage.feature.local_binary_pattern."""
@@ -431,21 +442,24 @@ def createFilterbankResponse(sourceImage, window):
     # Div1yG3       d/dy(N(0,4))     yes      no       no     11
     response = np.array([])
     
+    #plt.interactive(1)
+    #plt.figure()
     for filterNum in range(0,numFilters):
-        
         if filterNum == 0:
-            response = signal.convolve2d(image_L, filters[filterNum], mode='same')
-            response = np.dstack((response, signal.convolve2d(image_a, filters[filterNum], mode='same')))
-            response = np.dstack((response, signal.convolve2d(image_b, filters[filterNum], mode='same')))
+            response = signal.convolve2d(image_L, filters[filterNum], mode='same', boundary='symm')
+            response = np.dstack((response, signal.convolve2d(image_a, filters[filterNum], mode='same', boundary='symm')))
+            response = np.dstack((response, signal.convolve2d(image_b, filters[filterNum], mode='same', boundary='symm')))
             
         elif filterNum ==1 or filterNum==2:
-            response = np.dstack((response, signal.convolve2d(image_L, filters[filterNum], mode='same')))
-            response = np.dstack((response, signal.convolve2d(image_a, filters[filterNum], mode='same'))) 
-            response = np.dstack((response, signal.convolve2d(image_b, filters[filterNum], mode='same')))
+            response = np.dstack((response, signal.convolve2d(image_L, filters[filterNum], mode='same', boundary='symm')))
+            response = np.dstack((response, signal.convolve2d(image_a, filters[filterNum], mode='same', boundary='symm'))) 
+            response = np.dstack((response, signal.convolve2d(image_b, filters[filterNum], mode='same', boundary='symm')))
         
         else:
-            response = np.dstack((response, signal.convolve2d(image_L, filters[filterNum], mode='same')))
-        
+            response = np.dstack((response, signal.convolve2d(image_L, filters[filterNum], mode='same', boundary='symm')))
+        #plt.imshow( response[:,:,-1] )
+        #plt.set_cmap('gray')
+        #plt.waitforbuttonpress()
 #     print "Size of response data = " + str(np.shape(response))     
     return response
 

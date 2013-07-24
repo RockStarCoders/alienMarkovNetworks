@@ -10,10 +10,10 @@ import matplotlib
 
 # Load all data
 print 'Loading all data...'
-data = pomio.msrc_loadImages('/home/jamie/data/MSRC_ObjCategImageDatabase_v2')
+data = pomio.msrc_loadImages('/home/jamie/data/MSRC_ObjCategImageDatabase_v2', \
+                                 ['Images/7_3_s.bmp'])
 # get particular image we like
-idx = [ '7_3_s' in z.m_imgFn for z in data ].index(True)
-ex = data[idx]
+ex = data[0]
 
 
 plt.figure()
@@ -35,7 +35,7 @@ for i in range(imagePixelFeatures.shape[1]):
         % (i, len(np.unique( imagePixelFeatures[:,i])) )
 
 # Plot a selection of features
-sel = range(0,3)
+sel = np.arange(12,29,2)
 # sel = range(80,86)
 
 # colours have to be on range 0-1
@@ -47,9 +47,13 @@ whichPts = np.random.choice( imagePixelFeatures.shape[0], nbpts, replace=False)
 # python weirdness, can't index from 2 lists at once...
 subset = imagePixelFeatures[whichPts,:]
 subset = subset[:,sel]
+
+labelSubset = np.reshape(ex.m_gt, (imagePixelFeatures.shape[0],1))[whichPts].squeeze()
+print labelSubset.shape
+
 # todo: fix bug, displayed labels not right, car cluster should be lower right
 amntools.gplotmatrix( subset,\
-                          np.reshape(ex.m_gt, (imagePixelFeatures.shape[0],1))[whichPts].T, \
+                          labelSubset, \
                           #ex.m_gt.flatten(1)[whichPts], \
                           msize=ptsz, classColours=clrs)
 plt.show()

@@ -304,7 +304,7 @@ void inferenceNABSwap(
   // more complicated because then the cut weight is not the energy of the
   // labelling.
   
-  const int maxIterations = 100;
+  const int maxIterations = 1;//100;
   const int npix = rows*cols;
 
   std::cout << "I think image ul pix = " << cMatInputImage[0]

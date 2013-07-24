@@ -44,6 +44,7 @@ def estimateNeighbourRMSPixelDiff(imgRGB, nhoodSz):
 def gplotmatrix( X, labels, msize=5, classColours=None ):
     assert X.ndim == 2
     D = X.shape[1]
+    print labels
     assert type(labels)==list or labels.ndim == 1
     assert( len(labels) == X.shape[0] )
     # assume labels are contiguous

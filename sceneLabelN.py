@@ -6,7 +6,7 @@
 #
 # Example:
 #
-#     PYTHONPATH=./maxflow ./sceneLabelN.py ./logClassifier_0.5.pkl /home/jamie/data/MSRC_ObjCategImageDatabase_v2/Images/7_3_s.bmp
+#     PYTHONPATH=./maxflow ./sceneLabelN.py logRegClassifier_1e-06.pkl /home/jamie/data/MSRC_ObjCategImageDatabase_v2/Images/7_3_s.bmp
 
 import pickle as pkl
 import sys
@@ -40,8 +40,21 @@ plt.interactive(1)
 plt.imshow(imgRGB)
 plt.title('original image')
 #plt.waitforbuttonpress()
-plt.draw()
 
+plt.figure()
+maxLabel = np.argmax( classProbs, 2 )
+plt.imshow(maxLabel)
+plt.title('raw clfr labels')
+
+plt.draw()
+plt.waitforbuttonpress()
+
+print classProbs
+
+for i in range( classProbs.shape[2] ):
+    plt.imshow( classProbs[:,:,i] )
+    plt.title( 'class %d' % i )
+    plt.waitforbuttonpress()
 
 nhoodSz = 4
 sigsq = amntools.estimateNeighbourRMSPixelDiff(imgRGB,nhoodSz) ** 2
@@ -55,7 +68,7 @@ K0 = 0#0.5
 
 plt.figure()
 # for K in np.linspace(1,100,10):
-for K in np.logspace(0,2.5,10):
+for K in np.logspace(0,2.5,1):#10):
     def nbrCallback( pixR, pixG, pixB, nbrR, nbrG, nbrB ):
         #print "*** Invoking callback"
         idiffsq = (pixR-nbrR)**2 + (pixG-nbrG)**2 + (pixB-nbrB)**2
@@ -82,6 +95,6 @@ for K in np.logspace(0,2.5,10):
     if dointeract:
         plt.waitforbuttonpress()
 
-plt.interactive(False)
-plt.show()
+#plt.interactive(False)
+#plt.show()
 
