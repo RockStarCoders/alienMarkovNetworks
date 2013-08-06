@@ -9,6 +9,7 @@ import pickle
 import pomio, FeatureGenerator
 import matplotlib.pyplot as plt
 import matplotlib
+import NeuralNet
 
 #
 # Classifier construction & evaluation utils
@@ -388,12 +389,24 @@ if __name__ == "__main__":
         print 'TRAINING CLASSIFIER on %d-sample subset of %d examples of dimension %d...' % \
             ( nbToTrainOn, trainingData[0].shape[0], trainingData[0].shape[1] )
         subset = np.random.choice( trainingData[0].shape[0], nbToTrainOn, replace=False )
-        classifier = trainLogisticRegressionModel(
-            trainingData[0][subset,:], trainingData[1][subset], C, classifierBaseFilename, \
-                scaleData=True, \
-                requireAllClasses=False
-            )
-
+        if 0:
+            classifier = trainLogisticRegressionModel(
+                trainingData[0][subset,:], trainingData[1][subset], C, classifierBaseFilename, \
+                    scaleData=True, \
+                    requireAllClasses=False
+                )
+        else:
+            # Construct nn dataset
+            datmat = trainingData[0][subset,:]
+            labvec = trainingData[1][subset]
+            nbFeatures = datmat.shape[1]
+            nbClasses = 23#np.max(labvec)+1
+            nbHidden = 100
+            maxIter = 200
+            classifier = NeuralNet.NNet(nbFeatures, nbClasses, nbHidden)
+            nnds = classifier.createTrainingSetFromMatrix( datmat, labvec )
+            classifier.trainNetworkBackprop(nnds,maxIter)
+            
 
     # 
     #     classifierVersion = "_0.5"
@@ -413,17 +426,20 @@ if __name__ == "__main__":
         imageFeatures = FeatureGenerator.generatePixelFeaturesForImage(img.m_img)
         
         predLabs = classifier.predict(imageFeatures)
-        print "\nGenerating prediction::" , predLabs
+        print "\nGenerating prediction of shape ", predLabs.shape, "::" , predLabs
         predImg = np.reshape( predLabs, img.m_img[:,:,0].shape )
         #print "\nGenerating the probability dist. for each pixel over class labels @" , datetime.datetime.now()
-        imageClassDist = generateImagePredictionClassDist(img.m_img, classifier,False)
+        #imageClassDist = generateImagePredictionClassDist(img.m_img, classifier,False)
         
         # Display
         print "Unique labels from clfr = ", np.unique(predLabs)
+        plt.subplot(1,2,1)
+        plt.imshow(img.m_img)
+        plt.subplot(1,2,2)
         plt.imshow( predImg,
                     cmap=matplotlib.colors.ListedColormap(clrs),
                     vmin=0,
-                    vmax=23 )#imageClassDist.shape[2]-1 )
+                    vmax=22 )#imageClassDist.shape[2]-1 )
         plt.waitforbuttonpress()
 
     print "\tCompleted @ " + str(datetime.datetime.now())
