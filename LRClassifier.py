@@ -16,7 +16,7 @@ def trainLogisticRegressionModel(
     featureData, labels, Cvalue, outputClassifierFile, scaleData=True, requireAllClasses=True
     ):
     # See [http://scikit-learn.org/dev/modules/generated/sklearn.linear_model.LogisticRegression.html]
-    # Features are numPixel x unmFeature np arrays, labels are numPixel np array
+    # Features are numPixel x numFeature np arrays, labels are numPixel np array
     numTrainDataPoints = np.shape(featureData)[0]
     numDataLabels = np.size(labels)
     
@@ -42,7 +42,7 @@ def trainLogisticRegressionModel(
 
 def testClassifier(classifier, testFeatureData, testLabels, resultsFile, scaleData=True):
     # predict on testFeatures, compare to testClassLabels, return the results
-    # TODO implement "ignore void class"
+
     accuracy = classifier.score(testFeatureData, testLabels)
     return accuracy
 
@@ -320,8 +320,11 @@ if __name__ == "__main__":
     makedear( outDir, "/testing/results" )
     makedear( outDir, "/classifierModels" )
 
+    subsetType = sys.argv[3]
+    numPixelSamples = 100000 # could make this user input
+
     # Load dem images
-    if 0:
+    if subsetType == 1:
         msrcImages = pomio.msrc_loadImages(msrcData, [\
                 'Images/10_1_s.bmp',\
                 'Images/10_2_s.bmp',\
@@ -363,8 +366,11 @@ if __name__ == "__main__":
                 'Images/8_2_s.bmp',\
                 'Images/9_1_s.bmp',\
                 'Images/9_2_s.bmp'])
-    else:
+    elif subsetType == 2:
         msrcImages = pomio.msrc_loadImages(msrcData, ['Images/7_3_s.bmp'] )
+    else:
+    	# Load all images
+    	msrcImages = pomio.msrc_loadImages(msrcData)
 
     if doVal or doTest:
         scale = 0.1
@@ -398,23 +404,16 @@ if __name__ == "__main__":
     # prepare training data
     trainDataset = splitData[0]
     
-    alTrainlLabels = None
+    trainLabels = None
     
     for idx in range(0, np.size(trainDataset)):
-        if alTrainlLabels == None:
-            alTrainlLabels = FeatureGenerator.reshapeImageLabels(trainDataset[idx])
+        if trainLabels == None:
+            trainLabels = FeatureGenerator.reshapeImageLabels(trainDataset[idx])
         else:
-            alTrainlLabels = np.append( alTrainlLabels , FeatureGenerator.reshapeImageLabels(trainDataset[idx]) )
+            trainLabels = np.append( trainLabels , FeatureGenerator.reshapeImageLabels(trainDataset[idx]) )
     print "\nProcessing training data::"
     trainingData = FeatureGenerator.processLabeledImageData(\
-        trainDataset, ignoreVoid = True, nbPerImage = 1000)
-        
-
-    # # try to save the data
-    # print "\nTry to pickle the results..."
-    # pickleObject(trainingData, trainingPixelBaseFilename) # Why you fail me Mr Pickle?
-    # pickleObject(validationData, validationPixelBaseFilename)
-    # pickleObject(testingData, testingPixelBaseFilename)
+        trainDataset, ignoreVoid = True) # , nbPerImage = 1000)
     
     if doVal:
         # cross-validation on C param
@@ -428,10 +427,24 @@ if __name__ == "__main__":
         # Use fixed C
         C           = 0.5
         # Just train on a subset!!
-        nbToTrainOn = 1000
+        
+        # train on a set number of examples (or total pixels if less than specified value)
+        
+        totalExamples = trainingData[0].shape[0] # num rows = num pixel features
+        if (totalExamples < nbTrainOn):
+            print "Required number of samples (" , nbTrainOn , " ) > number of pixels in image (" , totalExamples , " ).  Will use all pixel features."
+            nbTrainOn = totalExamples
+        else:
+        	nbToTrainOn = numPixelSamples
+        
         print 'TRAINING CLASSIFIER on %d-sample subset of %d examples of dimension %d...' % \
             ( nbToTrainOn, trainingData[0].shape[0], trainingData[0].shape[1] )
-        subset = np.random.choice( trainingData[0].shape[0], nbToTrainOn, replace=False )
+        
+        if nbTrainOn == totalExamples:
+        	subset = np.arange(0, trainingData.shape[0] ) # All data samples
+        else:
+        	subset = np.random.choice( trainingData[0].shape[0], nbToTrainOn, replace=False ) # Just specified samples
+        	
         if 0:
             # logistic regression
             classifier = trainLogisticRegressionModel(
