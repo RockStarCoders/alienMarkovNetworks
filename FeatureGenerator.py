@@ -183,7 +183,6 @@ def generatePixelFeaturesForImage(rgbSourceImage):
 #     hsvColour1DHistogramFeatures = np.resize(hsvColour1DHistogramFeatures, (totalImagePixels, np.size(hsvColour1DHistogramFeatures[1]) ) )
         
     hsvColour3DHistogramFeatures, range =  create3dHSVColourHistogramFeature(hsvSourceImage)
-    print 'At this point, the hist size is ', hsvColour3DHistogramFeatures.shape
     hsvColour3DHistogramFeatures = np.resize(hsvColour3DHistogramFeatures, (totalImagePixels, np.size(hsvColour3DHistogramFeatures[1]) ) )
     range = None
     
