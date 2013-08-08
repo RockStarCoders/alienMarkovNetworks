@@ -307,7 +307,8 @@ if __name__ == "__main__":
     testingPixelBaseFilename      = outDir + "/testing/data/testPixelFeature"
     testingResultsBaseFilename    = outDir + "/testing/results/testPixelFeature"
      
-    classifierBaseFilename        = outDir + "/classifierModels/logRegClassifier"
+    #classifierBaseFilename        = outDir + "/classifierModels/logRegClassifier"
+    classifierBaseFilename        = outDir + "/classifierModels/randForestClassifier"
     
     makedear( outDir, "" )
     makedear( outDir, "/training" )
@@ -320,7 +321,47 @@ if __name__ == "__main__":
     makedear( outDir, "/classifierModels" )
 
     # Load dem images
-    msrcImages = pomio.msrc_loadImages(msrcData, ['Images/7_3_s.bmp'])
+    msrcImages = pomio.msrc_loadImages(msrcData, [\
+            'Images/10_1_s.bmp',\
+            'Images/10_2_s.bmp',\
+            'Images/11_1_s.bmp',\
+            'Images/11_2_s.bmp',\
+            'Images/12_1_s.bmp',\
+            'Images/12_2_s.bmp',\
+            'Images/13_1_s.bmp',\
+            'Images/13_2_s.bmp',\
+            'Images/14_1_s.bmp',\
+            'Images/14_2_s.bmp',\
+            'Images/15_1_s.bmp',\
+            'Images/15_2_s.bmp',\
+            'Images/16_1_s.bmp',\
+            'Images/16_2_s.bmp',\
+            'Images/17_1_s.bmp',\
+            'Images/17_2_s.bmp',\
+            'Images/18_1_s.bmp',\
+            'Images/18_2_s.bmp',\
+            'Images/19_1_s.bmp',\
+            'Images/19_2_s.bmp',\
+            'Images/1_1_s.bmp',\
+            'Images/1_2_s.bmp',\
+            'Images/20_1_s.bmp',\
+            'Images/20_2_s.bmp',\
+            'Images/2_1_s.bmp',\
+            'Images/2_2_s.bmp',\
+            'Images/3_1_s.bmp',\
+            'Images/3_2_s.bmp',\
+            'Images/4_1_s.bmp',\
+            'Images/4_2_s.bmp',\
+            'Images/5_1_s.bmp',\
+            'Images/5_2_s.bmp',\
+            'Images/6_1_s.bmp',\
+            'Images/6_2_s.bmp',\
+            'Images/7_1_s.bmp',\
+            'Images/7_2_s.bmp',\
+            'Images/8_1_s.bmp',\
+            'Images/8_2_s.bmp',\
+            'Images/9_1_s.bmp',\
+            'Images/9_2_s.bmp'])
 
     if doVal or doTest:
         scale = 0.1
@@ -362,7 +403,8 @@ if __name__ == "__main__":
         else:
             alTrainlLabels = np.append( alTrainlLabels , FeatureGenerator.reshapeImageLabels(trainDataset[idx]) )
     print "\nProcessing training data::"
-    trainingData = FeatureGenerator.processLabeledImageData(trainDataset, ignoreVoid=True)
+    trainingData = FeatureGenerator.processLabeledImageData(\
+        trainDataset, ignoreVoid = True, nbPerImage = 1000)
         
 
     # # try to save the data
@@ -374,14 +416,14 @@ if __name__ == "__main__":
     if doVal:
         # cross-validation on C param
         print "\nNow using validation data set to evaluate different C param values @" , datetime.datetime.now()
-        C_min = 0
-        C_max = 1.0
+        C_min       = 0
+        C_max       = 1.0
         C_increment = 0.5
-        cvResult = crossValidation_Cparam(trainingData, validationData, classifierBaseFilename, validationResultsBaseFilename, C_min, C_max, C_increment)
+        cvResult    = crossValidation_Cparam(trainingData, validationData, classifierBaseFilename, validationResultsBaseFilename, C_min, C_max, C_increment)
         print "Completed @ " + str(datetime.datetime.now()), "\nCV results for different C params:\n" , cvResult
     else:
         # Use fixed C
-        C = 0.5
+        C           = 0.5
         # Just train on a subset!!
         nbToTrainOn = 10000
         print 'TRAINING CLASSIFIER on %d-sample subset of %d examples of dimension %d...' % \
@@ -411,10 +453,13 @@ if __name__ == "__main__":
             # Random forest
             datmat = trainingData[0][subset,:]
             labvec = trainingData[1][subset]
+            print '**Training a random forest on %d examples...' % len(labvec)
+            print 'Labels represented: ', np.unique( labvec )
             classifier = sklearn.ensemble.RandomForestClassifier(\
                 n_estimators=100)
             classifier = classifier.fit( datmat, labvec )
-            #print classifier.predict(datmat)
+            pickleObject(classifier, classifierBaseFilename)
+            print "Rand forest classifier saved to " + str(classifierBaseFilename)
 
     # 
     #     classifierVersion = "_0.5"
@@ -430,10 +475,8 @@ if __name__ == "__main__":
     plt.figure()
     plt.interactive(1)
     for img in msrcImages:
-        print 'FOOFOOFOO******'
-        print "\nRead in an image from the MSRC dataset::" , np.shape(img.m_img)
+        print "\nRead in image %s from the MSRC dataset::" % img.m_imgFn
         imageFeatures = FeatureGenerator.generatePixelFeaturesForImage(img.m_img)
-        print 'I HAVE THE FEATURES'
         predLabs = classifier.predict(imageFeatures)
         print "\nGenerating prediction of shape ", predLabs.shape, "::" , predLabs
         predImg = np.reshape( predLabs, img.m_img[:,:,0].shape )

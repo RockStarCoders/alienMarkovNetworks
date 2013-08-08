@@ -54,7 +54,7 @@ def reshapeImageFeatures(imageFeatures):
 #
 
 
-def processLabeledImageData(inputMsrcImages, ignoreVoid=False,):
+def processLabeledImageData(inputMsrcImages, ignoreVoid=False, nbPerImage=None):
     
     totalImages = np.size(inputMsrcImages)
     
@@ -72,11 +72,21 @@ def processLabeledImageData(inputMsrcImages, ignoreVoid=False,):
             resultFeatures = imageResult[0]
             resultLabels = imageResult[1]
             
+            if nbPerImage != None:
+                # Randomly select a subset
+                assert nbPerImage <= len(resultLabels), \
+                    'Image only has %d pixels, but asking for %d samples' \
+                    % (len(resultLabels),nbPerImage)
+                subset = np.random.choice( len(resultLabels), nbPerImage, replace=False )
+                resultFeatures = resultFeatures[ subset, : ]
+                resultLabels = resultLabels[ subset ]
+
             if allFeatures == None:
                 allFeatures = resultFeatures
             else:
                 allFeatures = np.vstack( [ allFeatures, resultFeatures])
-                assert (np.shape(allFeatures)[1] == np.shape(resultFeatures)[1]) , "Check me... why are the row array features different sizes when vstacked??"
+                assert (np.shape(allFeatures)[1] == np.shape(resultFeatures)[1]) , \
+                    "Check me... why are the row array features different sizes when vstacked??"
             if allLabels == None:
                 allLabels = resultLabels
             else:
