@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <limits>
 #include <boost/scoped_array.hpp>
+#include <cmath>
 
 #include "graph.h"
 
@@ -32,7 +33,65 @@ const int s_nhood8[][2] = { // r, c
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-double ultraflow_inference2(
+// Inline Functors for Neighbour Potentials
+////////////////////////////////////////////////////////////////////////////////
+
+
+class NbrPotentialFunctorCallback {
+  public:
+    NbrPotentialFunctorCallback(
+      NbrCallbackType nbrEdgeCostCallback, void* nbrEdgeCostCallbackData
+    )
+      : m_callback( nbrEdgeCostCallback ), m_callbackData( nbrEdgeCostCallbackData )
+    {
+    }
+
+    inline double operator()( 
+      double R1, double G1, double B1, 
+      double R2, double G2, double B2 
+    ) const
+    {
+      // Params were never being used...
+      return m_callback( R1, G1, B1, R2, G2, B2, m_callbackData );
+    }
+
+  private:
+    NbrCallbackType m_callback;
+    void* m_callbackData;
+};
+
+/////////////////////////////////////////////
+template < typename T >
+inline T sqr( const T& val ){ return val*val; }
+
+class NbrPotentialFunctorContrastSensitive {
+  public:
+    NbrPotentialFunctorContrastSensitive( double K0, double K, double sigmaSq )
+    :
+      m_K0(K0), m_K(K), m_sigmaSq(sigmaSq)
+    {
+    }
+
+    inline double operator()( 
+      double R1, double G1, double B1, 
+      double R2, double G2, double B2 
+    ) const
+    {
+      const double idiffsq = sqr( R1-R2 ) + sqr( G1-G2 ) + sqr( B1-B2 );
+      const double res = std::exp( -idiffsq / (2*m_sigmaSq) );
+      return m_K0 + res*m_K;
+    }
+
+  private:
+    const double m_K0;
+    const double m_K;
+    const double m_sigmaSq;
+};
+
+
+////////////////////////////////////////////////////////////////////////////////
+template < typename FUNCTOR_TYPE >
+static double inference2FunctorBased(
   int             nhoodSize,
   int             rows,
   int             cols,
@@ -40,8 +99,7 @@ double ultraflow_inference2(
   double*         cMatInputImage,
   double*         cMatSourceEdge,
   double*         cMatSinkEdge,
-  NbrCallbackType nbrEdgeCostCallback,
-  void*           nbrEdgeCostCallbackData,
+  FUNCTOR_TYPE&   functor,
   int32_t*        cMatOut,
   bool*           validMask
 )
@@ -122,10 +180,9 @@ double ultraflow_inference2(
               nbrG = cMatInputImage[nidx*nbImgChannels+1],
               nbrB = cMatInputImage[nidx*nbImgChannels+2];
             
-            wt = nbrEdgeCostCallback(
+            wt = functor(
               pixR, pixG, pixB,
-              nbrR, nbrG,  nbrB,
-              nbrEdgeCostCallbackData 
+              nbrR, nbrG,  nbrB
             );
           }
           else
@@ -160,6 +217,37 @@ double ultraflow_inference2(
 
 
 ////////////////////////////////////////////////////////////////////////////////
+double ultraflow_inference2(
+  int             nhoodSize,
+  int             rows,
+  int             cols,
+  int             nbImgChannels,
+  double*         cMatInputImage,
+  double*         cMatSourceEdge,
+  double*         cMatSinkEdge,
+  NbrCallbackType nbrEdgeCostCallback,
+  void*           nbrEdgeCostCallbackData,
+  int32_t*        cMatOut,
+  bool*           validMask
+)
+{
+  NbrPotentialFunctorCallback functor( nbrEdgeCostCallback, nbrEdgeCostCallbackData );
+  return inference2FunctorBased(
+    nhoodSize,
+    rows,
+    cols,
+    nbImgChannels,
+    cMatInputImage,
+    cMatSourceEdge,
+    cMatSinkEdge,
+    functor,
+    cMatOut,
+    validMask
+  );
+}
+
+////////////////////////////////////////////////////////////////////////////////
+template < typename FUNCTOR_TYPE >
 double energyOfLabellingN(
   int             nhoodSize,
   int             rows,
@@ -168,8 +256,7 @@ double energyOfLabellingN(
   int             nbLabels,
   double*         cMatInputImage,
   double*         cMatLabelWeights,
-  NbrCallbackType nbrEdgeCostCallback,
-  void*           nbrEdgeCostCallbackData,
+  FUNCTOR_TYPE&   functor,
   int32_t*        cMatLabels
 )
 {
@@ -208,12 +295,11 @@ double energyOfLabellingN(
         // vertical edge down from here
         if ( lbl != cMatLabels[idx+cols] )
         {
-          res += nbrEdgeCostCallback(
+          res += functor(
             pixR, pixG, pixB,
             cMatInputImage[(idx+cols)*nbImgChannels+0],
             cMatInputImage[(idx+cols)*nbImgChannels+1],
-            cMatInputImage[(idx+cols)*nbImgChannels+2],
-            nbrEdgeCostCallbackData 
+            cMatInputImage[(idx+cols)*nbImgChannels+2] 
           );
         }
         // else Same label, no penalty.
@@ -223,12 +309,11 @@ double energyOfLabellingN(
         // horizontal edge right of here
         if ( lbl != cMatLabels[idx+1] )
         {
-          res += nbrEdgeCostCallback(
+          res += functor(
             pixR, pixG, pixB,
             cMatInputImage[(idx+1)*nbImgChannels+0],
             cMatInputImage[(idx+1)*nbImgChannels+1],
-            cMatInputImage[(idx+1)*nbImgChannels+2],
-            nbrEdgeCostCallbackData 
+            cMatInputImage[(idx+1)*nbImgChannels+2] 
           );
         }
         // else Same label, no penalty.
@@ -252,12 +337,11 @@ double energyOfLabellingN(
           // diagonal down to right
           if ( lbl != cMatLabels[idx+cols+1] )
           {
-            res += nbrEdgeCostCallback(
+            res += functor(
               pixR, pixG, pixB,
               cMatInputImage[(idx+cols+1)*nbImgChannels+0],
               cMatInputImage[(idx+cols+1)*nbImgChannels+1],
-              cMatInputImage[(idx+cols+1)*nbImgChannels+2],
-              nbrEdgeCostCallbackData 
+              cMatInputImage[(idx+cols+1)*nbImgChannels+2]
             );
           }
           // else Same label, no penalty.
@@ -267,12 +351,11 @@ double energyOfLabellingN(
           // diagonal edge down to left
           if ( lbl != cMatLabels[idx+cols-1] )
           {
-            res += nbrEdgeCostCallback(
+            res += functor(
               pixR, pixG, pixB,
               cMatInputImage[(idx+cols-1)*nbImgChannels+0],
               cMatInputImage[(idx+cols-1)*nbImgChannels+1],
-              cMatInputImage[(idx+cols-1)*nbImgChannels+2],
-              nbrEdgeCostCallbackData 
+              cMatInputImage[(idx+cols-1)*nbImgChannels+2]
             );
           }
           // else Same label, no penalty.
@@ -285,7 +368,8 @@ double energyOfLabellingN(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void inferenceNABSwap(
+template < typename FUNCTOR_TYPE >
+static void inferenceNABSwap(
   int             nhoodSize,
   int             rows,
   int             cols,
@@ -293,8 +377,7 @@ void inferenceNABSwap(
   int             nbLabels,
   double*         cMatInputImage,
   double*         cMatLabelWeights,
-  NbrCallbackType nbrEdgeCostCallback,
-  void*           nbrEdgeCostCallbackData,
+  FUNCTOR_TYPE&   functor,
   int32_t*        cMatOut
 )
 {
@@ -326,8 +409,7 @@ void inferenceNABSwap(
     nbLabels,
     cMatInputImage,
     cMatLabelWeights,
-    nbrEdgeCostCallback,
-    nbrEdgeCostCallbackData,
+    functor,
     cMatOut
   );
   std::cout << "\t\t Initial energy = " 
@@ -384,7 +466,7 @@ void inferenceNABSwap(
         // For the edge weight we need to wrap the simple 2-class callback 
         // with a function of the 
         // todo: make nbr cost as function of a-b class labels
-        double Exhat = ultraflow_inference2(
+        double Exhat = inference2FunctorBased(
           nhoodSize,
           rows,
           cols,
@@ -392,9 +474,9 @@ void inferenceNABSwap(
           cMatInputImage,
           srcEdges.get(),
           snkEdges.get(),
-          nbrEdgeCostCallback,
-          nbrEdgeCostCallbackData,
-          t.get()
+          functor,
+          t.get(),
+          NULL
         );
 
         // To compute the energy, have to construct the proposed labelling.
@@ -421,8 +503,7 @@ void inferenceNABSwap(
           nbLabels,
           cMatInputImage,
           cMatLabelWeights,
-          nbrEdgeCostCallback,
-          nbrEdgeCostCallbackData,
+          functor,
           proposedLabelling.get()
         );
         std::cout << "\t\t Computed energy = " 
@@ -457,43 +538,117 @@ void inferenceNABSwap(
   std::cout << "** abswap complete!\n";
 }
 
-  ////////////////////////////////////////////////////////////////////////////////
-  void ultraflow_inferenceN(
-    char*           method,
-    int             nhoodSize,
-    int             rows,
-    int             cols,
-    int             nbImgChannels,
-    int             nbLabels,
-    double*         cMatInputImage,
-    double*         cMatLabelWeights,
-    NbrCallbackType nbrEdgeCostCallback,
-    void*           nbrEdgeCostCallbackData,
-    int32_t*        cMatOut
-  )
+////////////////////////////////////////////////////////////////////////////////
+template < typename FUNCTOR_TYPE >
+static void inferenceNUsingTFunctor(
+  char*           method,
+  int             nhoodSize,
+  int             rows,
+  int             cols,
+  int             nbImgChannels,
+  int             nbLabels,
+  double*         cMatInputImage,
+  double*         cMatLabelWeights,
+  FUNCTOR_TYPE&   functor,
+  int32_t*        cMatOut
+)
+{
+  if ( method == std::string("abswap") )
   {
-    if ( method == std::string("abswap") )
-    {
-      inferenceNABSwap(
-        nhoodSize,
-        rows,
-        cols,
-        nbImgChannels,
-        nbLabels,
-        cMatInputImage,
-        cMatLabelWeights,
-        nbrEdgeCostCallback,
-        nbrEdgeCostCallbackData,
-        cMatOut
-      );
-    }
-    else if ( method == std::string("aexpansion") )
-    {
-      throw( UflowException( "alpha expansion not yet implemented" ) );
-    }
-    else
-    {
-      throw( UflowException( ("Unrecognised inferenceN method '"
-            + std::string(method) + "'").c_str() ) );
-    }
+    inferenceNABSwap(
+      nhoodSize,
+      rows,
+      cols,
+      nbImgChannels,
+      nbLabels,
+      cMatInputImage,
+      cMatLabelWeights,
+      functor,
+      cMatOut
+    );
   }
+  else if ( method == std::string("aexpansion") )
+  {
+    throw( UflowException( "alpha expansion not yet implemented" ) );
+  }
+  else
+  {
+    throw( UflowException( ("Unrecognised inferenceN method '"
+          + std::string(method) + "'").c_str() ) );
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// callback version
+void ultraflow_inferenceNCallback(
+  char*           method,
+  int             nhoodSize,
+  int             rows,
+  int             cols,
+  int             nbImgChannels,
+  int             nbLabels,
+  double*         cMatInputImage,
+  double*         cMatLabelWeights,
+  NbrCallbackType nbrEdgeCostCallback,
+  void*           nbrEdgeCostCallbackData,
+  int32_t*        cMatOut
+)
+{
+  NbrPotentialFunctorCallback functor( nbrEdgeCostCallback, nbrEdgeCostCallbackData );
+  inferenceNUsingTFunctor(
+    method,
+    nhoodSize,
+    rows,
+    cols,
+    nbImgChannels,
+    nbLabels,
+    cMatInputImage,
+    cMatLabelWeights,
+    functor,
+    cMatOut
+  );
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// non-callback version
+void ultraflow_inferenceN(
+  char*           method,
+  int             nhoodSize,
+  int             rows,
+  int             cols,
+  int             nbImgChannels,
+  int             nbLabels,
+  double*         cMatInputImage,
+  double*         cMatLabelWeights,
+  char*           nbrPotentialMethod, 
+  double*         nbrPotentialParams,
+  int32_t*        cMatOut
+)
+{
+  if ( nbrPotentialMethod == std::string("contrastSensitive") )
+  {
+    // shonky assignment
+    double K0 = nbrPotentialParams[0];
+    double K  = nbrPotentialParams[1];
+    double sigmaSq = nbrPotentialParams[2];
+    NbrPotentialFunctorContrastSensitive functor( K0, K, sigmaSq );
+    inferenceNUsingTFunctor(
+      method,
+      nhoodSize,
+      rows,
+      cols,
+      nbImgChannels,
+      nbLabels,
+      cMatInputImage,
+      cMatLabelWeights,
+      functor,
+      cMatOut
+    );
+  }
+  else
+  {
+    throw( UflowException( ("Unrecognised inferenceN nbr potential method '"
+          + std::string(nbrPotentialMethod) + "'").c_str() ) );
+  }
+}
+    

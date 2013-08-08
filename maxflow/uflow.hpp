@@ -23,8 +23,8 @@ extern double ultraflow_inference2(
   bool*           validMask = NULL
 );
 
-
-extern void ultraflow_inferenceN(
+// Callback version
+extern void ultraflow_inferenceNCallback(
   char*           method,
   int             nhoodSize,
   int             rows,
@@ -35,6 +35,23 @@ extern void ultraflow_inferenceN(
   double*         cMatLabelWeights,
   NbrCallbackType nbrEdgeCostCallback,
   void*           nbrEdgeCostCallbackData,
+  int32_t*        cMatOut
+);
+
+// Non-Callback version (much faster) Params per method are passed in as an
+// array, so user and implementation need common understanding of which is
+// which.  This is really hacky ad undesirable but will do for now.
+extern void ultraflow_inferenceN(
+  char*           method,
+  int             nhoodSize,
+  int             rows,
+  int             cols,
+  int             nbImgChannels,
+  int             nbLabels,
+  double*         cMatInputImage,
+  double*         cMatLabelWeights,
+  char*           nbrPotentialMethod, 
+  double*         nbrPotentialParams,
   int32_t*        cMatOut
 );
 

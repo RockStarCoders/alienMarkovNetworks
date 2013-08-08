@@ -123,7 +123,7 @@ def generateImagePredictionClassDist(rgbImage, classifier, requireAllClasses=Tru
     Returns an (i,j,N) numpy array where N= total number of classes for use in subsequent modelling."""
     
     # TODO Broaden to cope with more classifiers :)
-    assert (str(type(classifier)) == "<class 'sklearn.linear_model.logistic.LogisticRegression'>") , "Check classifier type value:: " + str(type(classifier)) 
+    #assert (str(type(classifier)) == "<class 'sklearn.linear_model.logistic.LogisticRegression'>") , "Check classifier type value:: " + str(type(classifier)) 
     testClassifier = None
     
     imageDimensions = rgbImage[:,:,0].shape
@@ -321,47 +321,50 @@ if __name__ == "__main__":
     makedear( outDir, "/classifierModels" )
 
     # Load dem images
-    msrcImages = pomio.msrc_loadImages(msrcData, [\
-            'Images/10_1_s.bmp',\
-            'Images/10_2_s.bmp',\
-            'Images/11_1_s.bmp',\
-            'Images/11_2_s.bmp',\
-            'Images/12_1_s.bmp',\
-            'Images/12_2_s.bmp',\
-            'Images/13_1_s.bmp',\
-            'Images/13_2_s.bmp',\
-            'Images/14_1_s.bmp',\
-            'Images/14_2_s.bmp',\
-            'Images/15_1_s.bmp',\
-            'Images/15_2_s.bmp',\
-            'Images/16_1_s.bmp',\
-            'Images/16_2_s.bmp',\
-            'Images/17_1_s.bmp',\
-            'Images/17_2_s.bmp',\
-            'Images/18_1_s.bmp',\
-            'Images/18_2_s.bmp',\
-            'Images/19_1_s.bmp',\
-            'Images/19_2_s.bmp',\
-            'Images/1_1_s.bmp',\
-            'Images/1_2_s.bmp',\
-            'Images/20_1_s.bmp',\
-            'Images/20_2_s.bmp',\
-            'Images/2_1_s.bmp',\
-            'Images/2_2_s.bmp',\
-            'Images/3_1_s.bmp',\
-            'Images/3_2_s.bmp',\
-            'Images/4_1_s.bmp',\
-            'Images/4_2_s.bmp',\
-            'Images/5_1_s.bmp',\
-            'Images/5_2_s.bmp',\
-            'Images/6_1_s.bmp',\
-            'Images/6_2_s.bmp',\
-            'Images/7_1_s.bmp',\
-            'Images/7_2_s.bmp',\
-            'Images/8_1_s.bmp',\
-            'Images/8_2_s.bmp',\
-            'Images/9_1_s.bmp',\
-            'Images/9_2_s.bmp'])
+    if 0:
+        msrcImages = pomio.msrc_loadImages(msrcData, [\
+                'Images/10_1_s.bmp',\
+                'Images/10_2_s.bmp',\
+                'Images/11_1_s.bmp',\
+                'Images/11_2_s.bmp',\
+                'Images/12_1_s.bmp',\
+                'Images/12_2_s.bmp',\
+                'Images/13_1_s.bmp',\
+                'Images/13_2_s.bmp',\
+                'Images/14_1_s.bmp',\
+                'Images/14_2_s.bmp',\
+                'Images/15_1_s.bmp',\
+                'Images/15_2_s.bmp',\
+                'Images/16_1_s.bmp',\
+                'Images/16_2_s.bmp',\
+                'Images/17_1_s.bmp',\
+                'Images/17_2_s.bmp',\
+                'Images/18_1_s.bmp',\
+                'Images/18_2_s.bmp',\
+                'Images/19_1_s.bmp',\
+                'Images/19_2_s.bmp',\
+                'Images/1_1_s.bmp',\
+                'Images/1_2_s.bmp',\
+                'Images/20_1_s.bmp',\
+                'Images/20_2_s.bmp',\
+                'Images/2_1_s.bmp',\
+                'Images/2_2_s.bmp',\
+                'Images/3_1_s.bmp',\
+                'Images/3_2_s.bmp',\
+                'Images/4_1_s.bmp',\
+                'Images/4_2_s.bmp',\
+                'Images/5_1_s.bmp',\
+                'Images/5_2_s.bmp',\
+                'Images/6_1_s.bmp',\
+                'Images/6_2_s.bmp',\
+                'Images/7_1_s.bmp',\
+                'Images/7_2_s.bmp',\
+                'Images/8_1_s.bmp',\
+                'Images/8_2_s.bmp',\
+                'Images/9_1_s.bmp',\
+                'Images/9_2_s.bmp'])
+    else:
+        msrcImages = pomio.msrc_loadImages(msrcData, ['Images/7_3_s.bmp'] )
 
     if doVal or doTest:
         scale = 0.1
@@ -425,7 +428,7 @@ if __name__ == "__main__":
         # Use fixed C
         C           = 0.5
         # Just train on a subset!!
-        nbToTrainOn = 10000
+        nbToTrainOn = 1000
         print 'TRAINING CLASSIFIER on %d-sample subset of %d examples of dimension %d...' % \
             ( nbToTrainOn, trainingData[0].shape[0], trainingData[0].shape[1] )
         subset = np.random.choice( trainingData[0].shape[0], nbToTrainOn, replace=False )
@@ -471,9 +474,10 @@ if __name__ == "__main__":
     #     
     
     # predictImage = pomio.msrc_loadImages(msrcData)[0]
-    clrs = [[z/255.0 for z in c[1]] for c in pomio.msrc_classToRGB]
-    plt.figure()
     plt.interactive(1)
+    plt.figure()
+    pomio.showClassColours()
+    plt.figure()
     for img in msrcImages:
         print "\nRead in image %s from the MSRC dataset::" % img.m_imgFn
         imageFeatures = FeatureGenerator.generatePixelFeaturesForImage(img.m_img)
@@ -488,10 +492,7 @@ if __name__ == "__main__":
         plt.subplot(1,2,1)
         plt.imshow(img.m_img)
         plt.subplot(1,2,2)
-        plt.imshow( predImg,
-                    cmap=matplotlib.colors.ListedColormap(clrs),
-                    vmin=0,
-                    vmax=22 )#imageClassDist.shape[2]-1 )
+        pomio.showLabels( predImg )
         plt.waitforbuttonpress()
 
     print "\tCompleted @ " + str(datetime.datetime.now())

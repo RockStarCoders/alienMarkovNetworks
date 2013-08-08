@@ -2,6 +2,8 @@
 import glob
 import pylab
 import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib
 
 import skimage.io
 
@@ -318,4 +320,18 @@ def selectRandomSetFromList(data, numberSamples, includeAllClassLabels):
             idx = idx+1
         
     return result, data
+
+
+def showLabels( labimg ):
+    clrs = [[z/255.0 for z in c[1]] for c in msrc_classToRGB]
+    plt.imshow( labimg,\
+                cmap=matplotlib.colors.ListedColormap(clrs),\
+                vmin=0,\
+                vmax=len(clrs)-1,\
+                interpolation = 'none' )
+
+def showClassColours():
+    plt.clf()
+    showLabels( np.array( [ np.arange(len(msrc_classLabels)) ] ).transpose() )
+    plt.yticks( np.arange( len(msrc_classLabels) ), msrc_classLabels )
 

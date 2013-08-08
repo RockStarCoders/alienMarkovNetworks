@@ -43,7 +43,7 @@ cdef extern from "uflow.hpp": # essential!
     )
 
 cdef extern from "uflow.hpp": # essential!
-    extern void ultraflow_inferenceN(
+    extern void ultraflow_inferenceNCallback(
       char*           method,
       int             nhoodSize,
       int             rows,
@@ -54,6 +54,21 @@ cdef extern from "uflow.hpp": # essential!
       double*         cMatLabelWeights,
       NbrCallbackType nbrEdgeCostCallback,
       void*           nbrEdgeCostCallbackData,
+      np.int32_t*     cMatOut
+    )
+
+cdef extern from "uflow.hpp": # essential!
+    extern void ultraflow_inferenceN(
+      char*           method,
+      int             nhoodSize,
+      int             rows,
+      int             cols,
+      int             nbImgChannels,
+      int             nbLabels,
+      double*         cMatInputImage,
+      double*         cMatLabelWeights,
+      char*           nbrPotentialMethod, 
+      double*         nbrPotentialParams,
       np.int32_t*     cMatOut
     )
 
@@ -115,6 +130,47 @@ def inferenceN( np.ndarray[double, ndim=3, mode="c"] inputImage not None,
                 np.ndarray[double, ndim=3, mode="c"] labelWeights not None,
                 method,
                 int nhoodSize,
+                nbrPotentialMethod,
+                np.ndarray[double, ndim=1, mode="c"] nbrPotentialParams not None ):
+    rows = labelWeights.shape[0]
+    cols = labelWeights.shape[1]
+
+    assert( method == 'abswap' or method == 'aexpansion' )
+    assert( nhoodSize == 4 or nhoodSize == 8 )
+    print 'Input image has shape %s, should be (%d,%d,3)' \
+        % (str(np.shape(inputImage)),rows,cols)
+    assert inputImage.ndim == 3 and inputImage.shape[0] == rows and \
+        inputImage.shape[1] == cols
+
+    nbLabels = labelWeights.shape[2]
+    assert( nbLabels > 1, "Only 1 label class?" );
+
+    # make sure contiguous
+    assert inputImage.flags['C_CONTIGUOUS']
+    assert labelWeights.flags['C_CONTIGUOUS']
+    assert nbrPotentialParams.flags['C_CONTIGUOUS']
+
+    imgChannels = inputImage.shape[2]
+
+    #  create output label array
+    cdef np.ndarray[np.int32_t, ndim=2, mode="c"] labelResult = \
+        np.zeros( (rows,cols), dtype=np.int32 )
+
+    # Call C++ inference function
+    ultraflow_inferenceN( method, nhoodSize, rows, cols, imgChannels, nbLabels,
+                          &inputImage[0,0,0], 
+                          &labelWeights[0,0,0], 
+                          nbrPotentialMethod, 
+                          &nbrPotentialParams[0],
+                          &labelResult[0,0] )
+
+    return labelResult
+
+# 'method' can be aexpansion or abswap
+def inferenceNCallback( np.ndarray[double, ndim=3, mode="c"] inputImage not None,
+                np.ndarray[double, ndim=3, mode="c"] labelWeights not None,
+                method,
+                int nhoodSize,
                 nbrEdgeCallback ):
     rows = labelWeights.shape[0]
     cols = labelWeights.shape[1]
@@ -141,7 +197,7 @@ def inferenceN( np.ndarray[double, ndim=3, mode="c"] inputImage not None,
         np.zeros( (rows,cols), dtype=np.int32 )
 
     # Call C++ inference function
-    ultraflow_inferenceN( method, nhoodSize, rows, cols, imgChannels, nbLabels,
+    ultraflow_inferenceNCallback( method, nhoodSize, rows, cols, imgChannels, nbLabels,
                           &inputImage[0,0,0], 
                           &labelWeights[0,0,0], 
                           callbackWrapper,

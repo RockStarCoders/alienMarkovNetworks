@@ -22,7 +22,7 @@ plt.title('original image')
 
 plt.figure()
 clrs = [[z/255.0 for z in c[1]] for c in pomio.msrc_classToRGB]
-plt.imshow(ex.m_gt, cmap=matplotlib.colors.ListedColormap(clrs), vmin=0, vmax=23)
+pomio.showLabels( ex.m_gt )
 plt.title('ground truth labels' )
 
 print 'unique class labels: ', np.unique(ex.m_gt)
