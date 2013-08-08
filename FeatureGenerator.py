@@ -388,7 +388,9 @@ def createHistogramOfOrientedGradientFeatures(sourceImage, numOrientations, cell
     # resize 
     hogImg = np.zeros( ( sourceImage.shape[0], sourceImage.shape[1], numOrientations ) )
     for o in range(numOrientations):
-        hogImg[:,:,o] = np.array( pil.fromarray( (255*hogBlocks[:,:,o]).astype('uint8') ).resize( \
+        hogPerOrient = (255*hogBlocks[:,:,o]).astype('uint8')
+        hpoAsPil = pil.fromarray( hogPerOrient, mode='L' )
+        hogImg[:,:,o] = np.array( hpoAsPil.resize( \
                 [z for z in reversed(sourceImage.shape)], pil.NEAREST ) )
     return hogImg
 
