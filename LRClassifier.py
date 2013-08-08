@@ -10,10 +10,7 @@ import pomio, FeatureGenerator
 import matplotlib.pyplot as plt
 import matplotlib
 import NeuralNet
-
-#
-# Classifier construction & evaluation utils
-#
+import sklearn.ensemble
 
 def trainLogisticRegressionModel(
     featureData, labels, Cvalue, outputClassifierFile, scaleData=True, requireAllClasses=True
@@ -312,6 +309,7 @@ if __name__ == "__main__":
      
     classifierBaseFilename        = outDir + "/classifierModels/logRegClassifier"
     
+    makedear( outDir, "" )
     makedear( outDir, "/training" )
     makedear( outDir, "/crossValidation" )
     makedear( outDir, "/crossValidation/data" )
@@ -390,12 +388,14 @@ if __name__ == "__main__":
             ( nbToTrainOn, trainingData[0].shape[0], trainingData[0].shape[1] )
         subset = np.random.choice( trainingData[0].shape[0], nbToTrainOn, replace=False )
         if 0:
+            # logistic regression
             classifier = trainLogisticRegressionModel(
                 trainingData[0][subset,:], trainingData[1][subset], C, classifierBaseFilename, \
                     scaleData=True, \
                     requireAllClasses=False
                 )
-        else:
+        elif 0:
+            # Neural Network
             # Construct nn dataset
             datmat = trainingData[0][subset,:]
             labvec = trainingData[1][subset]
@@ -406,7 +406,15 @@ if __name__ == "__main__":
             classifier = NeuralNet.NNet(nbFeatures, nbClasses, nbHidden)
             nnds = classifier.createTrainingSetFromMatrix( datmat, labvec )
             classifier.trainNetworkBackprop(nnds,maxIter)
-            
+        else:
+            #classifier = None
+            # Random forest
+            datmat = trainingData[0][subset,:]
+            labvec = trainingData[1][subset]
+            classifier = sklearn.ensemble.RandomForestClassifier(\
+                n_estimators=100)
+            classifier = classifier.fit( datmat, labvec )
+            #print classifier.predict(datmat)
 
     # 
     #     classifierVersion = "_0.5"
@@ -422,9 +430,10 @@ if __name__ == "__main__":
     plt.figure()
     plt.interactive(1)
     for img in msrcImages:
-        #print "\nRead in an image from the MSRC dataset::" , np.shape(predictImage.m_img)
+        print 'FOOFOOFOO******'
+        print "\nRead in an image from the MSRC dataset::" , np.shape(img.m_img)
         imageFeatures = FeatureGenerator.generatePixelFeaturesForImage(img.m_img)
-        
+        print 'I HAVE THE FEATURES'
         predLabs = classifier.predict(imageFeatures)
         print "\nGenerating prediction of shape ", predLabs.shape, "::" , predLabs
         predImg = np.reshape( predLabs, img.m_img[:,:,0].shape )
