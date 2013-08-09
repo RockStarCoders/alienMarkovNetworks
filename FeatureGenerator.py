@@ -74,10 +74,12 @@ def processLabeledImageData(inputMsrcImages, ignoreVoid=False, nbPerImage=None):
             
             if nbPerImage != None:
                 # Randomly select a subset
-                assert nbPerImage <= len(resultLabels), \
-                    'Image only has %d pixels, but asking for %d samples' \
-                    % (len(resultLabels),nbPerImage)
-                subset = np.random.choice( len(resultLabels), nbPerImage, replace=False )
+                if nbPerImage > len(resultLabels):
+                    print 'WARNING: Image only has %d pixels, but asking for %d samples' \
+                        % (len(resultLabels),nbPerImage)
+                    subset = np.arange( len(resultLabels) )
+                else:
+                    subset = np.random.choice( len(resultLabels), nbPerImage, replace=False )
                 resultFeatures = resultFeatures[ subset, : ]
                 resultLabels = resultLabels[ subset ]
 
