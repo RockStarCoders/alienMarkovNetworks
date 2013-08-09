@@ -21,6 +21,7 @@ import amntools
 import sklearn
 import sklearn.ensemble
 import pomio
+import FeatureGenerator
 
 # parse args
 clfrFn = sys.argv[1]
@@ -47,7 +48,21 @@ plt.title('original image')
 #plt.waitforbuttonpress()
 
 plt.figure()
+print ' classes = ', clfr.classes_
+# Transform class probs to the correct sized matrix.
+nbRows = imgRGB.shape[0]
+nbCols = imgRGB.shape[1]
+nbClasses = pomio.getNumClasses()
+
+cpnew = np.zeros( (nbRows, nbCols, nbClasses) )
+for i in range( classProbs.shape[2] ):
+    # stuff this set of probs to new label
+    cpnew[:,:,clfr.classes_[i]] = classProbs[:,:,i] 
+classProbs = cpnew
+del cpnew
+
 maxLabel = np.argmax( classProbs, 2 )
+
 pomio.showLabels(maxLabel)
 plt.title('raw clfr labels')
 
@@ -108,7 +123,7 @@ for K in np.logspace(-2,1,5):
         nbrPotentialMethod, np.ascontiguousarray(nbrPotentialParams) )
  
     # Show the result.
-    plt.imshow(segResult)
+    pomio.showLabels(segResult)
     plt.title( 'Segmentation with K=%f' % K )
     plt.draw()
     print "labelling result, K = ", K 

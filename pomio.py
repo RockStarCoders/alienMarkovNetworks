@@ -45,7 +45,7 @@ msrc_classToRGB = [\
 msrc_classLabels = [z[0] for z in msrc_classToRGB]
 
 def getNumClasses():
-    return 24
+    return len(msrc_classLabels)
 
 def msrc_convertRGBToLabels( imgRGB ):
     imgL = 255 * np.ones( imgRGB.shape[0:2], dtype='uint8' )

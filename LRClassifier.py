@@ -129,9 +129,9 @@ def generateImagePredictionClassDist(rgbImage, classifier, requireAllClasses=Tru
     imageDimensions = rgbImage[:,:,0].shape
     nbCols = imageDimensions[1]
     nbRows = imageDimensions[0]
-    params = classifier.get_params(deep=True)
+    #params = classifier.get_params(deep=True)
     
-    print "Classifier paras::" , params
+    #print "Classifier paras::" , params
     
     # Take image, generate features, use classifier to predict labels, ensure normalised dist and shape to (i,j,N) np.array
     
@@ -293,6 +293,20 @@ if __name__ == "__main__":
     # Simple runtime tests
     #
     # TODO look at sklearn pipeline to get some automation here
+    #
+    # Usage:
+    #
+    #   LRClassifier.py <MSRCDataPath> <outputDir> <subsetType=1(20 imgs),2(1 img),3(all imgs)> <examplesPerImage> <nbToTrainOn>
+    #
+
+    #
+    # PARAMETERS
+    #
+
+    # Number of pixels per image for which to make a feature vector.
+    examplesPerImage = int(sys.argv[4])
+    nbToTrainOn = int(sys.argv[5])
+
     doVal = 0
     doTest = 0
     
@@ -307,7 +321,6 @@ if __name__ == "__main__":
     testingPixelBaseFilename      = outDir + "/testing/data/testPixelFeature"
     testingResultsBaseFilename    = outDir + "/testing/results/testPixelFeature"
      
-    #classifierBaseFilename        = outDir + "/classifierModels/logRegClassifier"
     classifierBaseFilename        = outDir + "/classifierModels/randForestClassifier"
     
     makedear( outDir, "" )
@@ -320,8 +333,7 @@ if __name__ == "__main__":
     makedear( outDir, "/testing/results" )
     makedear( outDir, "/classifierModels" )
 
-    subsetType = sys.argv[3]
-    numPixelSamples = 100000 # could make this user input
+    subsetType = int(sys.argv[3])
 
     # Load dem images
     if subsetType == 1:
@@ -412,8 +424,7 @@ if __name__ == "__main__":
         else:
             trainLabels = np.append( trainLabels , FeatureGenerator.reshapeImageLabels(trainDataset[idx]) )
     print "\nProcessing training data::"
-    trainingData = FeatureGenerator.processLabeledImageData(\
-        trainDataset, ignoreVoid = True) # , nbPerImage = 1000)
+    trainingData = FeatureGenerator.processLabeledImageData( trainDataset, ignoreVoid = True, nbPerImage = examplesPerImage)
     
     if doVal:
         # cross-validation on C param
@@ -424,29 +435,24 @@ if __name__ == "__main__":
         cvResult    = crossValidation_Cparam(trainingData, validationData, classifierBaseFilename, validationResultsBaseFilename, C_min, C_max, C_increment)
         print "Completed @ " + str(datetime.datetime.now()), "\nCV results for different C params:\n" , cvResult
     else:
-        # Use fixed C
-        C           = 0.5
         # Just train on a subset!!
         
         # train on a set number of examples (or total pixels if less than specified value)
         
         totalExamples = trainingData[0].shape[0] # num rows = num pixel features
-        if (totalExamples < nbTrainOn):
-            print "Required number of samples (" , nbTrainOn , " ) > number of pixels in image (" , totalExamples , " ).  Will use all pixel features."
-            nbTrainOn = totalExamples
-        else:
-        	nbToTrainOn = numPixelSamples
+        if (totalExamples < nbToTrainOn):
+            print "Required number of samples (" , nbToTrainOn , " ) > number of pixels in image (" , totalExamples , " ).  Will use all pixel features."
+            nbToTrainOn = totalExamples
         
         print 'TRAINING CLASSIFIER on %d-sample subset of %d examples of dimension %d...' % \
             ( nbToTrainOn, trainingData[0].shape[0], trainingData[0].shape[1] )
         
-        if nbTrainOn == totalExamples:
-        	subset = np.arange(0, trainingData.shape[0] ) # All data samples
-        else:
-        	subset = np.random.choice( trainingData[0].shape[0], nbToTrainOn, replace=False ) # Just specified samples
+        subset = np.random.choice( trainingData[0].shape[0], nbToTrainOn, replace=False ) # Just specified samples
         	
         if 0:
             # logistic regression
+            # Use fixed C
+            C           = 0.5
             classifier = trainLogisticRegressionModel(
                 trainingData[0][subset,:], trainingData[1][subset], C, classifierBaseFilename, \
                     scaleData=True, \
