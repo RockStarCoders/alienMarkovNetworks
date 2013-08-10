@@ -1,3 +1,6 @@
+import os
+import sys
+
 import numpy as np
 
 import skimage
@@ -116,7 +119,7 @@ if __name__ == "__main__":
     
     # Examples on car image (idx ) from MSRC
     print "\tOversegmentation with car image from MSRC dataset::\n"
-    msrcData = "/home/amb/dev/mrf/data/MSRC_ObjCategImageDatabase_v2"
+    msrcData = sys.argv[1] #"/home/amb/dev/mrf/data/MSRC_ObjCategImageDatabase_v2"
     carImg = pomio.msrc_loadImages(msrcData, ['Images/7_3_s.bmp'] )[0].m_img
     print "\tSLIC algo:"
     testSLIC_broomBroomRGB(carImg)
