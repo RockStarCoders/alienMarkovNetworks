@@ -174,4 +174,4 @@ if __name__ == "__main__":
     print "\tQuickshift algo:"
     testQuickshift_broomBroomRGB(carImg)
     
-    print "Test examples complete."
+    print "Test super pixel examples complete."
