@@ -1,17 +1,12 @@
 import os
 import sys
-
+import slic
 import numpy as np
-
 import skimage
 import skimage.data
-
 from skimage.segmentation import slic, felzenszwalb, quickshift, mark_boundaries
-
 import matplotlib.pyplot as plt
-
 import pomio
-
 
 # Module wraps skimage segementation functions
 
@@ -62,7 +57,7 @@ def generateImageWithSuperPixelBoundaries(image, segmentationMask):
     superPixelImage = mark_boundaries(image, segmentationMask)
     return superPixelImage
 
-
+# Note this only finds edges on a 4-grid.
 def make_graph(grid):
     # get unique labels
     vertices = np.unique(grid)
@@ -152,6 +147,27 @@ def testQuickshift_broomBroomRGB(carImg):
 
 
 
+
+class SuperPixelGraph:
+    def __init__(self):
+        self.m_labels = labels
+        self.m_nodes = nodes
+        self.m_edges = edges
+
+    def draw(self):
+        show_graph(self.m_labels, self.m_nodes, self.m_edges)
+
+def computeSuperPixelGraph( imgRGB, method, params ):
+    if method == 'slic':
+        labels = slic.slic_n(imgRGB,params[0],params[1])
+        nodes, edges = SuperPixels.make_graph(spixLabels) 
+    else:
+        raise Exception('invalid superpixel method %s' % method)
+    return SuperPixelGraph(labels,nodes,edges)
+
+################################################################################
+# MAIN
+################################################################################
 if __name__ == "__main__":
     # Examples on lena.png from skimage
     print "Oversegmentation examples will be displayed."
