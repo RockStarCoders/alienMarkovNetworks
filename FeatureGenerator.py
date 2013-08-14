@@ -628,26 +628,46 @@ def getSuperPixelFeatures_pixel(image, mask):
     numRows = np.shape(image)[0]
     
     # resize the (i*j , f) image feature array to a (i, j, f) array
-    imagePixelFeatures = np.reshape( imagePixelFeatures, (numColumns, numRows, numFeatures) )
+    imagePixelFeatures = np.reshape( imagePixelFeatures, (numRows, numColumns, numFeatures) )
+    print "Reshaped image features =" , np.shape(imagePixelFeatures)
     
     # Get the list of regions in the superpixel mask
     # np.unique() appears to give a consistent sorted ordering for numeric region values
     superPixelRegions = np.unique(mask)
+    print "Unique super pixel regions::\n" , superPixelRegions
     
     # TODO might need a mapper to take superpixel regionnames and convert to ordered list from 1 to numSuperpixels
     
     # for each superpixel
     sortedSuperPixelFeatures = None
-    for regionIdx in range(0 , np.size(superPixelRegions) ):
+    
+    for regionIdx in range(0 , np.size(superPixelRegions - 1) ):
+        
+        print "\n\n***Processing superpixel region#" , regionIdx
+        print "Shape of imageFeatures =" , np.shape(imagePixelFeatures)
+        
+        superPixel = superPixelRegions[regionIdx]
+        
+        superPixelIndex = (mask == superPixel)
+        
+        print "\t" , superPixel, " Shape of superPixel index array =" , np.shape(superPixelIndex)
+        print superPixelIndex
+        
+        print "\t" , superPixel, "Shape of imagePixelFeatures =" , np.shape(imagePixelFeatures)
+        
         # Generate array of feature arrays for pixels that match superpixel number 
-        pixelFeaturesInSuperPixel = imagePixelFeatures[ mask == regionIdx]
+        pixelFeaturesInSuperPixel = imagePixelFeatures[ superPixelIndex ]
         
         if sortedSuperPixelFeatures == None:
+            #sortedSuperPixelFeatures = { str(superPixel) , pixelFeaturesInSuperPixel }
             sortedSuperPixelFeatures = pixelFeaturesInSuperPixel
         else:
-            sortedSuperPixelFeatures = [ sortedSuperPixelFeatures , pixelFeaturesInSuperPixel ] 
-        
-    assert np.size(sortedSuperPixelFeatures) == np.size(imagePixelFeatures) , "Something went funky with the reshaping of pixel features when grouping superpixel features - size of result array doesnt match the input array"
+            #sortedSuperPixelFeatures[str(superPixel)] = pixelFeaturesInSuperPixel
+            sortedSuperPixelFeatures = [sortedSuperPixelFeatures , pixelFeaturesInSuperPixel]
+    
+    
+    print "\n\nShape of sorted superpixel pixel features =", np.shape(sortedSuperPixelFeatures)
+    print "Shape of original image pixel features =" , np.shape(imagePixelFeatures)
     
     return sortedSuperPixelFeatures
 
@@ -744,15 +764,13 @@ def test_FilterbankResponse():
     print "\nFilter response shape=" + str(np.shape(response))
 
 
+#if __name__ == "__main__":
 def test_superPixel_pixelFeatures():
     sourceImage = readImageFileRGB("ship-at-sea.jpg")
     superPixelMask = SuperPixels.getSuperPixels_SLIC(sourceImage, 400, 10)
     
     superPixelRegionFeatures = getSuperPixelFeatures_pixel(sourceImage, superPixelMask)
     
-    print "Shape of image =" , np.shape(sourceImage)
-    
-    
-    print "Shape of superpixel mask =" , np.shape(superPixelMask)
-    print "Shape of featuresBySuperPixel =" , np.shape(superPixelRegionFeatures)
+    print "\nINFO: Shape of featuresBySuperPixel =" , np.shape(superPixelRegionFeatures)
+    return superPixelRegionFeatures
 
