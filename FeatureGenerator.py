@@ -657,7 +657,7 @@ def getSuperPixelFeatures_pixel(image, mask):
         superPixelCount = superPixelCount + np.sum(superPixelMask)
         
         # Generate a single array of feature arrays for pixels that match superpixel number 
-        pixelFeaturesInSuperPixel = imagePixelFeatures[ superPixelMask ]
+        pixelFeaturesInSuperPixel = imagePixelFeatures[ superPixelMask, : ]
         
         allSuperPixelFeatures.append(pixelFeaturesInSuperPixel)
     
