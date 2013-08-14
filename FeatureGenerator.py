@@ -623,54 +623,50 @@ def getSuperPixelFeatures_pixel(image, mask):
     
     # Generate the pixel-level features for the image
     imagePixelFeatures = generatePixelFeaturesForImage(image)
-    numFeatures = np.shape(imagePixelFeatures)[1]
+    numFeaturesPerPixel = np.shape(imagePixelFeatures)[1]
     numColumns = np.shape(image)[1]
     numRows = np.shape(image)[0]
+    # Get the list of regions in the superpixel mask.  np.unique() seems to give consistent sorted ordering
+    superPixels = np.unique(mask)
+    numSuperPixels = np.size(superPixels)
     
-    # resize the (i*j , f) image feature array to a (i, j, f) array
-    imagePixelFeatures = np.reshape( imagePixelFeatures, (numRows, numColumns, numFeatures) )
+    print "Image shape =" , np.shape(image)
+    print "Image pixel features shape =" , np.shape(imagePixelFeatures)
+    print "Number of feature values per pixel =", numFeaturesPerPixel
+    print "Number of super pixel regions::\n" , numSuperPixels    
+    
+    # Reshape (i*j , f) image feature to (i, j, f) array
+    imagePixelFeatures = np.reshape( imagePixelFeatures, (numRows, numColumns, numFeaturesPerPixel) )
     print "Reshaped image features =" , np.shape(imagePixelFeatures)
     
-    # Get the list of regions in the superpixel mask
-    # np.unique() appears to give a consistent sorted ordering for numeric region values
-    superPixelRegions = np.unique(mask)
-    print "Unique super pixel regions::\n" , superPixelRegions
+    # TODO might need a mapper to take superpixel region names and convert to ordered list from 1 to numSuperpixels.
     
-    # TODO might need a mapper to take superpixel regionnames and convert to ordered list from 1 to numSuperpixels
-    
-    # for each superpixel
-    sortedSuperPixelFeatures = None
-    
-    for regionIdx in range(0 , np.size(superPixelRegions - 1) ):
-        
-        print "\n\n***Processing superpixel region#" , regionIdx
-        print "Shape of imageFeatures =" , np.shape(imagePixelFeatures)
-        
-        superPixel = superPixelRegions[regionIdx]
-        
-        superPixelIndex = (mask == superPixel)
-        
-        print "\t" , superPixel, " Shape of superPixel index array =" , np.shape(superPixelIndex)
-        print superPixelIndex
-        
-        print "\t" , superPixel, "Shape of imagePixelFeatures =" , np.shape(imagePixelFeatures)
-        
-        # Generate array of feature arrays for pixels that match superpixel number 
-        pixelFeaturesInSuperPixel = imagePixelFeatures[ superPixelIndex ]
-        
-        if sortedSuperPixelFeatures == None:
-            #sortedSuperPixelFeatures = { str(superPixel) , pixelFeaturesInSuperPixel }
-            sortedSuperPixelFeatures = pixelFeaturesInSuperPixel
-        else:
-            #sortedSuperPixelFeatures[str(superPixel)] = pixelFeaturesInSuperPixel
-            sortedSuperPixelFeatures = [sortedSuperPixelFeatures , pixelFeaturesInSuperPixel]
-    
-    
-    print "\n\nShape of sorted superpixel pixel features =", np.shape(sortedSuperPixelFeatures)
-    print "Shape of original image pixel features =" , np.shape(imagePixelFeatures)
-    
-    return sortedSuperPixelFeatures
+    # for each superpixel, create a single feature array i.e. append the feature vectors from each pixel into single array
+    # Alternatively, create a list/array of feature vectors for each super pixel
 
+    allSuperPixelFeatures = []
+    
+    superPixelCount = 0
+    
+    for spIdx in range(0 , numSuperPixels ):
+        
+        print "\t***Processing superpixel region#" , spIdx
+        
+        superPixel = superPixels[spIdx]
+        superPixelMask = (mask == superPixel)
+        superPixelCount = superPixelCount + np.sum(superPixelMask)
+        
+        # Generate a single array of feature arrays for pixels that match superpixel number 
+        pixelFeaturesInSuperPixel = imagePixelFeatures[ superPixelMask ]
+        
+        allSuperPixelFeatures.append(pixelFeaturesInSuperPixel)
+    
+    assert numSuperPixels == np.shape(allSuperPixelFeatures)[0] , "The number of superpixels in mask != number of superpixels in result list"
+    assert superPixelCount == (numRows * numColumns) , "The number of pixels assigned to super pixels != number of pixels in image!"
+    for idx in range(0 , numSuperPixels ):
+        assert np.shape(allSuperPixelFeatures[idx])[1] == numFeaturesPerPixel, "Superpixel result #" + str(idx) + " does not have " + str(numFeaturesPerPixel) + "; has " + str(np.shape(allSuperPixelFeatures[idx])[1])
+        
+    return allSuperPixelFeatures
 
 
 
