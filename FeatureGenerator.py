@@ -9,7 +9,7 @@ import numpy as np
 from numpy import exp
 import Image as pil
 import matplotlib.pyplot as plt
-from scipy import signal
+from scipy import signal, stats
 
 from skimage import color, feature, io
 
@@ -630,14 +630,8 @@ def getSuperPixelFeatures_pixel(image, mask):
     superPixels = np.unique(mask)
     numSuperPixels = np.size(superPixels)
     
-    print "Image shape =" , np.shape(image)
-    print "Image pixel features shape =" , np.shape(imagePixelFeatures)
-    print "Number of feature values per pixel =", numFeaturesPerPixel
-    print "Number of super pixel regions::\n" , numSuperPixels    
-    
     # Reshape (i*j , f) image feature to (i, j, f) array
     imagePixelFeatures = np.reshape( imagePixelFeatures, (numRows, numColumns, numFeaturesPerPixel) )
-    print "Reshaped image features =" , np.shape(imagePixelFeatures)
     
     # TODO might need a mapper to take superpixel region names and convert to ordered list from 1 to numSuperpixels.
     
@@ -650,14 +644,14 @@ def getSuperPixelFeatures_pixel(image, mask):
     
     for spIdx in range(0 , numSuperPixels ):
         
-        print "\t***Processing superpixel region#" , spIdx
+#        print "\t***Processing superpixel region#" , spIdx
         
         superPixel = superPixels[spIdx]
         superPixelMask = (mask == superPixel)
         superPixelCount = superPixelCount + np.sum(superPixelMask)
         
         # Generate a single array of feature arrays for pixels that match superpixel number 
-        pixelFeaturesInSuperPixel = imagePixelFeatures[ superPixelMask ]
+        pixelFeaturesInSuperPixel = imagePixelFeatures[ superPixelMask, : ]
         
         allSuperPixelFeatures.append(pixelFeaturesInSuperPixel)
     
@@ -669,7 +663,57 @@ def getSuperPixelFeatures_pixel(image, mask):
     return allSuperPixelFeatures
 
 
+def generateSuperPixelFeatures(image, mask):
+    """Create the aggergate statistics for each super pixel: mean, standard deviation, skewness, kurtosis.  Plus size."""
+    print "Getting pixel features for superpixels."
+    superPixelFeatures_pixel = getSuperPixelFeatures_pixel(image, mask)
+    
+    numSuperPixels = np.shape(superPixelFeatures_pixel)[0]
+    print "Total superpixels =", numSuperPixels
+    
+    numFeatures = np.shape(superPixelFeatures_pixel[0])[1]
+    numStatFeatures = (4 * numFeatures + 1)
+    
+    print "Total features =", numFeatures
+    
+    allSuperPixelFeatures = None
+       
+    for spIdx in range(0, numSuperPixels):
+        # Compute statistics over the m pixel values for f features, to give a 1 x f array
+        
+        # mean of each feature, over m pixel values
+        spMeanFeatures = np.mean(superPixelFeatures_pixel[spIdx] , 0)
+        assert np.shape(spMeanFeatures)[0] == numFeatures, "The number of SP" + str(spIdx) + " mean features != the number of features per pixel"
+        
+        # standard deviation of each feature, over m pixel values
+        spSDFeatures = np.std(superPixelFeatures_pixel[spIdx], 0)
+        assert np.shape(spMeanFeatures)[0] == numFeatures, "The number of SP" + str(spIdx) + " std features != the number of features per pixel"
 
+        # skewness of each feature, over m pixel values
+        spSkewFeatures = stats.skew(superPixelFeatures_pixel[spIdx] , 0)
+        assert np.shape(spMeanFeatures)[0] == numFeatures, "The number of SP" + str(spIdx) + " skewness features != the number of features per pixel"
+        
+        # kurtosis of each feature, over m pixel values
+        spKurtosisFeatures = stats.kurtosis(superPixelFeatures_pixel[spIdx], 0)
+        assert np.shape(spMeanFeatures)[0] == numFeatures, "The number of SP" + str(spIdx) + " kurtosis features != the number of features per pixel"
+        
+        # size feature = m pixels in superpixel
+        spSizeFeature = np.shape(superPixelFeatures_pixel[spIdx])[0]
+        
+        # create a single array for all stats features
+        superPixelFeatures = np.hstack([ spMeanFeatures, spSDFeatures, spSkewFeatures, spKurtosisFeatures, spSizeFeature])
+        assert np.shape(superPixelFeatures)[0] == numStatFeatures, "Total features stats != number of features per pixel"
+        
+        if allSuperPixelFeatures == None:
+            allSuperPixelFeatures = superPixelFeatures
+        else:
+            allSuperPixelFeatures = np.vstack( [ allSuperPixelFeatures, superPixelFeatures ] )
+
+    assert np.shape(allSuperPixelFeatures)[0] == numSuperPixels, "The result array length != number of superpixels!"
+    assert np.shape(allSuperPixelFeatures)[1] == numStatFeatures, "The number of stats features != number of stat features"
+    
+    return allSuperPixelFeatures
+    
 
 ###############################
 # Some simple testing
@@ -769,4 +813,15 @@ def test_superPixel_pixelFeatures():
     
     print "\nINFO: Shape of featuresBySuperPixel =" , np.shape(superPixelRegionFeatures)
     return superPixelRegionFeatures
+
+
+def test_superPixelFeatures():
+    sourceImage = readImageFileRGB("ship-at-sea.jpg")
+    superPixelMask = SuperPixels.getSuperPixels_SLIC(sourceImage, 400, 10)
+    
+    spFeatures = generateSuperPixelFeatures(sourceImage, superPixelMask)
+    
+    print "Shape of super pixel features =" , np.shape(spFeatures)
+    
+    return spFeatures
 
