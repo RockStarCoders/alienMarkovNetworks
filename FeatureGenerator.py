@@ -15,7 +15,7 @@ from skimage import color, feature, io
 
 import pomio
 
-from SuperPixels import *
+import SuperPixels
 
 from DataVisualisation import *
 
@@ -712,7 +712,7 @@ def test_GaussianKernel():
     plotKernel(xRange, yRange, log_kernel, "LOG kernel, sigma= + " + str(sigma) + ", window=(" + str(xWindow) + "," + str(yWindow) + ")")
     filteredImage = signal.convolve2d(grayImage, log_kernel, mode='same')
     plotImageComparison(grayImage, filteredImage)
-    git psu
+    
     g_dx_kernel = gaussian_1xDerivative_kernel(xWindow, yWindow, sigma)
     print "Gaussian X derivative kernel range:: ", np.min(g_dx_kernel), np.max(g_dx_kernel)
     plotKernel(xRange, yRange, g_dx_kernel, "G_dx kernel, sigma= + " + str(sigma) + ", window=(" + str(xWindow) + "," + str(yWindow) + ")")
