@@ -30,8 +30,8 @@ def displayImage(image, imgTitle, orientation):
 #    segmentationMask = slic(image, nbSegments)
 #    return segmentationMask
 
-def getSuperPixels_SLIC(image, nbSegments):
-    superPixelLabels = slic.slic_n(image, 1000, 10)
+def getSuperPixels_SLIC(image, nbSegments, compactness):
+    superPixelLabels = slic.slic_n(image, nbSegments, compactness)
     return superPixelLabels
 
 
