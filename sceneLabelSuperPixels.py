@@ -4,7 +4,7 @@
 #
 # Example:
 #
-#     PYTHONPATH=./maxflow ./sceneLabelSuperPixels.py randForestClassifierSP.pkl /home/jamie/data/MSRC_ObjCategImageDatabase_v2/Images/7_3_s.bmp
+#     ./sceneLabelSuperPixels.py randForestClassifierSP.pkl /home/jamie/data/MSRC_ObjCategImageDatabase_v2/Images/7_3_s.bmp
 
 import pickle as pkl
 import sys
@@ -16,7 +16,7 @@ import scipy.ndimage.filters
 import cython_uflow as uflow
 import sklearn
 import sklearn.ensemble
-import bonzaClassifier
+import bonzaClass
 import amntools
 import pomio
 #import FeatureGenerator
@@ -40,14 +40,14 @@ imgRGB = imread( imgFn )
 spix = SuperPixels.computeSuperPixelGraph( imgRGB, 'slic', [100,10] )
 
 print 'Loading classifier...'
-clfr = LRClassifier.loadClassifier(clfrFn)
+clfr = bonzaClass.loadObject(clfrFn)
 
 print 'Computing superpixel features...'
-ftrs = churchillFeatures.computeSuperPixelFeatures( imgRGB, spix )
+ftrs = GeezerFeatures.computeSuperPixelFeatures( imgRGB, spix )
 
 print 'Computing class probabilities...'
-classProbs = bonzaClassifier.classpProbsOfFeatures(ftrs,clfr,\
-                                                       requireAllClasses=False)
+classProbs = bonzaClass.classpProbsOfFeatures(ftrs,clfr,\
+                                                  requireAllClasses=False)
 
 
 plt.interactive(1)
@@ -73,23 +73,28 @@ if dointeract:
     print 'Click plot to continue...'
     plt.waitforbuttonpress()
 
+#
 # Do the inference
+#
+
 # prefer to merge regions with high degree
 nbrPotentialMethod = 'degreeSensitive'
-nbrPotentialParams = [K0,K,sigsq]
+
+#nbrPotentialParams = [K0,K,sigsq]
+
 print 'Performing CRF inference...'
-segResult = uflow.inferenceN( \
-    imgRGB.astype(float),\
+segResult = uflow.inferenceSuperPixel( \
+    spix,\
     -np.log( np.maximum(1E-10, np.ascontiguousarray(classProbs) ) ), \
     'abswap',\
-    nhoodSz, \
-    nbrPotentialMethod, np.ascontiguousarray(nbrPotentialParams) )
+    nbrPotentialMethod )#, np.ascontiguousarray(nbrPotentialParams) )
+print '   done.'
 
 # Show the result.
 pomio.showLabels(segResult)
-plt.title( 'Segmentation with K=%f' % K )
+plt.title( 'Segmentation CRF result' )# with K=%f' % K )
 plt.draw()
-print "labelling result, K = ", K 
+#print "labelling result, K = ", K 
 if dointeract:
     plt.waitforbuttonpress()
 

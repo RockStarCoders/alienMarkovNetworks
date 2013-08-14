@@ -1,19 +1,34 @@
+import pickle
 # Image-oriented tools for classification.
+
+def loadObject(filename):
+    filetype = '.pkl'
+    if filename.endswith(filetype):
+        f = open(filename, 'rb')
+        obj = pickle.load(f)
+        f.close()
+        return obj
+    else:
+        print "Input filename did not end in .pkl - trying filename with type appended...."
+        f = open( ( str(filename)+".pkl" ), "rb")
+        obj = pickle.load(f)
+        f.close()
+        return obj
 
 # Features is nxd matrix
 def classifyFeatures( features, classifier, requireAllClasses=True ):
     if requireAllClasses:
         assert classifier.classes_ == np.arange( pomio.getNumClasses() ), \
-            'Error: given classifier only has ', len(classifier.classes_),\
-            ' - ', classifier.classes_
+            'Error: given classifier only has %d classes - %s' % \
+            ( len(classifier.classes_), str(classifier.classes_) )
     c = classifier.predict( features )
     return c
 
 def classProbsOfFeatures( features, classifier, requireAllClasses=True ):
     if requireAllClasses:
         assert classifier.classes_ == np.arange( pomio.getNumClasses() ), \
-            'Error: given classifier only has ', len(classifier.classes_),\
-            ' - ', classifier.classes_
+            'Error: given classifier only has %d classes - %s' % \
+            ( len(classifier.classes_), str(classifier.classes_) )
     probs = classifier.predict_proba( features )
     if len(classifier.classes_) != pomio.getNumClasses():
         # Transform class probs to the correct sized matrix.

@@ -155,18 +155,32 @@ def testQuickshift_broomBroomRGB(carImg):
 
 
 class SuperPixelGraph:
-    def __init__(self):
+    def __init__(self,labels,nodes,edges):
         self.m_labels = labels
         self.m_nodes = nodes
         self.m_edges = edges
+        # for now all our code relies on the superpixels being consecutive.
+        assert self.m_nodes == np.arange(len(self.m_nodes))
 
     def draw(self):
         show_graph(self.m_labels, self.m_nodes, self.m_edges)
 
+    def imageFromSuperPixelData( self, data ):
+        # data is an nxD matrix, where n is the number of superpixels.
+        assert data.ndim == 2 and data.shape[0] == self.getNumSuperPixels()
+        D = data.shape[1]
+        H,W = self.m_labels.shape
+        # for a given region, make the data same for all pixels in that region
+        res = data[ self.m_labels.ravel(), : ]
+        res = res.reshape( (H,W,D) )
+
+    def getNumSuperPixels( self ):
+        return len(self.m_nodes)
+
 def computeSuperPixelGraph( imgRGB, method, params ):
     if method == 'slic':
         labels = slic.slic_n(imgRGB,params[0],params[1])
-        nodes, edges = SuperPixels.make_graph(spixLabels) 
+        nodes, edges = make_graph(labels) 
     else:
         raise Exception('invalid superpixel method %s' % method)
     return SuperPixelGraph(labels,nodes,edges)

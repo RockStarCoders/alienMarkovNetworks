@@ -55,6 +55,22 @@ extern void ultraflow_inferenceN(
   int32_t*        cMatOut
 );
 
+// Non-callback superpixel inference.
+//     cMatEdges is nbSuperPixels x 2 edge matrix (super pixel index pair)
+//     cmatLabelWeights is nbSuperPixels x nbLabels weight matrix (-log probs)
+//     cMatOut is pre-allocated output array of length nbSuperPixels
+extern void ultraflow_inferenceSuperPixel(
+  char*           method,
+  int             nbSuperPixels,
+  int             nbLabels,
+  int             nbEdges,
+  int32_t*        cMatEdges,
+  double*         cMatLabelWeights,
+  char*           nbrPotentialMethod,
+  //      double* nbrPotentialParams,
+  int32_t*        cMatOut
+);
+
 class UflowException: public std::exception
 {
   public:

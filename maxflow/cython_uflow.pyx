@@ -72,6 +72,19 @@ cdef extern from "uflow.hpp": # essential!
       np.int32_t*     cMatOut
     )
 
+cdef extern from "uflow.hpp": # essential!
+    extern void ultraflow_inferenceSuperPixel(
+      char*           method,
+      int             nbSuperPixels,
+      int             nbLabels,
+      int             nbEdges,
+      np.int32_t*     cMatEdges,
+      double*         cMatLabelWeights,
+      char*           nbrPotentialMethod, 
+#      double*         nbrPotentialParams,
+      np.int32_t*     cMatOut
+    )
+
 
 #  cdef void ultraflow_inference2( 
 #    int nhoodSize, int rows, int cols, double* cMatSourceEdge, 
@@ -205,3 +218,47 @@ def inferenceNCallback( np.ndarray[double, ndim=3, mode="c"] inputImage not None
                           &labelResult[0,0] )
 
     return labelResult
+
+
+
+# 'method' can be aexpansion or abswap
+def inferenceSuperPixel(\
+    superPixelGraph,
+    np.ndarray[double, ndim=2, mode="c"] labelWeights not None,
+    method,
+    nbrPotentialMethod ):
+    #    np.ndarray[double, ndim=1, mode="c"] nbrPotentialParams not None ):
+
+    N = superPixelGraph.getNumSuperPixels()
+    assert( labelWeights.ndim == 2 and labelWeights.shape[0] == N );
+    assert( method == 'abswap' or method == 'aexpansion' )
+
+    nbLabels = labelWeights.shape[1]
+    assert( nbLabels > 1, "Only 1 label class?" );
+
+    # make sure contiguous
+    assert labelWeights.flags['C_CONTIGUOUS']
+    #assert nbrPotentialParams.flags['C_CONTIGUOUS']
+
+    # turn edge array into an Nx2 matrix
+    cdef np.ndarray[np.int32_t, ndim=2, mode="c"] edgeMat = \
+        np.vstack( superPixelGraph.m_edges )
+    assert edgeMat.shape[0] == N 
+    assert edgeMat.shape[1] == 2 
+
+    # create output label array of length nbSuperPixels
+    cdef np.ndarray[np.int32_t, ndim=2, mode="c"] labelResult = \
+        np.zeros( (N), dtype=np.int32 )
+
+    # Call C++ inference function.  This will get us a label per superpixel.
+    ultraflow_inferenceSuperPixel(
+        method, N, nbLabels,
+        len( superPixelGraph.m_edges ), 
+        &edgeMat[0,0],
+        &labelWeights[0,0], 
+        nbrPotentialMethod, 
+        #&nbrPotentialParams[0],
+        &labelResult[0] )
+
+    # turn labels to image array
+    return superPixelGraph.imageFromSuperPixelData( labelResult )

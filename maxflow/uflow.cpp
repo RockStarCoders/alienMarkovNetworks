@@ -217,6 +217,96 @@ static double inference2FunctorBased(
 
 
 ////////////////////////////////////////////////////////////////////////////////
+void computeSuperPixelDegree(
+  int nbSuperPixels, int nbEdges, int32_t* cMatEdges, std::vector<int>& spDegree
+)
+{
+  assert( spDegree.size() == nbSuperPixels );
+  std::fill( spDegree.begin(), spDegree.end(), 0 );
+  for ( int i=0; i<nbEdges; ++i )
+  {
+    const int32_t* ej = cMatEdges[2*i];
+    ++spDegree[ ej[0] ];
+    ++spDegree[ ej[1] ];
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+template < typename FUNCTOR_TYPE >
+static double inference2SuperPixelFunctorBased(
+  int             nbSuperPixels,
+  int             nbEdges,
+  int32_t*        cMatEdges,
+  double*         cMatSourceEdge,
+  double*         cMatSinkEdge,
+  FUNCTOR_TYPE&   functor,
+  int32_t*        cMatOut,
+  bool*           validMask
+)
+{
+  // The length nbSuperPixels array validMask indicates whether each pixel is a
+  // valid part of the optimisation.  For example in ab-swaps non-ab pixels are
+  // not part of it so have different nbr weights.  If the array is null then
+  // not used at all.
+  const bool dbg = false;
+  const int n = nbSuperPixels;
+  std::vector< int > spDegree( n );
+
+  computeSuperPixelDegree( n, nbEdges, cMatEdges, spDegree );
+
+  std::auto_ptr< GraphType > g(
+    new GraphType(
+      n,        /*estimated # of nodes*/
+      nbEdges   /*estimated # of edges not inc src/snk*/
+    )
+  );
+
+  int firstNode = g->add_node( n );
+  assert( firstNode == 0 );
+
+  // Add source and sink edge weights from given matrices.
+  for ( int i=0; i<n; ++i ) {
+    g->add_tweights( i, cMatSourceEdge[i], cMatSinkEdge[i] );
+  }
+
+  // Now add the neighbour edges.
+  for ( int i=0; i<nbEdges; ++i ){
+    const int idx  = cMatEdges[2*i+0];
+    const int nidx = cMatEdges[2*i+1];
+    const bool validSP    = validMask==NULL || validMask[idx];
+    const bool nbrValidSP = validMask==NULL || validMask[nidx];
+    double wt;
+
+    if ( validPix && nbrValidPix )
+    {
+      wt = functor( spDegree[idx], spDegree[nidx] );
+    }
+    else
+    {
+      wt = 0.0;
+    }
+    g->add_edge( idx, nidx, wt, wt );
+  }
+
+  // inference time
+  double flow = g->maxflow();
+
+  if (dbg)
+  {
+    std::cout << "Flow = " << flow << std::endl;
+  }
+
+  // Store min cut labels in output array.
+  for ( int i=0; i<n; ++i )
+  {
+    cMatOut[i] = g->what_segment( i );
+  }
+
+  return flow;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
 double ultraflow_inference2(
   int             nhoodSize,
   int             rows,
@@ -367,6 +457,55 @@ double energyOfLabellingN(
   return res;
 }
 
+
+////////////////////////////////////////////////////////////////////////////////
+template < typename FUNCTOR_TYPE >
+double energyOfLabellingNSuperPixel(
+  int             nbSuperPixels,
+  int             nbLabels,
+  int             nbEdges,
+  int32_t*        cMatEdges,
+  double*         cMatLabelWeights,
+  FUNCTOR_TYPE&   functor,
+  int32_t*        cMatLabels
+)
+{
+  // Wot we got comin in:
+  //
+  //   cMatLabelWeights: -log P(x), that is they are potentials.
+  //
+  //   nbrEdgeCostCallback: -log P(xi,xj) given xi != xj
+  double res = 0.0;
+
+  std::vector< int > spDegree( nbSuperPixels );
+  computeSuperPixelDegree( nbSuperPixels, nbEdges, cMatEdges, spDegree );
+
+  // Sum of edge and node potentials.
+
+  // Node potentials:
+  for ( int i=0; i<nbSuperPixels; ++i ) {
+    assert( 0 <= cMatLabels[i] && cMatLabels[i] < nbLabels );
+    res += cMatLabelWeights[ i*nbLabels + cMatLabels[i] ];
+  }
+  std::cout << "dbg: just unary = " << std::fixed << res << "\n";
+  const double un = res;
+
+  // Nbr Edge potentials:
+  // Only sum each edge once.
+  for ( int i=0; i<nbEdges; ++i ) {
+    const int32_t* ej = cMatEdges[ 2*i ];
+
+    const int lbl = cMatLabels[ ej[0] ];
+    if ( lbl != cMatLabels[ ej[1] ] )
+    {
+      res += functor( spDegree[ ej[0] ], spDegree[ ej[1] ] );
+    }
+    // else Same label, no penalty.
+  }
+
+  return res;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 template < typename FUNCTOR_TYPE >
 static void inferenceNABSwap(
@@ -387,7 +526,7 @@ static void inferenceNABSwap(
   // more complicated because then the cut weight is not the energy of the
   // labelling.
   
-  const int maxIterations = 1;//100;
+  const int maxIterations = 100;
   const int npix = rows*cols;
 
   std::cout << "I think image ul pix = " << cMatInputImage[0]
@@ -397,8 +536,6 @@ static void inferenceNABSwap(
   // start with arbitrary labelling.  Note our current labelling is called "x"
   // in the alg (chaper 3 of the MRF book), here x == cMatOut.
   //
-  // Initialising to a constant doesn't work.  xi==xj for all neighbours, so no
-  // nbr potentials ever get added.  It's a degenerate global minimum!
   std::fill( cMatOut, cMatOut + npix, 0 );
   // Compute energy of intial labelling.
   double Ex = energyOfLabellingN(
@@ -539,6 +676,158 @@ static void inferenceNABSwap(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// todo: repeated code...
+template < typename FUNCTOR_TYPE >
+static void inferenceSuperPixelABSwap(
+  int             nbSuperPixels,
+  int             nbLabels,
+  int             nbEdges,
+  int32_t*        cMatEdges,
+  double*         cMatLabelWeights,
+  FUNCTOR_TYPE&   functor,
+  int32_t*        cMatOut
+)
+{
+  std::cout << "N-label AB swap algorithm, " << nbLabels << " labels.\n";
+  
+  // todo: parameterise
+  const int maxIterations = 100;
+
+  // start with arbitrary labelling.  Note our current labelling is called "x"
+  // in the alg (chaper 3 of the MRF book), here x == cMatOut.
+  std::fill( cMatOut, cMatOut + nbSuperPixels, 0 );
+  // Compute energy of intial labelling.
+  double Ex = energyOfLabellingNSuperPixel(
+    nbSuperPixels,
+    nbLabels,
+    nbEdges,
+    cMatEdges,
+    cMatLabelWeights,
+    functor,
+    cMatOut
+  );
+  std::cout << "\t\t Initial energy = " 
+            << std::fixed << std::setprecision(8)
+            << Ex << "\n";
+
+  bool success;
+  boost::scoped_array< int32_t > t( new int32_t[nbSuperPixels] );
+  boost::scoped_array< int32_t > proposedLabelling( new int32_t[nbSuperPixels] );
+  boost::scoped_array< double > srcEdges( new double[nbSuperPixels] );
+  boost::scoped_array< double > snkEdges( new double[nbSuperPixels] );
+  boost::scoped_array< bool >   validMask( new bool[nbSuperPixels] );
+
+  for ( int ic=0; ic<maxIterations; ++ic )
+  {
+    std::cout << "\t** iteration " << ic << "\n";
+
+    success = false;
+    // for each UNIQUE pair of labels {a,b} in L
+    for ( int a=0; a<nbLabels; ++a )
+    {
+      for ( int b=a+1; b<nbLabels; ++b )
+      {
+        std::cout << "\t**  ab = " << a << "," << b << "\n";
+        // find xhat = argmin E(x') among x' within one a-b swap of x
+
+        // Use our 2-class inference to determine the transformation labels t.
+
+        // Set up source and sink edges.
+        for ( int i=0; i<nbSuperPixels; ++i )
+        {
+          assert( 0 <= cMatOut[i] && cMatOut[i] < nbLabels );
+
+          if ( cMatOut[i] == a || cMatOut[i] == b )
+          {
+            // t == 0 case, label a is assigned.  Cut snk edge with higher prob,
+            // lower potential ==> put alpha weight on snk edge.
+            snkEdges[i] = cMatLabelWeights[ i*nbLabels + a ];
+            // t == 1 case, label b is assigned.
+            srcEdges[i] = cMatLabelWeights[ i*nbLabels + b ];
+            validMask[i] = true;
+          }
+          else
+          {
+            // This pixel is not a candidate for swapping.  Arbitrarily
+            // associate with the source.  Guarantee that by setting one
+            // weight to Inf.
+            snkEdges[i] = cMatLabelWeights[ i*nbLabels + cMatOut[i] ];
+            srcEdges[i] = std::numeric_limits<double>::infinity();
+            validMask[i] = false;
+          }
+        }// for i
+        
+        double Exhat = inference2SuperPixelFunctorBased(
+          nbSuperPixels,
+          nbEdges,
+          cMatEdges,
+          srcEdges.get(),
+          snkEdges.get(),
+          functor,
+          t.get(),
+          NULL
+        );
+
+        // To compute the energy, have to construct the proposed labelling.
+        // We set x = xhat, which means use optimal move / transformation to
+        // construct xhat.
+        for ( int i=0; i<nbSuperPixels; ++i )
+        {
+          if ( cMatOut[i] == a || cMatOut[i] == b )
+          {
+            // A candidate for swap.  Depends on t.
+            proposedLabelling[i] = t[i] ? b : a;
+          }
+          else
+          {
+            proposedLabelling[i] = cMatOut[i];
+          }
+        }
+
+        Exhat = energyOfLabellingNSuperPixel(
+          nbSuperPixels,
+          nbLabels,
+          nbEdges,
+          cMatEdges,
+          cMatLabelWeights,
+          functor,
+          proposedLabelling.get()
+        );
+        std::cout << "\t\t Computed energy = " 
+                  << std::fixed << std::setprecision(8)
+                  << Exhat << "\n";
+
+        // If E(xhat) < E(x) set x = xhat and success = 1
+        if ( Exhat < Ex )
+        {
+          Ex = Exhat;
+          std::cout << "\t**  went downhill, criterion Ex = " << Ex << "\n";
+          std::copy(
+            proposedLabelling.get(),
+            proposedLabelling.get()+nbSuperPixels,
+            cMatOut
+          );
+          success = true;
+        }
+
+      }// for b
+    }// for a
+
+    if ( !success )
+    {
+      break;
+    }
+  }// for ic
+
+  if ( success )
+  {
+    std::cerr << "Warning: maximum iterations reached in inferenceSuperPixelABSwap"
+              << std::endl;
+  }
+  std::cout << "** abswap complete!\n";
+}
+
+////////////////////////////////////////////////////////////////////////////////
 template < typename FUNCTOR_TYPE >
 static void inferenceNUsingTFunctor(
   char*           method,
@@ -574,6 +863,42 @@ static void inferenceNUsingTFunctor(
   else
   {
     throw( UflowException( ("Unrecognised inferenceN method '"
+          + std::string(method) + "'").c_str() ) );
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+template < typename FUNCTOR_TYPE >
+static void inferenceSuperPixelUsingTFunctor(
+  char*           method,
+  int             nbSuperPixels,
+  int             nbLabels,
+  int             nbEdges,
+  int32_t*        cMatEdges,
+  double*         cMatLabelWeights,
+  FUNCTOR_TYPE&   functor,
+  int32_t*        cMatOut
+)
+{
+  if ( method == std::string("abswap") )
+  {
+    inferenceSuperPixelABSwap(
+      nbSuperPixels,
+      nbLabels,
+      nbEdges,
+      cMatEdges,
+      cMatLabelWeights,
+      functor,
+      cMatOut
+    );
+  }
+  else if ( method == std::string("aexpansion") )
+  {
+    throw( UflowException( "alpha expansion not yet implemented" ) );
+  }
+  else
+  {
+    throw( UflowException( ("Unrecognised inferenceSuperPixel method '"
           + std::string(method) + "'").c_str() ) );
   }
 }
@@ -652,3 +977,39 @@ void ultraflow_inferenceN(
   }
 }
     
+////////////////////////////////////////////////////////////////////////////////
+// non-callback version
+void ultraflow_inferenceSuperPixel(
+  char*           method,
+  int             nbSuperPixels,
+  int             nbLabels,
+  int             nbEdges,
+  int32_t*        cMatEdges,
+  double*         cMatLabelWeights,
+  char*           nbrPotentialMethod,
+  //      double* nbrPotentialParams,
+  int32_t*        cMatOut
+)
+{
+  if ( nbrPotentialMethod == std::string("degreeSensitive") )
+  {
+    NbrPotentialFunctorDegreeSensitive functor();
+    inferenceSuperPixelUsingTFunctor(
+      method,
+      nbSuperPixels,
+      nbLabels,
+      nbEdges,
+      cMatEdges,
+      cMatLabelWeights,
+      functor,
+      cMatOut
+    );
+  }
+  else
+  {
+    throw( UflowException( (
+          "Unrecognised inferenceSuperPixel nbr potential method '"
+          + std::string(nbrPotentialMethod) + "'").c_str() ) );
+  }
+}
+
