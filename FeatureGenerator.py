@@ -11,13 +11,13 @@ import Image as pil
 import matplotlib.pyplot as plt
 from scipy import signal
 
-
 from skimage import color, feature, io
-
 
 import pomio
 
-from DataVisualisation import createKernalWindowRanges
+import SuperPixels
+
+from DataVisualisation import *
 
 
 # Global variables to ensure consistency in classier training and prediction
@@ -616,75 +616,157 @@ def getGrayscaleImage(imageRGB):
 
 
 
+# Superpixel feature functions
+
+def getSuperPixelFeatures_pixel(image, mask):
+    """This function returns an np array containing pixel-level features for each superpixel region"""
+    
+    # Generate the pixel-level features for the image
+    imagePixelFeatures = generatePixelFeaturesForImage(image)
+    numFeaturesPerPixel = np.shape(imagePixelFeatures)[1]
+    numColumns = np.shape(image)[1]
+    numRows = np.shape(image)[0]
+    # Get the list of regions in the superpixel mask.  np.unique() seems to give consistent sorted ordering
+    superPixels = np.unique(mask)
+    numSuperPixels = np.size(superPixels)
+    
+    print "Image shape =" , np.shape(image)
+    print "Image pixel features shape =" , np.shape(imagePixelFeatures)
+    print "Number of feature values per pixel =", numFeaturesPerPixel
+    print "Number of super pixel regions::\n" , numSuperPixels    
+    
+    # Reshape (i*j , f) image feature to (i, j, f) array
+    imagePixelFeatures = np.reshape( imagePixelFeatures, (numRows, numColumns, numFeaturesPerPixel) )
+    print "Reshaped image features =" , np.shape(imagePixelFeatures)
+    
+    # TODO might need a mapper to take superpixel region names and convert to ordered list from 1 to numSuperpixels.
+    
+    # for each superpixel, create a single feature array i.e. append the feature vectors from each pixel into single array
+    # Alternatively, create a list/array of feature vectors for each super pixel
+
+    allSuperPixelFeatures = []
+    
+    superPixelCount = 0
+    
+    for spIdx in range(0 , numSuperPixels ):
+        
+        print "\t***Processing superpixel region#" , spIdx
+        
+        superPixel = superPixels[spIdx]
+        superPixelMask = (mask == superPixel)
+        superPixelCount = superPixelCount + np.sum(superPixelMask)
+        
+        # Generate a single array of feature arrays for pixels that match superpixel number 
+        pixelFeaturesInSuperPixel = imagePixelFeatures[ superPixelMask ]
+        
+        allSuperPixelFeatures.append(pixelFeaturesInSuperPixel)
+    
+    assert numSuperPixels == np.shape(allSuperPixelFeatures)[0] , "The number of superpixels in mask != number of superpixels in result list"
+    assert superPixelCount == (numRows * numColumns) , "The number of pixels assigned to super pixels != number of pixels in image!"
+    for idx in range(0 , numSuperPixels ):
+        assert np.shape(allSuperPixelFeatures[idx])[1] == numFeaturesPerPixel, "Superpixel result #" + str(idx) + " does not have " + str(numFeaturesPerPixel) + "; has " + str(np.shape(allSuperPixelFeatures[idx])[1])
+        
+    return allSuperPixelFeatures
+
+
+
+
+###############################
 # Some simple testing
-#     
-sourceImage = readImageFileRGB("ship-at-sea.jpg");
-# grayImage = color.rgb2gray(sourceImage)
+###############################
 
-# HSV tests
-#
-# print "\nHSV 3D histogram::"
-# hist, edges = create3dHSVColourHistogramFeature(color.rgb2hsv(sourceImage))
-# print hist
-# print edges
-#
-# hsvHist = create1dHSVColourHistogram(sourceImage)
-# plot1dHSVHistogram(hsvHist)
+def test_HSV():
+    sourceImage = readImageFileRGB("ship-at-sea.jpg");
+    grayImage = color.rgb2gray(sourceImage)
 
-
-# RGB tests
-#
-# rgbHist = create1dRGBColourHistogram(sourceImage)
-# plot1dRGBHistogram(rgbHist)
-#
-# hist, edges = create3dRGBColourHistogramFeature(sourceImage)
-# print hist
-# print edges
+    # HSV tests
+    print "\nHSV 3D histogram::"
+    hist, edges = create3dHSVColourHistogramFeature(color.rgb2hsv(sourceImage))
+    print hist
+    print edges
+    
+    hsvHist = create1dHSVColourHistogram(sourceImage)
+    plot1dHSVHistogram(hsvHist)
 
 
-# HOG tests
-#
-# hogFeature, hogImage = createHistogramOfOrientedGradientFeatures(sourceImage, 8, (8,8), (2,2), True, True)
-# plotHOGResult(sourceImage, hogImage)
-# 
+def test_RGB():
+    sourceImage = readImageFileRGB("ship-at-sea.jpg")
+    # RGB tests    
+    rgbHist = create1dRGBColourHistogram(sourceImage)
+    plot1dRGBHistogram(rgbHist)
+    
+    hist, edges = create3dRGBColourHistogramFeature(sourceImage)
+    print hist
+    print edges
 
-# Gaussian kernel tests
-# xWindow = 9
-# yWindow = 9
-# sigma = 1.4
-# xRange, yRange = createKernalWindowRanges(xWindow, yWindow, increment)
-# 
-# g_kernel = gaussian_kernel(xWindow, yWindow, sigma)
-# print "Gaussian kernel range:: ", np.min(g_kernel), np.max(g_kernel)
-# plotKernel(xRange, yRange, g_kernel, "Gaussian kernel, sigma= + " + str(sigma) + ", window=(" + str(xWindow) + "," + str(yWindow) + ")")
-# filteredImage = signal.convolve2d(grayImage, g_kernel, mode='same')
-# plotImageComparison(grayImage, filteredImage)
-#   
-# log_kernel = laplacianOfGaussian_kernel(xWindow, yWindow, sigma)
-# print "Laplacian of Gaussian kernel range:: ", np.min(log_kernel), np.max(log_kernel)
-# plotKernel(xRange, yRange, log_kernel, "LOG kernel, sigma= + " + str(sigma) + ", window=(" + str(xWindow) + "," + str(yWindow) + ")")
-# filteredImage = signal.convolve2d(grayImage, log_kernel, mode='same')
-# plotImageComparison(grayImage, filteredImage)
-#  
-# g_dx_kernel = gaussian_1xDerivative_kernel(xWindow, yWindow, sigma)
-# print "Gaussian X derivative kernel range:: ", np.min(g_dx_kernel), np.max(g_dx_kernel)
-# plotKernel(xRange, yRange, g_dx_kernel, "G_dx kernel, sigma= + " + str(sigma) + ", window=(" + str(xWindow) + "," + str(yWindow) + ")")
-# filteredImage = signal.convolve2d(grayImage, g_dx_kernel, mode='same')
-# plotImageComparison(grayImage, filteredImage)
-#  
-# g_dy_kernel = gaussian_1yDerivative_kernel(xWindow, yWindow, sigma)
-# print "Gaussian Y derivative kernel range:: ", np.min(g_dy_kernel), np.max(g_dy_kernel)
-# plotKernel(xRange, yRange, g_dy_kernel, "G_dy kernel, sigma= + " + str(sigma) + ", window=(" + str(xWindow) + "," + str(yWindow) + ")")
-# filteredImage = signal.convolve2d(grayImage, g_dy_kernel, mode='same')
-# plotImageComparison(grayImage, filteredImage)
-# 
-# 
-#  
-# lbpImage = createLocalBinaryPatternFeatures(sourceImage, 6, 4, "default")
-# print "Local Binary Pattern result::", lbpImage
-# plotImageComparison(grayImage, filteredImage)
-# 
-# 
-# response = createFilterbankResponse(sourceImage, xWindow)
-# 
-# print "\nFilter response shape=" + str(np.shape(response))  
+
+def test_HOG():
+    # HOG tests
+    sourceImage = readImageFileRGB("ship-at-sea.jpg")
+    hogFeature, hogImage = createHistogramOfOrientedGradientFeatures(sourceImage, 8, (8,8), (2,2), True, True)
+    plotHOGResult(sourceImage, hogImage)
+
+
+def test_GaussianKernel():
+    # Gaussian kernel tests
+    sourceImage = readImageFileRGB("ship-at-sea.jpg")
+    grayImage = color.rgb2gray(sourceImage)
+    
+    xWindow = 9
+    yWindow = 9
+    sigma = 1.4
+    xRange, yRange = createKernalWindowRanges(xWindow, yWindow, increment)
+     
+    g_kernel = gaussian_kernel(xWindow, yWindow, sigma)
+    print "Gaussian kernel range:: ", np.min(g_kernel), np.max(g_kernel)
+    plotKernel(xRange, yRange, g_kernel, "Gaussian kernel, sigma= + " + str(sigma) + ", window=(" + str(xWindow) + "," + str(yWindow) + ")")
+    filteredImage = signal.convolve2d(grayImage, g_kernel, mode='same')
+    plotImageComparison(grayImage, filteredImage)
+   
+    log_kernel = laplacianOfGaussian_kernel(xWindow, yWindow, sigma)
+    print "Laplacian of Gaussian kernel range:: ", np.min(log_kernel), np.max(log_kernel)
+    plotKernel(xRange, yRange, log_kernel, "LOG kernel, sigma= + " + str(sigma) + ", window=(" + str(xWindow) + "," + str(yWindow) + ")")
+    filteredImage = signal.convolve2d(grayImage, log_kernel, mode='same')
+    plotImageComparison(grayImage, filteredImage)
+    
+    g_dx_kernel = gaussian_1xDerivative_kernel(xWindow, yWindow, sigma)
+    print "Gaussian X derivative kernel range:: ", np.min(g_dx_kernel), np.max(g_dx_kernel)
+    plotKernel(xRange, yRange, g_dx_kernel, "G_dx kernel, sigma= + " + str(sigma) + ", window=(" + str(xWindow) + "," + str(yWindow) + ")")
+    filteredImage = signal.convolve2d(grayImage, g_dx_kernel, mode='same')
+    plotImageComparison(grayImage, filteredImage)
+
+    g_dy_kernel = gaussian_1yDerivative_kernel(xWindow, yWindow, sigma)
+    print "Gaussian Y derivative kernel range:: ", np.min(g_dy_kernel), np.max(g_dy_kernel)
+    plotKernel(xRange, yRange, g_dy_kernel, "G_dy kernel, sigma= + " + str(sigma) + ", window=(" + str(xWindow) + "," + str(yWindow) + ")")
+    filteredImage = signal.convolve2d(grayImage, g_dy_kernel, mode='same')
+    plotImageComparison(grayImage, filteredImage)
+
+
+def test_LBP():
+    # LBP tests
+    sourceImage = readImageFileRGB("ship-at-sea.jpg")
+    grayImage = color.rgb2gray(sourceImage)
+    
+    lbpImage = createLocalBinaryPatternFeatures(sourceImage, 6, 4, "default")
+    print "Local Binary Pattern result::", lbpImage
+    plotImageComparison(grayImage, lbpImage)
+
+
+def test_FilterbankResponse():
+    sourceImage = readImageFileRGB("ship-at-sea.jpg")
+    xWindow = 9
+    
+    response = createFilterbankResponse(sourceImage, xWindow)
+    print "\nFilter response shape=" + str(np.shape(response))
+
+
+#if __name__ == "__main__":
+def test_superPixel_pixelFeatures():
+    sourceImage = readImageFileRGB("ship-at-sea.jpg")
+    superPixelMask = SuperPixels.getSuperPixels_SLIC(sourceImage, 400, 10)
+    
+    superPixelRegionFeatures = getSuperPixelFeatures_pixel(sourceImage, superPixelMask)
+    
+    print "\nINFO: Shape of featuresBySuperPixel =" , np.shape(superPixelRegionFeatures)
+    return superPixelRegionFeatures
+

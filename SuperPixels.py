@@ -5,6 +5,7 @@ import numpy as np
 import skimage
 import skimage.data
 from skimage.segmentation import slic, felzenszwalb, quickshift, mark_boundaries
+import slic
 import matplotlib.pyplot as plt
 import pomio
 
@@ -17,11 +18,16 @@ def displayImage(image, imgTitle, orientation):
     plt.show()
 
 
-def getSuperPixels_SLIC(image, nbSegments):
-    # See [http://scikit-image.org/docs/dev/api/skimage.segmentation.html?highlight=slic#skimage.segmentation.slic] for parameter definitions
-    # Function signature: skimage.segmentation.slic(image, n_segments=100, ratio=10.0, max_iter=10, sigma=1, multichannel=None, convert2lab=True)
-    segmentationMask = slic(image, nbSegments)
-    return segmentationMask
+#def getSuperPixels_SLIC(image, nbSegments):
+#    # See [http://scikit-image.org/docs/dev/api/skimage.segmentation.html?highlight=slic#skimage.segmentation.slic] for parameter definitions
+#    # Function signature: skimage.segmentation.slic(image, n_segments=100, ratio=10.0, max_iter=10, sigma=1, multichannel=None, convert2lab=True)
+#    segmentationMask = slic(image, nbSegments)
+#    return segmentationMask
+
+def getSuperPixels_SLIC(image, nbSegments, compactness):
+    superPixelLabels = slic.slic_n(image, nbSegments, compactness)
+    return superPixelLabels
+
 
 
 def getSuperPixels_Graph(image):
