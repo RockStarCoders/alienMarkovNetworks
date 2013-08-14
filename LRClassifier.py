@@ -24,7 +24,7 @@ def trainLogisticRegressionModel(
     assert ( numTrainDataPoints == numDataLabels) , ("The length of the feature and label data arrays must be equal.  Num data points=" + str(numTrainDataPoints) + ", labels=" + str(numDataLabels) )
     classLabels = np.unique(labels)
     assert not requireAllClasses or \
-        ( np.size(classLabels) == 23 or np.size(classLabels) == 24 ), \
+        ( np.size(classLabels) == pomio.getNumClasses() or np.size(classLabels) == pomio.getNumLabels() ), \
         "Training data does not contains all classes::\n\t" + str(classLabels)
      
     if scaleData == True:
@@ -146,7 +146,7 @@ def generateImagePredictionClassDist(rgbImage, classifier, requireAllClasses=Tru
     
     assert not requireAllClasses or \
         (np.shape(predictionProbs)[1] == numClasses or \
-             np.shape(predictionProbs)[1] == numClasses-1) , \
+             np.shape(predictionProbs)[1] == numClasses+1) , \
              "Classifer prediction does not match all classes (23 or 24):: " + \
              str(np.shape(predictionProbs)[1])
     print predictionProbs
@@ -464,7 +464,7 @@ if __name__ == "__main__":
             datmat = trainingData[0][subset,:]
             labvec = trainingData[1][subset]
             nbFeatures = datmat.shape[1]
-            nbClasses = 23#np.max(labvec)+1
+            nbClasses = pomio.getNumClasses()
             nbHidden = 100
             maxIter = 200
             classifier = NeuralNet.NNet(nbFeatures, nbClasses, nbHidden)

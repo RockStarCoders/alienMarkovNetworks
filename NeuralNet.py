@@ -11,7 +11,7 @@ from pybrain.datasets.classification import ClassificationDataSet
 
 
 numFeatures = 86
-numClasses = pomio.getNumClasses()-1 # no void class
+numClasses = pomio.getNumClasses() # no void class
 voidClass = 13
 
 class NNet:
