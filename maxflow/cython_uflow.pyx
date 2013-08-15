@@ -247,18 +247,21 @@ def inferenceSuperPixel(\
     assert edgeMat.shape[1] == 2 
 
     # create output label array of length nbSuperPixels
-    cdef np.ndarray[np.int32_t, ndim=2, mode="c"] labelResult = \
+    cdef np.ndarray[np.int32_t, ndim=1, mode="c"] labelResult = \
         np.zeros( (N), dtype=np.int32 )
 
     # Call C++ inference function.  This will get us a label per superpixel.
     ultraflow_inferenceSuperPixel(
-        method, N, nbLabels,
+        method,
+        N,
+        nbLabels,
         len( superPixelGraph.m_edges ), 
         &edgeMat[0,0],
         &labelWeights[0,0], 
         nbrPotentialMethod, 
+        &labelResult[0] 
+      )
         #&nbrPotentialParams[0],
-        &labelResult[0] )
 
     # turn labels to image array
     return superPixelGraph.imageFromSuperPixelData( labelResult )

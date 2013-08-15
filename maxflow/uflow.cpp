@@ -7,6 +7,7 @@
 #include <limits>
 #include <boost/scoped_array.hpp>
 #include <cmath>
+#include <vector>
 
 #include "graph.h"
 
@@ -88,6 +89,18 @@ class NbrPotentialFunctorContrastSensitive {
     const double m_sigmaSq;
 };
 
+/////////////////////////////////////////////
+class NbrPotentialFunctorDegreeSensitive {
+  public:
+    NbrPotentialFunctorDegreeSensitive(){}
+
+    inline double operator()( double deg1, double deg2 )
+    {
+      return m_w / ( 0.5 * ( deg1 + deg2 ) );
+    }
+  private:
+    const double m_w = 1.0;
+};
 
 ////////////////////////////////////////////////////////////////////////////////
 template < typename FUNCTOR_TYPE >
@@ -225,7 +238,7 @@ void computeSuperPixelDegree(
   std::fill( spDegree.begin(), spDegree.end(), 0 );
   for ( int i=0; i<nbEdges; ++i )
   {
-    const int32_t* ej = cMatEdges[2*i];
+    const int32_t* ej = cMatEdges + 2*i;
     ++spDegree[ ej[0] ];
     ++spDegree[ ej[1] ];
   }
@@ -277,7 +290,7 @@ static double inference2SuperPixelFunctorBased(
     const bool nbrValidSP = validMask==NULL || validMask[nidx];
     double wt;
 
-    if ( validPix && nbrValidPix )
+    if ( validSP && nbrValidSP )
     {
       wt = functor( spDegree[idx], spDegree[nidx] );
     }
@@ -493,7 +506,7 @@ double energyOfLabellingNSuperPixel(
   // Nbr Edge potentials:
   // Only sum each edge once.
   for ( int i=0; i<nbEdges; ++i ) {
-    const int32_t* ej = cMatEdges[ 2*i ];
+    const int32_t* ej = cMatEdges + 2*i;
 
     const int lbl = cMatLabels[ ej[0] ];
     if ( lbl != cMatLabels[ ej[1] ] )
@@ -993,7 +1006,7 @@ void ultraflow_inferenceSuperPixel(
 {
   if ( nbrPotentialMethod == std::string("degreeSensitive") )
   {
-    NbrPotentialFunctorDegreeSensitive functor();
+    NbrPotentialFunctorDegreeSensitive functor;
     inferenceSuperPixelUsingTFunctor(
       method,
       nbSuperPixels,
