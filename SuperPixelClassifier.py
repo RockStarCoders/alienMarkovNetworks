@@ -95,8 +95,12 @@ def getSuperPixelTrainingData(msrcDataDirectory, scale):
     print "Total void superpixels =" , numberVoidSuperPixels
     numberValidSuperPixels = (numberSuperPixels - numberVoidSuperPixels)
     print "Total valid superpixels for training =" , numberValidSuperPixels
-    assert np.shape(superPixelTrainLabels[0] == numberValidPixels, "The number of training superpixel labels (" + str(np.shape(superPixelTrainLabels)[0]) + " != number of valid superpixels! (" + str(numberValidSuperPixels) + ")."
-    assert np.shape(superPixelTrainFeatures[0] == numberValidPixels, "The number of training superpixel features (" + str(np.shape(superPixelTrainFeatures)[0]) + " != number of valid superpixels! (" + str(numberValidSuperPixels) + ")."
+    
+    assert np.shape(superPixelTrainLabels)[0] == numberValidPixels,\
+            ("The number of training superpixel labels (" + str(np.shape(superPixelTrainLabels)[0]) + " != number of valid superpixels! (" + str(numberValidSuperPixels) + ").")
+    
+    assert np.shape(superPixelTrainFeatures)[0] == numberValidPixels, \
+            ("The number of training superpixel features (" + str(np.shape(superPixelTrainFeatures)[0]) + " != number of valid superpixels! (" + str(numberValidSuperPixels) + ").")
     
     return [ superPixelTrainFeatures, superPixelTrainLabels ]
     
