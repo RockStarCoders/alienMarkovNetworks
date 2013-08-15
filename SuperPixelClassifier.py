@@ -1,8 +1,10 @@
 import numpy as np
 
-import scipy.stats
+from scipy import stats
 
 import pomio
+import SuperPixels
+import FeatureGenerator
 
 
 
@@ -21,7 +23,7 @@ def getSuperPixelTrainingData(msrcDataDirectory, scale):
     if scale == None:
         scale = 0.1 # default to 10% of data
         
-    numSuperPixels = 400
+    numberSuperPixels = 400
     superPixelCompactness = 10
     
     msrcData = pomio.msrc_loadImages(msrcDataDirectory)
@@ -63,15 +65,17 @@ def getSuperPixelTrainingData(msrcDataDirectory, scale):
         imgPixelLabels = trainingMsrcImages[imgIdx].m_gt
         
         # create superpixel map for image
-        superPixelMap = SuperPixels.getSuperPixels_SLIC(img, numberSuperPixels, superPixelCompactness)
-        numberSuperPixels = np.unique(superPixelMap)
+        imgSuperPixelMask = SuperPixels.getSuperPixels_SLIC(img, numberSuperPixels, superPixelCompactness)
+        imgSuperPixels = np.unique(imgSuperPixelMask)
+        numberImgSuperPixels = np.shape(imgSuperPixels)[0]
+        print "\tINFO: Number of superpixels in img#" + str(imgIdx+1) , " =" , numberImgSuperPixels
     
         # create superpixel exclude list & superpixel label array
-        for spIdx in range(0, numberSuperPixels):
+        for spIdx in range(0, numberImgSuperPixels):
         
             # Assume superpisel labels are sequence of integers
-            superPixelValueMask = (superPixelMask == spIdx) # Boolean array for indexing superpixel-pixels
-            superPixelLabel = this.assignClassLabelToSuperPixel(superPixelValueMask, imgPixelLabels)
+            superPixelValueMask = (imgSuperPixelMask == spIdx) # Boolean array for indexing superpixel-pixels
+            superPixelLabel = assignClassLabelToSuperPixel(superPixelValueMask, imgPixelLabels)
             
             if(superPixelLabel == voidClassLabel):
                 # add to ignore list, increment void count & do not add to superpixel label array
@@ -83,13 +87,13 @@ def getSuperPixelTrainingData(msrcDataDirectory, scale):
                 superPixelTrainLabels = np.append(superPixelTrainLabels, superPixelLabel)
                 
         # Now we have the superpixel labels, and an ignore list of void superpixels - time to get the features!
-        imgSuperPixelFeatures = FeatureGenerator.generateSuperPixelFeatures(img, superPixelMap, excludeSuperPixelList=superPixelIgnoreList)
+        imgSuperPixelFeatures = FeatureGenerator.generateSuperPixelFeatures(img, imgSuperPixelMask, excludeSuperPixelList=superPixelIgnoreList)
         
         if superPixelTrainFeatures == None:        
             superPixelTrainFeatures = imgSuperPixelFeatures;
         else:
             # stack the superpixel features into a single list
-            superPixelTrainFeatures = np.vstack( [ superPixeTrainFeatures, imgSuperPixelFeatures ] )
+            superPixelTrainFeatures = np.vstack( [ superPixelTrainFeatures, imgSuperPixelFeatures ] )
     
     print "Total superpixels =" , numberSuperPixels
     print "Total void superpixels =" , numberVoidSuperPixels
@@ -108,8 +112,8 @@ def getSuperPixelTrainingData(msrcDataDirectory, scale):
 
 
 # Could use other params e.g. training dataset size
-def createSuperPixelRandomForestClassifier(msrcDataDirectory, classifierDirectory):
-
+def createSuperPixelRandomForestClassifier(msrcDataDirectory, classifierDirectory, scale):
+    
     # Get training data
     superPixelTrainData = getSuperPixelTrainingData(msrcDataDirectory, scale)
     superPixelTrainFeatures = superPixelTrainData[0]
@@ -138,23 +142,17 @@ def assignClassLabelToSuperPixel(superPixelValueMask, imagePixelLabels):
     """This function provides basic logic for setting the overall class label for a superpixel"""
     
     # just adopt the most frequently occurring class label as the superpixel label
-    
-    #>>> aFreq = stats.itemfreq(a) - use as we dont expect very large sets of class labels in super pixel, upper limit is number of classes and superpixel pixel instances
-    #>>> maxFreq = np.max(aFreq[:,1])
-    #>>> maxTerm = (aFreq[:,1] == maxFreq)
-    
     superPixelConstituentLabels = imagePixelLabels[superPixelValueMask]
     
     labelCount = stats.itemfreq(superPixelConstituentLabels)
-    
     maxLabelFreq = np.max(labelCount[:, 1])
-    
-    maxLabel = (labelCount[:,1] == maxLabelFreq)
+    maxLabelIdx = (labelCount[:,1] == maxLabelFreq)
+    maxLabel = labelCount[maxLabelIdx]
     
     # what if the max count gives more than 1 match?  Naughty superpixel.
     # It would be nice to select the class that is least represented in the dataset so far...
-    if np.shape(maxLabel) > 1:
-        print "\tWARN: More than 1 class label have an equal maximal count in the superpixel: {" , maxLabel[:,0] , "}"
+    if np.shape(maxLabel)[0] > 1:
+        print "\tWARN: More than 1 class label have an equal maximal count in the superpixel: {" , maxLabel , "}"
         print "\tWARN: Will return the first non-void label."
     
         for idx in range(0, np.shape(maxLabel)[0]):
