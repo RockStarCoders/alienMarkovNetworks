@@ -340,3 +340,16 @@ def showClassColours():
     showLabels( np.array( [ np.arange(len(msrc_classLabels)) ] ).transpose() )
     plt.yticks( np.arange( len(msrc_classLabels) ), msrc_classLabels )
 
+
+def pickleObject(obj, fullFilename):
+    if fullFilename.endswith(".pkl"):
+        f = open( fullFilename , "w")
+        pickle.dump(obj, f , True)
+        f.close()
+    else:
+        print "Input filename did not end in .pkl - adding .pkl to filename."
+        fullFilename= str(fullFilename)+".pkl"
+        f = open( fullFilename , "w")
+        pickle.dump(obj, f , True)
+        f.close()
+
