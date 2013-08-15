@@ -186,8 +186,8 @@ def splitInputDataset_msrcData(msrcImages, datasetScale=1.0 , keepClassDistForTr
                 trainClasses = np.unique(np.append( trainClasses , np.unique(trainData[idx].m_gt) ) )
         
         numLabels = getNumLabels()
-        print "INFO:: number of valid labels=" , numLabels, " , number labels in training set=" , np.shape(trainClasses)[0] 
-        assert np.shape(trainClasses)[0] == numLabels , "Training data does not include each valid label:: trainClasses = " + str(trainClasses)
+        #print "\tINFO: number of labels=" , numLabels, " , number labels in training set=" , np.shape(trainClasses)[0] 
+        assert np.shape(trainClasses)[0] == numLabels , "Training data does not include each label:: trainClasses = " + str(trainClasses)
         
         print "\nAssigned " + str(np.shape(trainData)) + " images to TRAIN set, " + str(np.shape(testData)) + " samples to TEST set and "+ str(np.shape(validationData)) + " samples to VALIDATION set"
         
@@ -199,10 +199,9 @@ def classSampleFromList(msrcData , numberSamples, classDist, includeAllClassLabe
     The indices of the are assumed to align with the indicies of the class labels.
     Returns a list of data samples and the reduced input dataset."""
     
-    # We assume that void has been discarded, and only consider valid labels
     numLabels = getNumLabels()
-    print "INFO:: numLabels=" , numLabels, " , number labels in training=" , np.shape(classDist)[0]  , " equality test =" , (numLabels == np.shape(classDist)[0])
-    assert( np.size(classDist) == numLabels) , "\n\tWARN:: For some reason the labels in distribution array doesnt match set of valid labels - " + str(np.size(classDist)) + " vs. " + str(numLabels)
+    #print "\tINFO: number of labels=" , numLabels, " , number labels in training=" , np.shape(classDist)[0]
+    assert( np.size(classDist) == numLabels) , "\n\tWARN:: For some reason the labels in distribution array doesnt match label set - " + str(np.size(classDist)) + " vs. " + str(numLabels)
     
     classSampleSizes = np.round((numberSamples * classDist) , 0).astype('int')
     
