@@ -3,6 +3,7 @@ import numpy as np
 from scipy import stats
 
 import sklearn.ensemble
+from sklearn.linear_model import LogisticRegression
 
 import pomio
 import SuperPixels
@@ -104,12 +105,9 @@ def getSuperPixelTrainingData(msrcDataDirectory, scale):
             # stack the superpixel features into a single list
             superPixelTrainFeatures = np.vstack( [ superPixelTrainFeatures, imgSuperPixelFeatures ] )
     
-    numberValidSuperPixels = (numberSuperPixels - numberVoidSuperPixels)
     
-    print "\* Processed total of" , numberTrainingImages, "images" 
-    print "INFO: Number of void class superpixels =" , numberVoidSuperPixels
-    print "INFO: Number valid superpixels for training =" , numberValidSuperPixels 
-    print "INFO: Shape of resulting dataset:" , np.shape(superPixelTrainFeatures)
+    assert np.shape(superPixelTrainFeatures)[0] == np.shape(superPixelTrainFeatures)[0] , "Number of training samples != number training labels"
+    print "\n**Processed total of" , numberTrainingImages, "images"
     
     return [ superPixelTrainFeatures, superPixelTrainLabels ]
     
@@ -125,8 +123,9 @@ def createSuperPixelRandomForestClassifier(msrcDataDirectory, classifierDirector
     superPixelTrainLabels = superPixelTrainData[1]
     
     # now train random forest classifier on labelled superpixel data
-    print '**Training a random forest on %d examples...' % len(superPixelTrainLabels)
-    print 'Labels represented: ', np.unique( superPixelTrainLabels )
+    print '\n\n**Training a random forest on %d examples...' % len(superPixelTrainLabels)
+    print "Training feature data shape=" , np.shape(superPixelTrainFeatures) , "type:", type(superPixelTrainFeatures)
+    print "Training labels shape=" , np.shape(superPixelTrainLabels), "type:" , type(superPixelTrainLabels)
 
     numEstimators = 100
     
@@ -139,6 +138,34 @@ def createSuperPixelRandomForestClassifier(msrcDataDirectory, classifierDirector
     pomio.pickleObject(classifier, classifierFilename)
     
     print "Rand forest classifier saved @ " + str(classifierFilename)
+
+
+def createSuperPixelLogisticRegressionClassifier(msrcDataDirectory, classifierDirectory, scale):
+    
+    # Get training data
+    superPixelTrainData = getSuperPixelTrainingData(msrcDataDirectory, scale)
+    superPixelTrainFeatures = superPixelTrainData[0]
+    superPixelTrainLabels = superPixelTrainData[1]
+    
+    # now train random forest classifier on labelled superpixel data
+    print '\n\n**Training a LR classifier on %d examples...' % len(superPixelTrainLabels)
+    print "Training feature data shape=" , np.shape(superPixelTrainFeatures) , "type:", type(superPixelTrainFeatures)
+    print "Training labels shape=" , np.shape(superPixelTrainLabels), "type:" , type(superPixelTrainLabels)
+
+    Cvalue = 0.5
+    # sklearn.linear_model.LogisticRegression(penalty='l2', dual=False, tol=0.0001, C=1.0, fit_intercept=True, intercept_scaling=1, class_weight=None, random_state=None)
+    classifier = LogisticRegression(penalty='l1' , dual=False, tol=0.0001, C=Cvalue, fit_intercept=True, intercept_scaling=1)
+    classifier.fit(superPixelTrainFeatures, superPixelTrainLabels)
+    
+    
+    # Now serialise the classifier to file
+    classifierFilename = classifierDirectory + "/" + "LR_superPixel_C" + str(cValue) + ".pkl"
+    
+    pomio.pickleObject(classifier, classifierFilename)
+    
+    print "LR classifier saved @ " + str(classifierFilename)
+
+
 
 
 
