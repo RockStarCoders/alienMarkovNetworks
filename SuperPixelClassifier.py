@@ -186,7 +186,7 @@ def predictSuperPixelLabels(classifier, image):
     imgSuperPixelsMask = SuperPixels.getSuperPixels_SLIC(image, desiredSuperPixels, superPixelCompactness)
     imgSuperPixels = np.unique(imgSuperPixelsMask)
     numberImgSuperPixels = np.shape(imgSuperPixels)[0]
-    print "**" + str(case) + " image contains", numberImgSuperPixels, "superpixels"
+    print "**Image contains", numberImgSuperPixels, "superpixels"
     
     # Get superpixel features
     superPixelFeatures = FeatureGenerator.generateSuperPixelFeatures(image, imgSuperPixelsMask, None)
@@ -223,7 +223,7 @@ def getSuperPixelLabelledImage(image, superPixelMask, superPixelLabels):
     return labelImage
 
 
-def plotSuperPixelImage(sourceImage, labelledImage):
+def plotSuperPixelImage(sourceImage, labelledImage, orientation):
     print "\n*Now plotting source & labelled image for visual comparison."
     
     plt.interactive(1)
@@ -234,12 +234,11 @@ def plotSuperPixelImage(sourceImage, labelledImage):
     
     print "*Unique labels from superpixel classification = ", np.unique(labelledImage)
     plt.subplot(1,2,1)
+    plt.imshow(sourceImage, origin=orientation)
     
-    plt.imshow(sourceImage)
     plt.subplot(1,2,2)
-    
-    pomio.showLabels(labelledImage)
-
+    #pomio.showLabels(labelledImage)
+    plt.imshow(labelledImage, origin=orientation)
 
 
 def assignClassLabelToSuperPixel(superPixelValueMask, imagePixelLabels):
@@ -283,18 +282,22 @@ def testClassifier(classifierFilename, case):
     print "\n*Loaded classifier [ " , type(superPixelClassifier) , "] from:" , classifierFilename
     
     image = None
+    orientation = None
+    
     if case == "car":
         print "*Loading MSRC car image::"
         image = pomio.msrc_loadImages("/home/amb/dev/mrf/data/MSRC_ObjCategImageDatabase_v2", ['Images/7_3_s.bmp'] )[0].m_img
+        orientation = "upper"
 
     elif case == "lena":
         print "*Loading Lena.jpg"
         image = skimage.data.lena()
+        orientation = "lower"
     
     print "*Predicting superpixel labels in image::"
     [superPixelLabels, superPixelsMask] = predictSuperPixelLabels(superPixelClassifier, image)
     
     carSuperPixelLabels = getSuperPixelLabelledImage(image, superPixelsMask, superPixelLabels)
     
-    plotSuperPixelImage(image, carSuperPixelLabels)
+    plotSuperPixelImage(image, carSuperPixelLabels, orientation)
 
