@@ -101,8 +101,6 @@ def getSuperPixelTrainingData(msrcDataDirectory, scale):
         else:
             # stack the superpixel features into a single list
             superPixelTrainFeatures = np.vstack( [ superPixelTrainFeatures, imgSuperPixelFeatures ] )
-
-    assert numberVoidSuperPixels == np.shape(superPixelIgnoreList)[0], "void superpixels != excluded superpixels: " + str(numberVoidSuperPixels) + " vs. " + str(np.shape(superPixelIgnoreList)[0])
     
     numberValidSuperPixels = (numberSuperPixels - numberVoidSuperPixels)
     
