@@ -241,8 +241,13 @@ def inferenceSuperPixel(\
     #assert nbrPotentialParams.flags['C_CONTIGUOUS']
 
     # turn edge array into an Nx2 matrix
+    # cython no like
     cdef np.ndarray[np.int32_t, ndim=2, mode="c"] edgeMat = \
-        np.vstack( superPixelGraph.m_edges )
+        np.vstack( superPixelGraph.m_edges ).astype(np.int32)
+    #     cdef np.ndarray[np.int32_t, ndim=2, mode="c"] edgeMat
+    #     for i,e in enumerate(superPixelGraph.m_edges):
+    #         edgeMat[i,0] = e[0]
+    #         edgeMat[i,1] = e[1]
     assert edgeMat.shape[0] == N 
     assert edgeMat.shape[1] == 2 
 
@@ -264,4 +269,6 @@ def inferenceSuperPixel(\
         #&nbrPotentialParams[0],
 
     # turn labels to image array
-    return superPixelGraph.imageFromSuperPixelData( labelResult )
+    print 'LabelResult has shape ', np.shape(labelResult), ' and is ', labelResult
+    return superPixelGraph.imageFromSuperPixelData( \
+        np.reshape(labelResult, (len(labelResult),1) ) )
