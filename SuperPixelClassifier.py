@@ -21,12 +21,12 @@ def getSuperPixelTrainingData(msrcDataDirectory, scale):
     
     # These could be user-specified
     if scale == None:
-        scale = 0.1 # default to 10% of data
+        scale = 0.05 # default to 10% of data
         
     numberSuperPixels = 400
     superPixelCompactness = 10
     
-    msrcData = pomio.msrc_loadImages(msrcDataDirectory)
+    msrcData = pomio.msrc_loadImages(msrcDataDirectory, None)
 
     print "Now generating superpixel random forest classifier for MSRC data"
     
@@ -54,11 +54,14 @@ def getSuperPixelTrainingData(msrcDataDirectory, scale):
     
     superPixelTrainFeatures = None
     superPixelTrainLabels = np.array([], int) # used for superpixel labels
-    superPixelIgnoreList = np.array([], int) # this is used to skip over the superpixel in feature processing
     
     numberVoidSuperPixels = 0
     
     for imgIdx in range(0, numberTrainingImages):
+    
+        superPixelIgnoreList = np.array([], int) # this is used to skip over the superpixel in feature processing
+    
+        print "\n**Processing Image#" , (imgIdx + 1) , " of" , numberTrainingImages
     
         # get raw image and ground truth labels
         img = trainingMsrcImages[imgIdx].m_img
@@ -68,24 +71,28 @@ def getSuperPixelTrainingData(msrcDataDirectory, scale):
         imgSuperPixelMask = SuperPixels.getSuperPixels_SLIC(img, numberSuperPixels, superPixelCompactness)
         imgSuperPixels = np.unique(imgSuperPixelMask)
         numberImgSuperPixels = np.shape(imgSuperPixels)[0]
-        print "\tINFO: Number of superpixels in img#" + str(imgIdx+1) , " =" , numberImgSuperPixels
     
         # create superpixel exclude list & superpixel label array
         for spIdx in range(0, numberImgSuperPixels):
-        
+            
+            superPixelValue = imgSuperPixels[spIdx]
+            #print "\tINFO: Processing superpixel =", superPixelValue , " of" , numberImgSuperPixels, " in image"
+            
+            
             # Assume superpisel labels are sequence of integers
-            superPixelValueMask = (imgSuperPixelMask == spIdx) # Boolean array for indexing superpixel-pixels
+            superPixelValueMask = (imgSuperPixelMask == superPixelValue ) # Boolean array for indexing superpixel-pixels
             superPixelLabel = assignClassLabelToSuperPixel(superPixelValueMask, imgPixelLabels)
             
             if(superPixelLabel == voidClassLabel):
+            
                 # add to ignore list, increment void count & do not add to superpixel label array
-                superPixelIgnoreList = np.append(superPixelIgnoreList, spIdx)
+                superPixelIgnoreList = np.append(superPixelIgnoreList, superPixelValue)
                 numberVoidSuperPixels = numberVoidSuperPixels + 1
                 
             else:
-            
                 superPixelTrainLabels = np.append(superPixelTrainLabels, superPixelLabel)
-                
+        
+        
         # Now we have the superpixel labels, and an ignore list of void superpixels - time to get the features!
         imgSuperPixelFeatures = FeatureGenerator.generateSuperPixelFeatures(img, imgSuperPixelMask, excludeSuperPixelList=superPixelIgnoreList)
         
@@ -94,17 +101,15 @@ def getSuperPixelTrainingData(msrcDataDirectory, scale):
         else:
             # stack the superpixel features into a single list
             superPixelTrainFeatures = np.vstack( [ superPixelTrainFeatures, imgSuperPixelFeatures ] )
+
+    assert numberVoidSuperPixels == np.shape(superPixelIgnoreList)[0], "void superpixels != excluded superpixels: " + str(numberVoidSuperPixels) + " vs. " + str(np.shape(superPixelIgnoreList)[0])
     
-    print "Total superpixels =" , numberSuperPixels
-    print "Total void superpixels =" , numberVoidSuperPixels
     numberValidSuperPixels = (numberSuperPixels - numberVoidSuperPixels)
-    print "Total valid superpixels for training =" , numberValidSuperPixels
     
-    assert np.shape(superPixelTrainLabels)[0] == numberValidPixels,\
-            ("The number of training superpixel labels (" + str(np.shape(superPixelTrainLabels)[0]) + " != number of valid superpixels! (" + str(numberValidSuperPixels) + ").")
-    
-    assert np.shape(superPixelTrainFeatures)[0] == numberValidPixels, \
-            ("The number of training superpixel features (" + str(np.shape(superPixelTrainFeatures)[0]) + " != number of valid superpixels! (" + str(numberValidSuperPixels) + ").")
+    print "\* Processed total of" , numberTrainingImages, "images" 
+    print "INFO: Number of void class superpixels =" , numberVoidSuperPixels
+    print "INFO: Number valid superpixels for training =" , numberValidSuperPixels 
+    print "INFO: Shape of resulting dataset:" , np.shape(superPixelTrainFeatures)
     
     return [ superPixelTrainFeatures, superPixelTrainLabels ]
     
@@ -134,7 +139,6 @@ def createSuperPixelRandomForestClassifier(msrcDataDirectory, classifierDirector
     pomio.pickleObject(classifier, classifierFilename)
     
     print "Rand forest classifier saved @ " + str(classifierFilename)
-    
 
 
 
@@ -152,8 +156,8 @@ def assignClassLabelToSuperPixel(superPixelValueMask, imagePixelLabels):
     # what if the max count gives more than 1 match?  Naughty superpixel.
     # It would be nice to select the class that is least represented in the dataset so far...
     if np.shape(maxLabel)[0] > 1:
-        print "\tWARN: More than 1 class label have an equal maximal count in the superpixel: {" , maxLabel , "}"
-        print "\tWARN: Will return the first non-void label."
+        #print "\tWARN: More than 1 class label have an equal maximal count in the superpixel: {" , maxLabel , "}"
+        #print "\tWARN: Will return the first non-void label."
     
         for idx in range(0, np.shape(maxLabel)[0]):
             # void class label = 13
@@ -163,7 +167,7 @@ def assignClassLabelToSuperPixel(superPixelValueMask, imagePixelLabels):
                 
     else:
         # if the max label is void, issue a warning; assume filtered out in processing step
-        if maxLabel[0,0] == 13:
-            print "\tWARN: The most frequent label in the superpixel is void; should discard this superpixel by adding to exclude list."
+        #if maxLabel[0,0] == 13:
+        #    print "\tWARN: The most frequent label in the superpixel is void; should discard this superpixel by adding to exclude list."
             
         return maxLabel[0,0]
