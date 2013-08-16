@@ -348,6 +348,15 @@ def showClassColours():
     plt.yticks( np.arange( len(msrc_classLabels) ), msrc_classLabels )
 
 
+def writeMatToCSV(obj, outfile):
+    assert type(obj) == np.ndarray
+    f = open(outfile, 'w')
+    if obj.dtype == np.int32:
+        np.savetxt(f, obj, fmt='%d', delimiter=',')
+    else:
+        np.savetxt(f, obj, fmt='%0.8f', delimiter=',')
+    f.close()
+
 def pickleObject(obj, fullFilename):
     if fullFilename.endswith(".pkl"):
         f = open( fullFilename , "w")
