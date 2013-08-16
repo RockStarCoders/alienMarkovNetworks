@@ -185,9 +185,9 @@ def splitInputDataset_msrcData(msrcImages, datasetScale=1.0 , keepClassDistForTr
             else:
                 trainClasses = np.unique(np.append( trainClasses , np.unique(trainData[idx].m_gt) ) )
         
-        numLabels = getNumLabels()
+        numClasses = getNumClasses()
         #print "\tINFO: number of labels=" , numLabels, " , number labels in training set=" , np.shape(trainClasses)[0] 
-        assert np.shape(trainClasses)[0] == numLabels , "Training data does not include each label:: trainClasses = " + str(trainClasses)
+        assert np.shape(trainClasses)[0] == numClasses , "Training data does not include each label:: trainClasses = " + str(trainClasses)
         
         print "\nAssigned " + str(np.shape(trainData)) + " images to TRAIN set, " + str(np.shape(testData)) + " samples to TEST set and "+ str(np.shape(validationData)) + " samples to VALIDATION set"
         
