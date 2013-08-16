@@ -183,7 +183,7 @@ def predictSuperPixelLabels(classifier, image):
     superPixelCompactness = 10
     
     # Get superpixels
-    imgSuperPixelsMask = SuperPixels.getSuperPixels_SLIC(image, desiredSuperPixels, superPixelCompactness)
+    (imgSuperPixelsMask, spgraph) = SuperPixels.getSuperPixels_SLIC(image, desiredSuperPixels, superPixelCompactness)
     imgSuperPixels = np.unique(imgSuperPixelsMask)
     numberImgSuperPixels = np.shape(imgSuperPixels)[0]
     print "**Image contains", numberImgSuperPixels, "superpixels"
@@ -200,7 +200,8 @@ def predictSuperPixelLabels(classifier, image):
         superPixelClassLabel = classifier.predict(superPixelFeatures[idx])
         superPixelLabels = np.append( superPixelLabels , superPixelClassLabel )
     
-    return [superPixelLabels, imgSuperPixelsMask]
+    #return [superPixelLabels, imgSuperPixelsMask]
+    return (superPixelLabels, spgraph)
 
 
 

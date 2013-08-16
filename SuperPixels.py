@@ -25,8 +25,9 @@ def displayImage(image, imgTitle, orientation):
 #    return segmentationMask
 
 def getSuperPixels_SLIC(image, nbSegments, compactness):
-    superPixelLabels = slic.slic_n(image, nbSegments, compactness)
-    return superPixelLabels
+    spgraph = computeSuperPixelGraph( image, 'slic', [nbSegments, compactness] )
+    superPixelLabels = spgraph.m_labels
+    return (superPixelLabels,spgraph)
 
 
 

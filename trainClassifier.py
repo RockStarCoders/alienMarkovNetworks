@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 import sys
 import pomio
+import sklearn.ensemble
+import numpy as np
 
 # Usage:
 #
@@ -14,30 +16,43 @@ clfrType   = sys.argv[4]
 
 assert outfile.endswith('.pkl')
 
-assert clfrType in ['logreg', 'randyforest'], 'Unknown classifier type ' + outfileType
+assert clfrType in ['logreg', 'randyforest'], \
+    'Unknown classifier type ' + outfileType
 
-outfileFtrs = '%s_ftrs.%s' % ( outfileBase, outfileType )
-outfileLabs = '%s_labs.%s' % ( outfileBase, outfileType )
 # Check can write these files.
-f=open(outfileFtrs,'w')
-f.close()
-f=open(outfileLabs,'w')
+f=open(outfile,'w')
 f.close()
 
-assert 0 <= scaleFrac and scaleFrac <= 1
-
-superPixelData     = SuperPixelClassifier.getSuperPixelTrainingData(msrcDataDirectory, scaleFrac)
-superPixelFeatures = superPixelData[0]
-superPixelLabels   = superPixelData[1].astype(np.int32)
-
-# Output
-if outfileType == 'pkl':
-    pomio.pickleObject( superPixelFeatures, outfileFtrs )
-    pomio.pickleObject( superPixelLabels,   outfileLabs )
-elif outfileType == 'csv':
-    pomio.writeMatToCSV( superPixelFeatures, outfileFtrs )
-    pomio.writeMatToCSV( superPixelLabels,   outfileLabs )
+# Load the features and labels
+if infileFtrs.endswith('.pkl'):
+    ftrs = pomio.unpickleObject( infileFtrs )
 else:
-    assert False, 'unknown output file format ' + outfileType
+    ftrs = pomio.readMatFromCSV( infileFtrs )
 
-print 'Output written to file ', outfileFtrs, ' and ', outfileLabs
+if infileLabs.endswith('.pkl'):
+    labs = pomio.unpickleObject( infileLabs )
+else:
+    labs = pomio.readMatFromCSV( infileLabs ).astype(np.int32)
+
+n = len(labs)
+assert n == ftrs.shape[0], 'Error: there are %d labels and %d features' \
+    % ( n, ftrs.shape[0] )
+
+# Train the classifier
+print 'Training %s classifier on %d examples...' % (clfrType, n)
+if clfrType == 'randyforest':
+    print '   Introducing Britains hottest rock performer, Randy Forest!'
+    clfr = sklearn.ensemble.RandomForestClassifier(\
+        n_estimators=100)
+    clfr = clfr.fit( ftrs, labs )
+else:
+    print 'Unsupported classifier "', clfrType, '"'
+    sys.exit(1)
+
+print '   done.'
+
+print 'Training set accuracy (frac correct) = ', clfr.score( ftrs, labs )
+
+# Write the classifier
+pomio.pickleObject( clfr, outfile )
+print 'Output written to file ', outfile

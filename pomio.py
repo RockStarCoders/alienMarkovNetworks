@@ -146,17 +146,16 @@ def splitInputDataset_msrcData(msrcImages, datasetScale=1.0 , keepClassDistForTr
             validationData, msrcImages = selectRandomSetFromList(msrcImages, validDataSize, False)
             
         # make sure all classes are included in training set (note void is processed out later)
-        trainClasses = None
+        trainClasses = set()
     
         for idx in range(0, len(trainData)):
-            if trainClasses == None:
-                trainClasses = np.unique(trainData[idx].m_gt)
-            else:
-                trainClasses = np.unique(np.append( trainClasses , np.unique(trainData[idx].m_gt) ) )
-        
+            trainClasses.update( trainData[idx].m_gt )
+        # Take void out of the set
+        trainClasses.remove(0)
+
         numClasses = getNumClasses()
         # Note here we don't filter out void - do that at the pixel level when generating features
-        assert np.shape(trainClasses)[0] == numClasses , "Training failed to include each of the 24 classes:: trainClasses = " + str(trainClasses)
+        assert len(trainClasses) == numClasses , "Training failed to include each of the 24 classes:: trainClasses = " + str(trainClasses)
         
         print "\nAssigned " + str(np.shape(trainData)) + " images to TRAIN set, " + str(np.shape(testData)) + " samples to TEST set and "+ str(np.shape(validationData)) + " samples to VALIDATION set"
         
@@ -181,17 +180,15 @@ def splitInputDataset_msrcData(msrcImages, datasetScale=1.0 , keepClassDistForTr
         
         
         # make sure all classes are included in training set
-        trainClasses = None
+        trainClasses = set()
     
         for idx in range(0, len(trainData)):
-            if trainClasses == None:
-                trainClasses = np.unique(trainData[idx].m_gt)
-            else:
-                trainClasses = np.unique(np.append( trainClasses , np.unique(trainData[idx].m_gt) ) )
-        
+            trainClasses.update( trainData[idx].m_gt.flatten() )
+        trainClasses.remove(0)
+
         numClasses = getNumClasses()
         #print "\tINFO: number of labels=" , numLabels, " , number labels in training set=" , np.shape(trainClasses)[0] 
-        assert np.shape(trainClasses)[0] == numClasses , "Training data does not include each label:: trainClasses = " + str(np.shape(trainClasses)[0]) + " vs " + str(numClasses)
+        assert len(trainClasses) == numClasses , "Training data does not include each label:: trainClasses = " + str(np.shape(trainClasses)[0]) + " vs " + str(numClasses)
         
         print "\nAssigned " + str(np.shape(trainData)) + " images to TRAIN set, " + str(np.shape(testData)) + " samples to TEST set and "+ str(np.shape(validationData)) + " samples to VALIDATION set"
         
@@ -356,6 +353,12 @@ def writeMatToCSV(obj, outfile):
     else:
         np.savetxt(f, obj, fmt='%0.8f', delimiter=',')
     f.close()
+
+def readMatFromCSV( infile ):
+    f = open( infile, 'r' )
+    res = np.loadtxt(infile, delimiter=',')
+    f.close()
+    return res
 
 def pickleObject(obj, fullFilename):
     if fullFilename.endswith(".pkl"):
