@@ -217,7 +217,9 @@ def getSuperPixelLabelledImage(image, superPixelMask, superPixelLabels):
         labelImage = labelImage + ( superPixelLabels[idx] * (superPixelMask==superPixels[idx]).astype(int) )
     
     assert np.unique(labelImage).all() == np.unique(superPixelLabels).all() , "List of unique class labels in image != image labels:: " + str(np.unique(labelImage)) + " vs. " + str(superPixelLabels)
-
+    
+    assert pomio.getVoidIdx() not in np.unique(superPixelLabels) , "The set of predicted labels for the image contains the void label.  It shouldn't."
+    
     return labelImage
 
 
