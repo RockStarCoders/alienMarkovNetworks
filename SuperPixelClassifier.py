@@ -2,6 +2,8 @@ import numpy as np
 
 from scipy import stats
 
+import sklearn.ensemble
+
 import pomio
 import SuperPixels
 import FeatureGenerator
