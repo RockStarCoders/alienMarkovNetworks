@@ -638,81 +638,101 @@ def getSuperPixelFeatures_pixel(image, mask):
     # for each superpixel, create a single feature array i.e. append the feature vectors from each pixel into single array
     # Alternatively, create a list/array of feature vectors for each super pixel
 
-    allSuperPixelFeatures = []
+    allImgSuperPixelFeatures = []
     
     superPixelCount = 0
     
     for spIdx in range(0 , numSuperPixels ):
+
+        superPixel = superPixels[spIdx]        
+#        print "t***Processing superpixel region#" , superPixel
         
-#        print "\t***Processing superpixel region#" , spIdx
-        
-        superPixel = superPixels[spIdx]
         superPixelMask = (mask == superPixel)
+        
         superPixelCount = superPixelCount + np.sum(superPixelMask)
         
         # Generate a single array of feature arrays for pixels that match superpixel number 
         pixelFeaturesInSuperPixel = imagePixelFeatures[ superPixelMask, : ]
         
-        allSuperPixelFeatures.append(pixelFeaturesInSuperPixel)
+        allImgSuperPixelFeatures.append(pixelFeaturesInSuperPixel)
     
-    assert numSuperPixels == np.shape(allSuperPixelFeatures)[0] , "The number of superpixels in mask != number of superpixels in result list"
+    assert numSuperPixels == np.shape(allImgSuperPixelFeatures)[0] , "The number of superpixels in mask != number of superpixels in result list"
+    
     assert superPixelCount == (numRows * numColumns) , "The number of pixels assigned to super pixels != number of pixels in image!"
-    for idx in range(0 , numSuperPixels ):
-        assert np.shape(allSuperPixelFeatures[idx])[1] == numFeaturesPerPixel, "Superpixel result #" + str(idx) + " does not have " + str(numFeaturesPerPixel) + "; has " + str(np.shape(allSuperPixelFeatures[idx])[1])
-        
-    return allSuperPixelFeatures
-
-
-def generateSuperPixelFeatures(image, mask):
-    """Create the aggergate statistics for each super pixel: mean, standard deviation, skewness, kurtosis.  Plus size."""
-    print "Getting pixel features for superpixels."
-    superPixelFeatures_pixel = getSuperPixelFeatures_pixel(image, mask)
     
-    numSuperPixels = np.shape(superPixelFeatures_pixel)[0]
-    print "Total superpixels =", numSuperPixels
+    for idx in range(0 , numSuperPixels ):
+        assert np.shape(allImgSuperPixelFeatures[idx])[1] == numFeaturesPerPixel, "Superpixel result #" + str(idx) + " does not have " + str(numFeaturesPerPixel) + "; has " + str(np.shape(allImgSuperPixelFeatures[idx])[1])
+        
+    return allImgSuperPixelFeatures
+
+
+def generateSuperPixelFeatures(image, mask, excludeSuperPixelList):
+    """Create the aggergate statistics for each super pixel: mean, standard deviation, skewness, kurtosis.  Plus size."""
+    excludeSuperPixelList = np.unique(excludeSuperPixelList)
+    
+    superPixelFeatures_pixel = getSuperPixelFeatures_pixel(image, mask)
+    superPixels = np.unique(mask)
+    
+    totalSuperPixels = np.shape(superPixels)[0]
+    totalExcludedSuperPixels = np.shape(excludeSuperPixelList)[0]
+    
     
     numFeatures = np.shape(superPixelFeatures_pixel[0])[1]
     numStatFeatures = (4 * numFeatures + 1)
     
-    print "Total features =", numFeatures
+    allImgSuperPixelFeatures = None
+    validSuperPixelCount = 0
+    skippedSuperPixelCount = 0
     
-    allSuperPixelFeatures = None
-       
-    for spIdx in range(0, numSuperPixels):
-        # Compute statistics over the m pixel values for f features, to give a 1 x f array
+    
+    for spIdx in range(0, np.size(superPixels)):
         
-        # mean of each feature, over m pixel values
-        spMeanFeatures = np.mean(superPixelFeatures_pixel[spIdx] , 0)
-        assert np.shape(spMeanFeatures)[0] == numFeatures, "The number of SP" + str(spIdx) + " mean features != the number of features per pixel"
+        superPixelValue = superPixels[spIdx]
         
-        # standard deviation of each feature, over m pixel values
-        spSDFeatures = np.std(superPixelFeatures_pixel[spIdx], 0)
-        assert np.shape(spMeanFeatures)[0] == numFeatures, "The number of SP" + str(spIdx) + " std features != the number of features per pixel"
-
-        # skewness of each feature, over m pixel values
-        spSkewFeatures = stats.skew(superPixelFeatures_pixel[spIdx] , 0)
-        assert np.shape(spMeanFeatures)[0] == numFeatures, "The number of SP" + str(spIdx) + " skewness features != the number of features per pixel"
-        
-        # kurtosis of each feature, over m pixel values
-        spKurtosisFeatures = stats.kurtosis(superPixelFeatures_pixel[spIdx], 0)
-        assert np.shape(spMeanFeatures)[0] == numFeatures, "The number of SP" + str(spIdx) + " kurtosis features != the number of features per pixel"
-        
-        # size feature = m pixels in superpixel
-        spSizeFeature = np.shape(superPixelFeatures_pixel[spIdx])[0]
-        
-        # create a single array for all stats features
-        superPixelFeatures = np.hstack([ spMeanFeatures, spSDFeatures, spSkewFeatures, spKurtosisFeatures, spSizeFeature])
-        assert np.shape(superPixelFeatures)[0] == numStatFeatures, "Total features stats != number of features per pixel"
-        
-        if allSuperPixelFeatures == None:
-            allSuperPixelFeatures = superPixelFeatures
+        if superPixelValue in excludeSuperPixelList:
+            skippedSuperPixelCount = skippedSuperPixelCount + 1
+            print "\t\tINFO: Skipping superpixel", superPixelValue, " :: skipped" , skippedSuperPixelCount , " of" , totalExcludedSuperPixels
+                        
         else:
-            allSuperPixelFeatures = np.vstack( [ allSuperPixelFeatures, superPixelFeatures ] )
+            # mean of each feature, over m pixel values
+            spMeanFeatures = np.mean(superPixelFeatures_pixel[superPixelValue] , 0)
+            assert np.shape(spMeanFeatures)[0] == numFeatures, "The number of SP" + str(spIdx) + " mean features != the number of features per pixel"
+        
+            # standard deviation of each feature, over m pixel values
+            spSDFeatures = np.std(superPixelFeatures_pixel[superPixelValue], 0)
+            assert np.shape(spMeanFeatures)[0] == numFeatures, "The number of SP" + str(spIdx) + " std features != the number of features per pixel"
 
-    assert np.shape(allSuperPixelFeatures)[0] == numSuperPixels, "The result array length != number of superpixels!"
-    assert np.shape(allSuperPixelFeatures)[1] == numStatFeatures, "The number of stats features != number of stat features"
+            # skewness of each feature, over m pixel values
+            spSkewFeatures = stats.skew(superPixelFeatures_pixel[superPixelValue] , 0)
+            assert np.shape(spMeanFeatures)[0] == numFeatures, "The number of SP" + str(spIdx) + " skewness features != the number of features per pixel"
+        
+            # kurtosis of each feature, over m pixel values
+            spKurtosisFeatures = stats.kurtosis(superPixelFeatures_pixel[spIdx], 0)
+            assert np.shape(spMeanFeatures)[0] == numFeatures, "The number of SP" + str(spIdx) + " kurtosis features != the number of features per pixel"
+        
+            # size feature = m pixels in superpixel
+            spSizeFeature = np.shape(superPixelFeatures_pixel[superPixelValue])[0]
+        
+            # create a single array for all stats features
+            superPixelFeatures = np.hstack([ spMeanFeatures, spSDFeatures, spSkewFeatures, spKurtosisFeatures, spSizeFeature])
+            assert np.shape(superPixelFeatures)[0] == numStatFeatures, "Total features stats != number of features per pixel"
+        
+            if allImgSuperPixelFeatures == None:
+                allImgSuperPixelFeatures = superPixelFeatures
+                
+            else:
+                allImgSuperPixelFeatures = np.vstack( [ allImgSuperPixelFeatures, superPixelFeatures ] )
+            
+            validSuperPixelCount = validSuperPixelCount + 1
+            print "\t\tINFO: processed" , validSuperPixelCount , "superpixels"
     
-    return allSuperPixelFeatures
+    assert skippedSuperPixelCount == totalExcludedSuperPixels, "Skipped superpixels != number excluded superpixels:: " + str(skippedSuperPixelCount) + " vs. " + str(totalExcludedSuperPixels)
+    
+    numberNonVoidSuperPixels = (totalSuperPixels - skippedSuperPixelCount)
+    
+    assert np.shape(allImgSuperPixelFeatures)[1] == numStatFeatures, "The number of stats features != number of stat features: " + str(np.shape(allImgSuperPixelFeatures)[1]) + " vs. " + str(numStatFeatures)
+    
+    return allImgSuperPixelFeatures
     
 
 ###############################
