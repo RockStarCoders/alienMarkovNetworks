@@ -45,6 +45,9 @@ msrc_classToRGB = [\
 
 msrc_classLabels = [z[0] for z in msrc_classToRGB]
 
+def getVoidIdx():
+    return 0
+
 def getNumLabels():
     # includes void for display purposes
     return len(msrc_classLabels)
