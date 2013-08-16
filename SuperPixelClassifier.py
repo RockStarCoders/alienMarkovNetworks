@@ -159,7 +159,7 @@ def createSuperPixelLogisticRegressionClassifier(msrcDataDirectory, classifierDi
     
     
     # Now serialise the classifier to file
-    classifierFilename = classifierDirectory + "/" + "LR_superPixel_C" + str(cValue) + ".pkl"
+    classifierFilename = classifierDirectory + "/" + "LR_superPixel_C" + str(Cvalue) + ".pkl"
     
     pomio.pickleObject(classifier, classifierFilename)
     
