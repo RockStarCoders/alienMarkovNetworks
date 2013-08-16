@@ -2,6 +2,8 @@ import numpy as np
 
 from scipy import stats
 
+import pickle
+
 import sklearn.ensemble
 from sklearn.linear_model import LogisticRegression
 

@@ -724,11 +724,9 @@ def generateSuperPixelFeatures(image, mask, excludeSuperPixelList):
             
             validSuperPixelCount = validSuperPixelCount + 1
 
-    print "\tINFO: processed" , validSuperPixelCount , "superpixels; skipped " , skippedSuperPixelCount
+    print "\tINFO: processed" , validSuperPixelCount , "& skipped " , skippedSuperPixelCount , "superpixels. Type:" , type(allImgSuperPixelFeatures)
     
     assert skippedSuperPixelCount == totalExcludedSuperPixels, "Skipped superpixels != number excluded superpixels:: " + str(skippedSuperPixelCount) + " vs. " + str(totalExcludedSuperPixels)
-    
-    numberNonVoidSuperPixels = (totalSuperPixels - skippedSuperPixelCount)
     
     assert np.shape(allImgSuperPixelFeatures)[1] == numStatFeatures, "The number of stats features != number of stat features: " + str(np.shape(allImgSuperPixelFeatures)[1]) + " vs. " + str(numStatFeatures)
     
