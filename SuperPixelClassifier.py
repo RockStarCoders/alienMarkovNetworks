@@ -186,7 +186,7 @@ def predictSuperPixelLabels(classifier, image):
     imgSuperPixelsMask = SuperPixels.getSuperPixels_SLIC(image, desiredSuperPixels, superPixelCompactness)
     imgSuperPixels = np.unique(imgSuperPixelsMask)
     numberImgSuperPixels = np.shape(imgSuperPixels)[0]
-    print "**Car image contains", numberImgSuperPixels, "superpixels"
+    print "**" + str(case) + " image contains", numberImgSuperPixels, "superpixels"
     
     # Get superpixel features
     superPixelFeatures = FeatureGenerator.generateSuperPixelFeatures(image, imgSuperPixelsMask, None)
