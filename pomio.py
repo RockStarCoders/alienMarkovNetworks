@@ -356,4 +356,10 @@ def pickleObject(obj, fullFilename):
         f = open( fullFilename , "w")
         pickle.dump(obj, f , True)
         f.close()
+        
+def unpickleObject(fullFilename):
+    f = open(fullFilename, "r")
+    object = pickle.load(f)
+    f.close()
+    return object
 
