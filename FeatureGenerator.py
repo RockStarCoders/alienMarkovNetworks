@@ -668,14 +668,10 @@ def getSuperPixelFeatures_pixel(image, mask):
 
 def generateSuperPixelFeatures(image, mask, excludeSuperPixelList):
     """Create the aggergate statistics for each super pixel: mean, standard deviation, skewness, kurtosis.  Plus size."""
-    excludeSuperPixelList = np.unique(excludeSuperPixelList)
     
     superPixelFeatures_pixel = getSuperPixelFeatures_pixel(image, mask)
     superPixels = np.unique(mask)
-    
     totalSuperPixels = np.shape(superPixels)[0]
-    totalExcludedSuperPixels = np.shape(excludeSuperPixelList)[0]
-    
     
     numFeatures = np.shape(superPixelFeatures_pixel[0])[1]
     numStatFeatures = (4 * numFeatures + 1)
@@ -684,14 +680,25 @@ def generateSuperPixelFeatures(image, mask, excludeSuperPixelList):
     validSuperPixelCount = 0
     skippedSuperPixelCount = 0
     
+    totalExcludedSuperPixels = 0
+    
+    
+    if excludeSuperPixelList == None:
+        excludeSuperPixelList == np.array([]) # Just set up an empty array
+        totalExcludedSuperPixels = 0
+        
+    else:
+        excludeSuperPixelList = np.unique(excludeSuperPixelList)
+        totalExcludedSuperPixels = np.shape(excludeSuperPixelList)[0]    
+    
     
     for spIdx in range(0, np.size(superPixels)):
         
         superPixelValue = superPixels[spIdx]
         
-        if superPixelValue in excludeSuperPixelList:
+        if excludeSuperPixelList != None and superPixelValue in excludeSuperPixelList:
             skippedSuperPixelCount = skippedSuperPixelCount + 1
-                        
+        
         else:
             # mean of each feature, over m pixel values
             spMeanFeatures = np.mean(superPixelFeatures_pixel[superPixelValue] , 0)
