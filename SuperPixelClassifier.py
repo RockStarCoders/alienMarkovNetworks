@@ -7,10 +7,15 @@ import pickle
 import sklearn.ensemble
 from sklearn.linear_model import LogisticRegression
 
+import skimage
+import skimage.data
+
+import matplotlib.pyplot as plt
+import matplotlib
+
 import pomio
 import SuperPixels
 import FeatureGenerator
-
 
 
 # Create a random forest classifier for superpixel class given observed image features
@@ -21,8 +26,9 @@ import FeatureGenerator
 
 
 def getSuperPixelTrainingData(msrcDataDirectory, scale):
+    
     # Should probably make this a call to pomio in case the ordering changes in the future...
-    voidClassLabel = 13
+    voidClassLabel = pomio.getVoidIdx()
     
     # These could be user-specified
     if scale == None:
@@ -33,9 +39,8 @@ def getSuperPixelTrainingData(msrcDataDirectory, scale):
     
     msrcData = pomio.msrc_loadImages(msrcDataDirectory, None)
 
-    print "Now generating superpixel random forest classifier for MSRC data"
+    print "Now generating superpixel classifier for MSRC data"
     
-        
     splitData = pomio.splitInputDataset_msrcData(msrcData,
             datasetScale=scale,
             keepClassDistForTraining=True,
@@ -142,6 +147,7 @@ def createSuperPixelRandomForestClassifier(msrcDataDirectory, classifierDirector
     print "Rand forest classifier saved @ " + str(classifierFilename)
 
 
+
 def createSuperPixelLogisticRegressionClassifier(msrcDataDirectory, classifierDirectory, scale):
     
     # Get training data
@@ -215,9 +221,28 @@ def getSuperPixelLabelledImage(image, superPixelMask, superPixelLabels):
     return labelImage
 
 
+def plotSuperPixelImage(sourceImage, labelledImage):
+    print "\n*Now plotting source & labelled image for visual comparison."
+    
+    plt.interactive(1)
+    plt.figure()
+    
+    pomio.showClassColours()
+    plt.figure()
+    
+    print "*Unique labels from superpixel classification = ", np.unique(labelledImage)
+    plt.subplot(1,2,1)
+    
+    plt.imshow(sourceImage)
+    plt.subplot(1,2,2)
+    
+    pomio.showLabels(labelledImage)
+
+
 
 def assignClassLabelToSuperPixel(superPixelValueMask, imagePixelLabels):
     """This function provides basic logic for setting the overall class label for a superpixel"""
+    voidIdx = pomio.getVoidIdx()
     
     # just adopt the most frequently occurring class label as the superpixel label
     superPixelConstituentLabels = imagePixelLabels[superPixelValueMask]
@@ -234,8 +259,8 @@ def assignClassLabelToSuperPixel(superPixelValueMask, imagePixelLabels):
         #print "\tWARN: Will return the first non-void label."
     
         for idx in range(0, np.shape(maxLabel)[0]):
-            # void class label = 13
-            if maxLabel[idx,0] != 13:
+            
+            if maxLabel[idx,0] != voidIdx:
                 # return the first non-void label in the array of max labels
                 return maxLabel[idx,0]
                 
@@ -249,20 +274,25 @@ def assignClassLabelToSuperPixel(superPixelValueMask, imagePixelLabels):
 
 
 
-def testClassifier(classifierFilename):
+def testClassifier(classifierFilename, case):
+    assert case=="lena" or case=="car" , "case parameter should be lena or car"
+    
     superPixelClassifier = pomio.unpickleObject(classifierFilename)
     print "\n*Loaded classifier [ " , type(superPixelClassifier) , "] from:" , classifierFilename
     
-    print "*Loading MSRC car image::"
-    carImg = pomio.msrc_loadImages("/home/amb/dev/mrf/data/MSRC_ObjCategImageDatabase_v2", ['Images/7_3_s.bmp'] )[0].m_img
+    image = None
+    if case == "car":
+        print "*Loading MSRC car image::"
+        image = pomio.msrc_loadImages("/home/amb/dev/mrf/data/MSRC_ObjCategImageDatabase_v2", ['Images/7_3_s.bmp'] )[0].m_img
 
+    elif case == "lena":
+        print "*Loading Lena.jpg"
+        image = skimage.data.lena()
+    
     print "*Predicting superpixel labels in image::"
-    [superPixelLabels, superPixelsMask] = predictSuperPixelLabels(superPixelClassifier, carImg)
+    [superPixelLabels, superPixelsMask] = predictSuperPixelLabels(superPixelClassifier, image)
     
-    carSuperPixelLabels = getSuperPixelLabelledImage(carImg, superPixelsMask, superPixelLabels)
+    carSuperPixelLabels = getSuperPixelLabelledImage(image, superPixelsMask, superPixelLabels)
     
-    print carSuperPixelLabels
-
-
-
+    plotSuperPixelImage(image, carSuperPixelLabels)
 
