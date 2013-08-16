@@ -65,7 +65,7 @@ def gplotmatrix( X, labels, msize=5, classColours=None ):
                 # histogram
                 plt.hist( x1 )
             else:
-                for l in range(lmin,lmax+1):
+                for l in np.unique(labels):#range(lmin,lmax+1):
                     #print labels==l
                     plt.plot( x2[labels==l], x1[labels==l], '.', \
                                   color=classColours[l],\

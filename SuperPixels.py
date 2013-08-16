@@ -160,7 +160,7 @@ class SuperPixelGraph:
         self.m_nodes = nodes
         self.m_edges = edges
         # for now all our code relies on the superpixels being consecutive.
-        assert self.m_nodes == np.arange(len(self.m_nodes))
+        assert np.all(self.m_nodes == np.arange(len(self.m_nodes)))
 
     def draw(self):
         show_graph(self.m_labels, self.m_nodes, self.m_edges)
@@ -173,6 +173,7 @@ class SuperPixelGraph:
         # for a given region, make the data same for all pixels in that region
         res = data[ self.m_labels.ravel(), : ]
         res = res.reshape( (H,W,D) )
+        return res
 
     def getNumSuperPixels( self ):
         return len(self.m_nodes)
