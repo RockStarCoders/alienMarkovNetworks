@@ -724,7 +724,7 @@ def generateSuperPixelFeatures(image, mask, excludeSuperPixelList):
             
             validSuperPixelCount = validSuperPixelCount + 1
 
-        print "\t\tINFO: processed" , validSuperPixelCount , "superpixels; skipped " , skippedSuperPixelCount
+    print "\tINFO: processed" , validSuperPixelCount , "superpixels; skipped " , skippedSuperPixelCount
     
     assert skippedSuperPixelCount == totalExcludedSuperPixels, "Skipped superpixels != number excluded superpixels:: " + str(skippedSuperPixelCount) + " vs. " + str(totalExcludedSuperPixels)
     
