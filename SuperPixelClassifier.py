@@ -124,7 +124,7 @@ def createSuperPixelRandomForestClassifier(msrcDataDirectory, classifierDirector
     
     # now train random forest classifier on labelled superpixel data
     print '**Training a random forest on %d examples...' % len(superPixelTrainLabels)
-    print 'Labels represented: ', np.unique( labvec )
+    print 'Labels represented: ', np.unique( superPixelTrainLabels )
 
     numEstimators = 100
     

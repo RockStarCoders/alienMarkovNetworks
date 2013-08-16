@@ -691,7 +691,6 @@ def generateSuperPixelFeatures(image, mask, excludeSuperPixelList):
         
         if superPixelValue in excludeSuperPixelList:
             skippedSuperPixelCount = skippedSuperPixelCount + 1
-            print "\t\tINFO: Skipping superpixel", superPixelValue, " :: skipped" , skippedSuperPixelCount , " of" , totalExcludedSuperPixels
                         
         else:
             # mean of each feature, over m pixel values
@@ -724,7 +723,8 @@ def generateSuperPixelFeatures(image, mask, excludeSuperPixelList):
                 allImgSuperPixelFeatures = np.vstack( [ allImgSuperPixelFeatures, superPixelFeatures ] )
             
             validSuperPixelCount = validSuperPixelCount + 1
-            print "\t\tINFO: processed" , validSuperPixelCount , "superpixels"
+
+        print "\t\tINFO: processed" , validSuperPixelCount , "superpixels; skipped " , skippedSuperPixelCount
     
     assert skippedSuperPixelCount == totalExcludedSuperPixels, "Skipped superpixels != number excluded superpixels:: " + str(skippedSuperPixelCount) + " vs. " + str(totalExcludedSuperPixels)
     
