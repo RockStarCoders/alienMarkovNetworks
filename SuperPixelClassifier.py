@@ -170,6 +170,51 @@ def createSuperPixelLogisticRegressionClassifier(msrcDataDirectory, classifierDi
 
 
 
+def predictSuperPixelLabels(classifier, image):
+    print "\n**Computing super pixel labelling for input image"
+    
+    desiredSuperPixels = 400
+    superPixelCompactness = 10
+    
+    # Get superpixels
+    imgSuperPixelsMask = SuperPixels.getSuperPixels_SLIC(image, desiredSuperPixels, superPixelCompactness)
+    imgSuperPixels = np.unique(imgSuperPixelsMask)
+    numberImgSuperPixels = np.shape(imgSuperPixels)[0]
+    print "**Car image contains", numberImgSuperPixels, "superpixels"
+    
+    # Get superpixel features
+    superPixelFeatures = FeatureGenerator.generateSuperPixelFeatures(image, imgSuperPixelsMask, None)
+    assert np.shape(superPixelFeatures)[0] == numberImgSuperPixels, "Number of superpixels in feature array != number super pixels in image!:: " + str(np.shape(superPixelFeatures)[0]) + " vs. " + str(numberImgSuperPixels)
+
+    superPixelLabels = np.array([], int)
+    
+    # predict class label for each super pixel in list
+    for idx in range(0, numberImgSuperPixels):
+        superPixelValue = imgSuperPixels[idx]
+        superPixelClassLabel = classifier.predict(superPixelFeatures[idx])
+        superPixelLabels = np.append( superPixelLabels , superPixelClassLabel )
+    
+    return [superPixelLabels, imgSuperPixelsMask]
+
+
+
+def getSuperPixelLabelledImage(image, superPixelMask, superPixelLabels):
+    superPixels = np.unique(superPixelMask)
+    numSuperPixels = np.shape(superPixels)[0]
+    numSuperPixelLabels = np.shape(superPixelLabels)[0]
+    assert numSuperPixels == numSuperPixelLabels , "The number of superpixels in mask != number superpixel labels:: " + str(numSuperPixels) + " vs. " + str(numSuperPixelLabels) 
+    
+    labelImage = np.zeros( np.shape(image[:,:,0]) )
+    
+    for idx in range(0, numSuperPixels):
+        # Assume a consistent ordering between unique superpixel values and superpixel labels
+        labelImage = labelImage + ( superPixelLabels[idx] * (superPixelMask==superPixels[idx]).astype(int) )
+    
+    assert np.unique(labelImage).all() == np.unique(superPixelLabels).all() , "List of unique class labels in image != image labels:: " + str(np.unique(labelImage)) + " vs. " + str(superPixelLabels)
+
+    return labelImage
+
+
 
 def assignClassLabelToSuperPixel(superPixelValueMask, imagePixelLabels):
     """This function provides basic logic for setting the overall class label for a superpixel"""
@@ -200,3 +245,24 @@ def assignClassLabelToSuperPixel(superPixelValueMask, imagePixelLabels):
         #    print "\tWARN: The most frequent label in the superpixel is void; should discard this superpixel by adding to exclude list."
             
         return maxLabel[0,0]
+
+
+
+
+def testClassifier(classifierFilename):
+    superPixelClassifier = pomio.unpickleObject(classifierFilename)
+    print "\n*Loaded classifier [ " , type(superPixelClassifier) , "] from:" , classifierFilename
+    
+    print "*Loading MSRC car image::"
+    carImg = pomio.msrc_loadImages("/home/amb/dev/mrf/data/MSRC_ObjCategImageDatabase_v2", ['Images/7_3_s.bmp'] )[0].m_img
+
+    print "*Predicting superpixel labels in image::"
+    [superPixelLabels, superPixelsMask] = predictSuperPixelLabels(superPixelClassifier, carImg)
+    
+    carSuperPixelLabels = getSuperPixelLabelledImage(carImg, superPixelsMask, superPixelLabels)
+    
+    print carSuperPixelLabels
+
+
+
+
