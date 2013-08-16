@@ -522,13 +522,13 @@ def gaussian_kernel(windowX, windowY, sigma):
     X,Y = createKernalWindowRanges(windowX, windowY, increment)
     
     gKernel = gaussianNormalised(X, 0, sigma) * gaussianNormalised(Y, 0, sigma)
-    gSum = np.sum(gKernel)
+    gSum = np.sum(np.abs(gKernel))
     
     if gSum == 0:
         print "Warning gaussian_kernel:: Not normalising by sum of values, as sum = " + str(gSum)
         return (gKernel)
     else:
-        return (gKernel / np.sum(gKernel))
+        return (gKernel / gSum)
 
 
 def laplacianOfGaussian_kernel(windowX, windowY, sigma):
@@ -537,13 +537,13 @@ def laplacianOfGaussian_kernel(windowX, windowY, sigma):
     X, Y = createKernalWindowRanges(windowX, windowY, increment)
     
     logKernel = -1 * (1 - ( X**2 + Y**2) ) *  exp (- (X**2 + Y**2) / (2 * sigma))
-    gSum = np.sum(logKernel)
+    gSum = np.sum(np.abs(logKernel))
     
     if gSum == 0:
         print "Warning LoG_kernel:: Not normalising by sum of values, as sum = " + str(gSum)
         return (logKernel)
     else:
-        return (logKernel / np.sum(logKernel))
+        return (logKernel / gSum)
 
 
 def gaussian_1xDerivative_kernel(windowX, windowY, sigma):
@@ -552,13 +552,13 @@ def gaussian_1xDerivative_kernel(windowX, windowY, sigma):
     X, Y = createKernalWindowRanges(windowX, windowY, increment)
     
     g_dx_kernel = gaussianFirstDerivative(X, 0, sigma) * gaussianNormalised(Y, 0, sigma)
-    gSum = np.sum(g_dx_kernel)
+    gSum = np.sum(np.abs(g_dx_kernel))
     
     if gSum == 0:
         print "Warning dx_g_kernel:: Not normalising by sum of values, as sum = " + str(gSum)
         return (g_dx_kernel)
     else:
-        return (g_dx_kernel / np.sum(g_dx_kernel))
+        return (g_dx_kernel / gSum)
     
 
 def gaussian_1yDerivative_kernel(windowX, windowY, sigma):
@@ -567,13 +567,13 @@ def gaussian_1yDerivative_kernel(windowX, windowY, sigma):
     X, Y = createKernalWindowRanges(windowX, windowY, increment)
     
     g_dy_kernel = gaussianFirstDerivative(Y, 0, sigma) * gaussianNormalised(X, 0, sigma)
-    gSum = np.sum(g_dy_kernel)
+    gSum = np.sum(np.abs(g_dy_kernel))
     
     if gSum == 0:
         print "Warning dy_g_kernel:: Not normalising by sum of values, as sum = " + str(gSum)
         return (g_dy_kernel)
     else:
-        return (g_dy_kernel / np.sum(g_dy_kernel))
+        return (g_dy_kernel / gSum)
 
 
 def gaussianNormalised(data, mu, sigma):
@@ -586,18 +586,18 @@ def gaussianNormalised(data, mu, sigma):
         print "Warning gaussianNormalised:: Not normalising by sum of values, as sum = " + str(gSum)
         return (g)
     else:
-        return (g / np.sum(g))
+        return (g / gSum)
     
 def gaussianFirstDerivative(data, mu, sigma):
     data = data - mu
     g = -data * exp(-data**2 / (2*sigma**2))
-    gSum = np.sum(g)
-    
+    gSum = np.sum(np.abs(g))
+
     if gSum == 0:
         print "Warning gaussianFirstDerivative:: Not normalising by sum of values, as sum = " + str(gSum)
         return (g)
     else:
-        return (g / np.sum(g))
+        return (g / gSum)
 
 
 
