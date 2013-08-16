@@ -287,12 +287,12 @@ def testClassifier(classifierFilename, case):
     if case == "car":
         print "*Loading MSRC car image::"
         image = pomio.msrc_loadImages("/home/amb/dev/mrf/data/MSRC_ObjCategImageDatabase_v2", ['Images/7_3_s.bmp'] )[0].m_img
-        orientation = "upper"
+        orientation = "lower"
 
     elif case == "lena":
         print "*Loading Lena.jpg"
         image = skimage.data.lena()
-        orientation = "lower"
+        orientation = "upper"
     
     print "*Predicting superpixel labels in image::"
     [superPixelLabels, superPixelsMask] = predictSuperPixelLabels(superPixelClassifier, image)
