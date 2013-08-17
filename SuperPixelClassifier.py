@@ -77,9 +77,11 @@ def getSuperPixelTrainingData(msrcDataDirectory, scale):
         img = trainingMsrcImages[imgIdx].m_img
         imgPixelLabels = trainingMsrcImages[imgIdx].m_gt
         
-        # create superpixel map for image
-        imgSuperPixelMask = SuperPixels.getSuperPixels_SLIC(img, numberSuperPixels, superPixelCompactness)
+        # create superpixel map and graph for image
+        imgSuperPixelMask, spgraph = SuperPixels.getSuperPixels_SLIC(img, numberSuperPixels, superPixelCompactness)
+
         imgSuperPixels = np.unique(imgSuperPixelMask)
+
         numberImgSuperPixels = np.shape(imgSuperPixels)[0]
     
         # create superpixel exclude list & superpixel label array
@@ -250,30 +252,35 @@ def assignClassLabelToSuperPixel(superPixelValueMask, imagePixelLabels):
     superPixelConstituentLabels = imagePixelLabels[superPixelValueMask]
     
     labelCount = stats.itemfreq(superPixelConstituentLabels)
+    
     maxLabelFreq = np.max(labelCount[:, 1])
     maxLabelIdx = (labelCount[:,1] == maxLabelFreq)
+    
     maxLabel = labelCount[maxLabelIdx]
+    
+    numSuperPixels = np.sum(labelCount[:,1])
+    
+    percentOfPixelsRequired = 0.5
+    requiredPixelThreshold = np.round(0.5*numSuperPixels , 0).astype(int)
+    
+    maxLabelValue = voidIdx
     
     # what if the max count gives more than 1 match?  Naughty superpixel.
     # It would be nice to select the class that is least represented in the dataset so far...
     if np.shape(maxLabel)[0] > 1:
-        #print "\tWARN: More than 1 class label have an equal maximal count in the superpixel: {" , maxLabel , "}"
-        #print "\tWARN: Will return the first non-void label."
     
         for idx in range(0, np.shape(maxLabel)[0]):
+            print "\t\tINFO:: max label:" , maxLabel[idx,:]
             
-            if maxLabel[idx,0] != voidIdx:
-                # return the first non-void label in the array of max labels
-                return maxLabel[idx,0]
+            if maxLabel[idx,0] != voidIdx and maxLabel[idx,1] >= requiredPixelThreshold:
+                maxLabelValue = maxLabel[idx,0]
+                break
+            # If no match, maxLabelValues is equal to void, and will be skipped in training
                 
     else:
-        # if the max label is void, issue a warning; assume filtered out in processing step
-        #if maxLabel[0,0] == 13:
-        #    print "\tWARN: The most frequent label in the superpixel is void; should discard this superpixel by adding to exclude list."
-            
-        return maxLabel[0,0]
-
-
+        maxLabelValue = maxLabel[0,0]
+    
+    return maxLabelValue
 
 
 def testClassifier(classifierFilename, case):
