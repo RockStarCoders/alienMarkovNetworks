@@ -31,7 +31,7 @@ for fn in infiles:
 
     
     plt.subplot(1,2,1)
-    plt.imshow(image)
+    plt.imshow(image, origin="lower")
     plt.title(fn)
     plt.subplot(1,2,2)
     print spClassPredsImage.shape
