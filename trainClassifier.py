@@ -2,6 +2,7 @@
 import sys
 import pomio
 import sklearn.ensemble
+import sklearn.linear_model
 import numpy as np
 
 # Usage:
@@ -45,6 +46,11 @@ if clfrType == 'randyforest':
     clfr = sklearn.ensemble.RandomForestClassifier(\
         n_estimators=100)
     clfr = clfr.fit( ftrs, labs )
+elif clfrType == 'logreg':
+    print " Give it up for Reggie Log!"
+    clfr = sklearn.linear_model.LogisticRegression(penalty='l1' , dual=False, tol=0.0001, C=0.5, fit_intercept=True, intercept_scaling=1)
+    clfr = clfr.fit(ftrs, labs)
+
 else:
     print 'Unsupported classifier "', clfrType, '"'
     sys.exit(1)
