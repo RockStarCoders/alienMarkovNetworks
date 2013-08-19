@@ -2,6 +2,7 @@
 import sys
 import pomio
 import sklearn.ensemble
+import sklearn.linear_model
 import numpy as np
 
 # Usage:
