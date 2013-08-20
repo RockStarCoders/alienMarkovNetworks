@@ -174,6 +174,9 @@ class SuperPixelGraph:
         # for a given region, make the data same for all pixels in that region
         res = data[ self.m_labels.ravel(), : ]
         res = res.reshape( (H,W,D) )
+        if res.shape[2] == 1:
+            # essentially 2D in this case
+            res = res.squeeze()
         return res
 
     def getNumSuperPixels( self ):

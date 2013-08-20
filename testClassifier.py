@@ -27,7 +27,7 @@ for fn in infiles:
     print 'Classifying file ', fn
     image = pylab.imread(fn)
     [spClassPreds, spGraph] = SuperPixelClassifier.predictSuperPixelLabels(clfr, image)
-    spClassPredsImage = spGraph.imageFromSuperPixelData( spClassPreds.reshape( (len(spClassPreds),1) ) )[:,:,0]
+    spClassPredsImage = spGraph.imageFromSuperPixelData( spClassPreds.reshape( (len(spClassPreds),1) ) )
 
     
     plt.subplot(1,2,1)
