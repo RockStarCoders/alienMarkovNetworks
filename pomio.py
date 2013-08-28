@@ -45,6 +45,17 @@ msrc_classToRGB = [\
 
 msrc_classLabels = [z[0] for z in msrc_classToRGB]
 
+overhead_classToRGB = [\
+('void'     , (0     ,0       ,0     )), # 0 \
+('building' , (255   ,0       ,0     )), # 1 \
+('grass'    , (0     ,255     ,0     )), # 2 \
+('tree'     , (200   ,100     ,20    )), # 3 \
+('water'    , (0     ,0       ,255   )), # 4 \
+('road'     , (100   ,100     ,100   )), # 5 \
+]
+
+overhead_classLabels = [z[0] for z in overhead_classToRGB]
+
 def getVoidIdx():
     return 0
 
