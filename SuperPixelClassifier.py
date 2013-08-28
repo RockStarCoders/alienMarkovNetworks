@@ -62,11 +62,12 @@ def getSuperPixelData(msrcImages):
         # create superpixel map and graph for image
         imgSuperPixelMask, spgraph = SuperPixels.getSuperPixels_SLIC(img, numberSuperPixels, superPixelCompactness)
 
-        imgSuperPixels = np.unique(imgSuperPixelMask)
+        imgSuperPixels = spgraph.m_nodes
 
-        numberImgSuperPixels = np.shape(imgSuperPixels)[0]
+        numberImgSuperPixels = spgraph.getNumSuperPixels()
     
         # create superpixel exclude list & superpixel label array
+        allSPClassLabels = []
         for spIdx in range(0, numberImgSuperPixels):
             
             superPixelValue = imgSuperPixels[spIdx]
@@ -76,7 +77,8 @@ def getSuperPixelData(msrcImages):
             # Assume superpixel labels are sequence of integers
             superPixelValueMask = (imgSuperPixelMask == superPixelValue ) # Boolean array for indexing superpixel-pixels
             superPixelLabel = assignClassLabelToSuperPixel(superPixelValueMask, imgPixelLabels)
-            
+            allSPClassLabels.append( superPixelLabel)
+
             if(superPixelLabel == voidClassLabel):
             
                 # add to ignore list, increment void count & do not add to superpixel label array
@@ -86,7 +88,9 @@ def getSuperPixelData(msrcImages):
             else:
                 superPixelLabels = np.append(superPixelLabels, superPixelLabel)
         
-        
+        assert len(allSPClassLabels) == numberImgSuperPixels
+        classAdjCounts += spgraph.countClassAdjacencies( nbClasses, allSPClassLabels )
+
         # Now we have the superpixel labels, and an ignore list of void superpixels - time to get the features!
         imgSuperPixelFeatures = FeatureGenerator.generateSuperPixelFeatures(img, imgSuperPixelMask, excludeSuperPixelList=superPixelIgnoreList)
         
@@ -101,7 +105,7 @@ def getSuperPixelData(msrcImages):
     print "\n**Processed total of" , numberImages, "images"
     
     # Now return the results
-    return [ superPixelFeatures, superPixelLabels ]
+    return [ superPixelFeatures, superPixelLabels, classAdjCounts ]
 
 
 

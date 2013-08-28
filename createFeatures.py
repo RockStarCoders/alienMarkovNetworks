@@ -14,6 +14,7 @@ import numpy as np
 def createAndSaveFeatureLabelData(msrcData, outfileBase, dataType, outfileType):
     outfileFtrs = '%s_%s_ftrs.%s' % ( outfileBase, dataType, outfileType )
     outfileLabs = '%s_%s_labs.%s' % ( outfileBase, dataType, outfileType )
+    outfileAdj  = '%s_%s_adj.%s'  % ( outfileBase, dataType, outfileType )
     # Check can write these files.
     f=open(outfileFtrs,'w')
     f.close()
@@ -21,24 +22,29 @@ def createAndSaveFeatureLabelData(msrcData, outfileBase, dataType, outfileType):
     f.close()
     
     # Edited getSuperPixelTrainingData to allow user-defined data split ratios
-    superPixelData     = SuperPixelClassifier.getSuperPixelData(trainData)
+    superPixelData     = SuperPixelClassifier.getSuperPixelData(msrcData)
     
-    superPixelFeatures = superPixelTrainData[0]
-    superPixelLabels   = superPixelTrainData[1].astype(np.int32)
-    
+    superPixelFeatures = superPixelData[0]
+    superPixelLabels   = superPixelData[1].astype(np.int32)
+    superPixelClassAdj = superPixelData[2]
+
     assert np.all( np.isfinite( superPixelFeatures ) )
-    
+
+    print superPixelClassAdj
+
     # Output
     if outfileType == 'pkl':
         pomio.pickleObject( superPixelFeatures, outfileFtrs )
         pomio.pickleObject( superPixelLabels,   outfileLabs )
+        pomio.pickleObject( superPixelClassAdj, outfileAdj )
     elif outfileType == 'csv':
         pomio.writeMatToCSV( superPixelFeatures, outfileFtrs )
         pomio.writeMatToCSV( superPixelLabels,   outfileLabs )
+        pomio.writeMatToCSV( superPixelClassAdj, outfileAdj )
     else:
         assert False, 'unknown output file format ' + outfileType
 
-    print 'Output written to file ', outfileFtrs, ' and ', outfileLabs
+    print 'Output written to file ', outfileFtrs, ' and ', outfileLabs, ' and ', outfileAdj
 
 
 msrcDataDirectory = sys.argv[1]
@@ -72,7 +78,7 @@ assert 0 <= scaleFrac and scaleFrac <= 1
 
 # Get train, test and cv datasets
 print "\nSplitting data into sets: train =" , trainSplit , "test =" , testSplit , "cvSplit =" , cvSplit
-[trainData, cvData, testData] = pomio.splitInputDataset_msrcData(pomio.msrc_loadImages(msrcDataDirectory, subset=None) , 1.0 , True, trainSplit , cvSplit , testSplit)
+[trainData, cvData, testData] = pomio.splitInputDataset_msrcData(pomio.msrc_loadImages(msrcDataDirectory, subset=None) , scaleFrac, True, trainSplit , cvSplit , testSplit)
 
 assert trainData != None , "Training data object is null"
 assert len(trainData) > 0 , "Training data contains no data"
@@ -80,16 +86,17 @@ assert len(trainData) > 0 , "Training data contains no data"
 assert testData != None , "Testing data object is null"
 assert len(testData) > 0 , "Testing data contains no data"
 
+print "Creating training set from %d images, and test set from %d images" % (len(trainData), len(testData))
 
 # Process and persist feature and labels for superpixels in image dataset
 print "Create & save training feature and label superpixel data"
-createAndSaveFeatureLabelData(trainData, 1.0, "train" , outfileType)
+createAndSaveFeatureLabelData(trainData, outfileBase, "train" , outfileType)
 
 print "Create & save test feature and label superpixel data"
-createAndSaveFeatureLabelData(testData, 1.0, "test" , outfileType)
+createAndSaveFeatureLabelData(testData, outfileBase, "test" , outfileType)
 if(cvData != None and len(cvData) > 0):
     print ""
-    createAndSaveFeatureLabelData(cvData, 1.0, "crossValid" , outfileType)
+    createAndSaveFeatureLabelData(cvData, outfileBase, "crossValid" , outfileType)
 
 
 
