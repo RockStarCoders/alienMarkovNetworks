@@ -19,7 +19,7 @@ import sklearn.ensemble
 import bonzaClass
 import amntools
 import pomio
-#import FeatureGenerator
+import FeatureGenerator
 import slic
 import SuperPixels
 
@@ -43,7 +43,7 @@ print 'Loading classifier...'
 clfr = bonzaClass.loadObject(clfrFn)
 
 print 'Computing superpixel features...'
-ftrs = GeezerFeatures.computeSuperPixelFeatures( imgRGB, spix )
+ftrs = FeatureGenerator.computeSuperPixelFeatures( imgRGB, spix )
 
 print 'Computing class probabilities...'
 classProbs = bonzaClass.classpProbsOfFeatures(ftrs,clfr,\

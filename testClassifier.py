@@ -31,10 +31,13 @@ for fn in infiles:
 
     
     plt.subplot(1,2,1)
-    plt.imshow(image, origin="lower")
+    plt.imshow(image)
     plt.title(fn)
     plt.subplot(1,2,2)
     print spClassPredsImage.shape
     pomio.showLabels(spClassPredsImage)
 
     plt.waitforbuttonpress()
+
+plt.interactive(0)
+plt.show()

@@ -44,8 +44,12 @@ print 'Training %s classifier on %d examples...' % (clfrType, n)
 if clfrType == 'randyforest':
     print '   Introducing Britains hottest rock performer, Randy Forest!'
     clfr = sklearn.ensemble.RandomForestClassifier(\
-        max_depth=15,\
-        n_estimators=100)
+        max_depth=None,\
+        n_estimators=20, criterion='gini', max_features='auto', \
+            min_samples_split=100, \
+            min_samples_leaf =20,\
+            bootstrap=True, \
+            oob_score=True, n_jobs=-1, random_state=None, verbose=1)
     clfr = clfr.fit( ftrs, labs )
 elif clfrType == 'logreg':
     print " Give it up for Reggie Log!"
