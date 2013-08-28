@@ -67,6 +67,9 @@ def getSuperPixelTrainingData(msrcDataDirectory, scale):
     
     numberVoidSuperPixels = 0
     
+    nbClasses = pomio.getNumClasses()
+    classAdjCounts = np.zeros( (nbClasses, nbClasses) )
+
     for imgIdx in range(0, numberTrainingImages):
     
         superPixelIgnoreList = np.array([], int) # this is used to skip over the superpixel in feature processing
