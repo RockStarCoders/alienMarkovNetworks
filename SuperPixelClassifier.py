@@ -20,36 +20,21 @@ import FeatureGenerator
 
 # Create a random forest classifier for superpixel class given observed image features
 # 1) Get labelled training data
-# 2) Create single training dataset for each superpixel in each training image:    trainingData = [superPixelFeatures , superPixelLabels]
+# 2) Create single training dataset for each superpixel in each training image:    data = [superPixelFeatures , superPixelLabels]
 # 3) Create random forest classifier from data
 # 4) Save classifier to file
 
 
-def getSuperPixelTrainingData(msrcDataDirectory, scale):
+
+# Use this if you have generated a set of MSRC image to process
+def getSuperPixelData(msrcImages):
     
     # Should probably make this a call to pomio in case the ordering changes in the future...
     voidClassLabel = pomio.getVoidIdx()
     
-    # These could be user-specified
-    if scale == None:
-        scale = 0.05 # default to 10% of data
-        
+    numberImages = len(msrcImages)    
     numberSuperPixels = 400
     superPixelCompactness = 10
-    
-    msrcData = pomio.msrc_loadImages(msrcDataDirectory, None)
-
-    print "Now generating superpixel classifier for MSRC data"
-    
-    splitData = pomio.splitInputDataset_msrcData(msrcData,
-            datasetScale=scale,
-            keepClassDistForTraining=True,
-            trainSplit=0.6,
-            validationSplit=0.2,
-            testSplit=0.2
-            )
-    
-    # prepare superpixel training data
     
     # for each image:
     #   determine superpixel label (discard if void)
@@ -57,25 +42,19 @@ def getSuperPixelTrainingData(msrcDataDirectory, scale):
     #   append features to cumulative array of all super pixel features
     #   append label to array of all labels
     
+    superPixelFeatures = None
+    superPixelLabels = np.array([], int) # used for superpixel labels
+    numberVoidSuperPixels = 0   # keep track of void superpixels
     
-    trainingMsrcImages = splitData[0]
-    
-    numberTrainingImages = np.shape(trainingMsrcImages)[0]
-    
-    superPixelTrainFeatures = None
-    superPixelTrainLabels = np.array([], int) # used for superpixel labels
-    
-    numberVoidSuperPixels = 0
-    
-    for imgIdx in range(0, numberTrainingImages):
+    for imgIdx in range(0, numberImages):
     
         superPixelIgnoreList = np.array([], int) # this is used to skip over the superpixel in feature processing
     
-        print "\n**Processing Image#" , (imgIdx + 1) , " of" , numberTrainingImages
+        print "\n**Processing Image#" , (imgIdx + 1) , " of" , numberImages
     
         # get raw image and ground truth labels
-        img = trainingMsrcImages[imgIdx].m_img
-        imgPixelLabels = trainingMsrcImages[imgIdx].m_gt
+        img = msrcImages[imgIdx].m_img
+        imgPixelLabels = msrcImages[imgIdx].m_gt
         
         # create superpixel map and graph for image
         imgSuperPixelMask, spgraph = SuperPixels.getSuperPixels_SLIC(img, numberSuperPixels, superPixelCompactness)
@@ -91,7 +70,7 @@ def getSuperPixelTrainingData(msrcDataDirectory, scale):
             #print "\tINFO: Processing superpixel =", superPixelValue , " of" , numberImgSuperPixels, " in image"
             
             
-            # Assume superpisel labels are sequence of integers
+            # Assume superpixel labels are sequence of integers
             superPixelValueMask = (imgSuperPixelMask == superPixelValue ) # Boolean array for indexing superpixel-pixels
             superPixelLabel = assignClassLabelToSuperPixel(superPixelValueMask, imgPixelLabels)
             
@@ -102,23 +81,52 @@ def getSuperPixelTrainingData(msrcDataDirectory, scale):
                 numberVoidSuperPixels = numberVoidSuperPixels + 1
                 
             else:
-                superPixelTrainLabels = np.append(superPixelTrainLabels, superPixelLabel)
+                superPixelLabels = np.append(superPixelLabels, superPixelLabel)
         
         
         # Now we have the superpixel labels, and an ignore list of void superpixels - time to get the features!
         imgSuperPixelFeatures = FeatureGenerator.generateSuperPixelFeatures(img, imgSuperPixelMask, excludeSuperPixelList=superPixelIgnoreList)
         
-        if superPixelTrainFeatures == None:        
-            superPixelTrainFeatures = imgSuperPixelFeatures;
+        if superPixelFeatures == None:        
+            superPixelFeatures = imgSuperPixelFeatures;
         else:
             # stack the superpixel features into a single list
-            superPixelTrainFeatures = np.vstack( [ superPixelTrainFeatures, imgSuperPixelFeatures ] )
+            superPixelFeatures = np.vstack( [ superPixelFeatures, imgSuperPixelFeatures ] )
     
     
-    assert np.shape(superPixelTrainFeatures)[0] == np.shape(superPixelTrainFeatures)[0] , "Number of training samples != number training labels"
-    print "\n**Processed total of" , numberTrainingImages, "images"
+    assert np.shape(superPixelFeatures)[0] == np.shape(superPixelFeatures)[0] , "Number of samples != number labels"
+    print "\n**Processed total of" , numberImages, "images"
     
-    return [ superPixelTrainFeatures, superPixelTrainLabels ]
+    # Now return the results
+    return [ superPixelFeatures, superPixelLabels ]
+
+
+
+# use this function to generate features and labels for default training dataset split
+def getSuperPixelTrainingData(msrcDataDirectory, scale, trainSplit=0.6, validationSplit=0.2, testSplit=0.2):
+    
+    # Should probably make this a call to pomio in case the ordering changes in the future...
+    voidClassLabel = pomio.getVoidIdx()
+    
+    # These could be user-specified
+    if scale == None:
+        scale = 0.05 # default to 10% of data
+        
+    numberSuperPixels = 400
+    superPixelCompactness = 10
+    
+    msrcData = pomio.msrc_loadImages(msrcDataDirectory, None)
+
+    print "Now generating superpixel classifier for MSRC data"
+    
+#    splitData = pomio.splitInputDataset_msrcData(msrcData, datasetScale=scale, keepClassDistForTraining=True, trainSplit, validationSplit, testSplit )
+    splitData = pomio.splitInputDataset_msrcData(msrcData, scale, True, trainSplit, validationSplit, testSplit )
+    
+    # prepare superpixel training data
+    trainingMsrcImages = splitData[0]
+    
+    # Just use the above function to get superpixel features and labels for training data
+    return SuperPixelClassifier.getSuperPixelData(trainingMsrcImages)
     
     
 
