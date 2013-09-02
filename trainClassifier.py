@@ -133,7 +133,7 @@ if paramSearch == 'true' or paramSearch == 'True' or paramSearch == '1':
         clfr.fit(ftrs, labs)
 
         # get best parameters
-        result = clfr.best_estimator
+        result = clfr.best_estimator_
         
     else:
         print 'Unsupported classifier "', clfrType, '"'
