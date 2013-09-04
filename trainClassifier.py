@@ -5,17 +5,34 @@ import sklearn.ensemble
 import sklearn.linear_model
 from sklearn import grid_search, cross_validation
 import numpy as np
+import argparse
 
-# Usage:
-#
-#   trainClassifier.py <ftrs.pkl|csv> <labels.pkl|csv> <outfile.pkl> <clfrType> <paramSearchFolds=int>
-#
-# If paramSearchFols <= 0, no parameter search is conducted, defaults used.
-infileFtrs = sys.argv[1]
-infileLabs = sys.argv[2]
-outfile    = sys.argv[3]
-clfrType   = sys.argv[4]
-paramSearchFolds = int(sys.argv[5])
+parser = argparse.ArgumentParser(description='Train a classifier for MRF project.')
+
+parser.add_argument('ftrs', type=str, action='store', \
+                        help='filename of pkl or csv training features data')
+parser.add_argument('labs', type=str, action='store', \
+                        help='filename of pkl or csv training labels data')
+parser.add_argument('outfile', type=str, action='store', \
+                        help='filename of pkl for output trained classifier object')
+parser.add_argument('--type', type=str, action='store', default='randyforest', \
+                        choices = ['logreg', 'randyforest'], \
+                        help='type of classifier')
+parser.add_argument('--paramSearchFolds', type=int, action='store', default=0, \
+                        help='number of cross-validation folds for grid search.  0 for no grid search.')
+
+# rf options
+parser.add_argument('--rf_n_estimators', type=int, default=50,  help='nb trees in forest')
+parser.add_argument('--rf_max_depth',    type=str, default='None',  help='max depth of trees')
+parser.add_argument('--rf_min_samples_leaf', type=str, default='10',  help='min samples in a tree leaf')
+
+args = parser.parse_args()
+
+infileFtrs = args.ftrs
+infileLabs = args.labs
+outfile    = args.outfile
+clfrType   = args.type
+paramSearchFolds = args.paramSearchFolds
 
 paramSearch = (paramSearchFolds>0)
 
@@ -95,9 +112,9 @@ if paramSearch:
             
     elif clfrType == 'randyforest':
         # create a set of parameters
-        params['min_samples_leaf'] = np.arange(  1,           52, 20, int )
-        params['n_estimators']     = np.logspace(1,np.log10(500),  3 ).astype(int)
-        params['max_depth']        = list( np.arange(  5,           31, 15,int) )
+        params['min_samples_leaf'] = [5, 10]#list(np.arange(  1,           52, 20, int ))
+        params['n_estimators']     = [10,50]#list( np.logspace(1,np.log10(500),  3 ).astype(int) )
+        params['max_depth']        = [5]#list( np.arange(  5,           31, 15,int) )
         params['max_depth'].append( None )
 
         print "\nRandyforest parameter search grid:\n" , params
@@ -111,7 +128,7 @@ if paramSearch:
         gsearch.fit(ftrs, labs)
 
         # get best parameters
-        rfParams = clfr.best_params_
+        rfParams = gsearch.best_params_
         print 'Done.  Grid search gave these parameters:'
         for k,v in rfParams.items():
             print k, ': ', v
@@ -122,12 +139,20 @@ if paramSearch:
 else:
 
     # no grid search, use defaults    
-    print '\nUsing default params'
+    print '\nUsing default/given params'
     if clfrType == 'randyforest':
         rfParams = {}
-        rfParams['min_samples_leaf'] = 20
-        rfParams['n_estimators']     = 20
-        rfParams['max_depth']        = None
+        rfParams['min_samples_leaf'] = args.rf_min_samples_leaf
+        rfParams['n_estimators']     = args.rf_n_estimators
+        rfParams['max_depth']        = args.rf_max_depth
+        # some of these might be int
+        for k,v in rfParams.items():
+            if type(v)==str:
+                if v=='None':
+                    rfParams[k] = None
+                elif v.isdigit():
+                    rfParams[k] = int(v)
+            print 'param = ', v, ', type = ', type(rfParams[k])
     elif clfrType == 'logreg':
         print " Give it up for Reggie Log!"
         clfr = sklearn.linear_model.LogisticRegression(penalty='l1' , dual=False, tol=0.0001, C=0.5, fit_intercept=True, intercept_scaling=1)
