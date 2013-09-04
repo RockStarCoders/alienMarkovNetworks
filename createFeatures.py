@@ -8,7 +8,7 @@ import numpy as np
 #
 #   createFeatures.py <MSRC data path> <scaleFrac> <splitRatio> <outfileBase> <type=csv|pkl>
 #
-
+# split ratio should be for example "0.5,0.3,0.2" for training, validation and test sets.
 
 # Function to take msrc data, create features and labels for superpixels and then save to disk
 def createAndSaveFeatureLabelData(msrcData, outfileBase, dataType, outfileType):
@@ -48,7 +48,7 @@ def createAndSaveFeatureLabelData(msrcData, outfileBase, dataType, outfileType):
 
 
 msrcDataDirectory = sys.argv[1]
-scaleFrac         = float(sys.argv[2]) # We aren't using this, assume we want all images
+scaleFrac         = float(sys.argv[2])
 splitRatio        = sys.argv[3]
 outfileBase       = sys.argv[4]
 outfileType       = sys.argv[5]
