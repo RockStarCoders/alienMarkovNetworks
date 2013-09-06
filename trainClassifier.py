@@ -1,10 +1,4 @@
 #!/usr/bin/env python
-import sys
-import pomio
-import sklearn.ensemble
-import sklearn.linear_model
-from sklearn import grid_search, cross_validation
-import numpy as np
 import argparse
 
 parser = argparse.ArgumentParser(description='Train a classifier for MRF project.')
@@ -25,14 +19,27 @@ parser.add_argument('--paramSearchFolds', type=int, action='store', default=0, \
 parser.add_argument('--rf_n_estimators', type=int, default=50,  help='nb trees in forest')
 parser.add_argument('--rf_max_depth',    type=str, default='None',  help='max depth of trees')
 parser.add_argument('--rf_min_samples_leaf', type=str, default='10',  help='min samples in a tree leaf')
+parser.add_argument('--ftrsTest', type=str, help='optional test set features for generalisation evaluation')
+parser.add_argument('--labsTest', type=str, help='optional test set labels for generalisation evaluation')
+
 
 args = parser.parse_args()
+
+# This is here because something is using gst, which uses arse parser, and that parser is sucking up the -h
+import sys
+import pomio
+import sklearn.ensemble
+import sklearn.linear_model
+from sklearn import grid_search, cross_validation
+import numpy as np
 
 infileFtrs = args.ftrs
 infileLabs = args.labs
 outfile    = args.outfile
 clfrType   = args.type
 paramSearchFolds = args.paramSearchFolds
+infileFtrsTest = args.ftrsTest
+infileLabsTest = args.labsTest
 
 paramSearch = (paramSearchFolds>0)
 
@@ -176,7 +183,7 @@ if clfrType == 'randyforest':
             oob_score=True,\
             n_jobs=-1,\
             random_state=None,\
-            verbose=1)
+            verbose=0)
 
     clfr = clfr.fit( ftrs, labs )
 elif clfrType == 'logreg':
@@ -191,6 +198,27 @@ else:
 print '   done.'
 
 print 'Training set accuracy (frac correct) = ', clfr.score( ftrs, labs )
+
+# optionally test classifier on hold-out test set
+if infileFtrsTest != None and infileLabsTest != None:
+    # Load the features and labels
+    if infileFtrsTest.endswith('.pkl'):
+        ftrsTest = pomio.unpickleObject( infileFtrsTest )
+    else:
+        ftrsTest = pomio.readMatFromCSV( infileFtrsTest )
+    
+    if infileLabsTest.endswith('.pkl'):
+        labsTest = pomio.unpickleObject( infileLabsTest )
+    else:
+        labsTest = pomio.readMatFromCSV( infileLabsTest ).astype(np.int32)
+    
+    ntest = len(labsTest)
+    assert ntest == ftrsTest.shape[0], 'Error: for TEST set, there are %d labels and %d features' \
+        % ( ntest, ftrsTest.shape[0] )
+    
+    assert np.all( np.isfinite( ftrsTest ) )
+
+    print 'Test set accuracy (frac correct)     = ', clfr.score( ftrsTest, labsTest )
 
 # Write the classifier
 if clfr != None:

@@ -4,8 +4,8 @@ import pomio
 import sklearn.ensemble
 import numpy as np
 import matplotlib.pyplot as plt
-import pylab
 import SuperPixelClassifier
+import skimage
 
 # Usage:
 #
@@ -25,7 +25,8 @@ plt.figure()
 
 for fn in infiles:
     print 'Classifying file ', fn
-    image = pylab.imread(fn)
+    image = skimage.io.imread(fn)
+    print 'heydy ho image type = ', image.dtype
     [spClassPreds, spGraph] = SuperPixelClassifier.predictSuperPixelLabels(clfr, image)
     spClassPredsImage = spGraph.imageFromSuperPixelData( spClassPreds.reshape( (len(spClassPreds),1) ) )
 

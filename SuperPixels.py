@@ -196,6 +196,7 @@ class SuperPixelGraph:
 
 def computeSuperPixelGraph( imgRGB, method, params ):
     if method == 'slic':
+        print 'image type = ', imgRGB.dtype
         labels = slic.slic_n(imgRGB,params[0],params[1])
         nodes, edges = make_graph(labels) 
     else:
