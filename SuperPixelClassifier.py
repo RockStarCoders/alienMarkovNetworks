@@ -17,6 +17,7 @@ import pomio
 import SuperPixels
 import FeatureGenerator
 
+import pdb
 
 # Create a random forest classifier for superpixel class given observed image features
 # 1) Get labelled training data
@@ -201,23 +202,17 @@ def predictSuperPixelLabels(classifier, image):
     
     # Get superpixels
     (imgSuperPixelsMask, spgraph) = SuperPixels.getSuperPixels_SLIC(image, desiredSuperPixels, superPixelCompactness)
-    imgSuperPixels = np.unique(imgSuperPixelsMask)
-    numberImgSuperPixels = np.shape(imgSuperPixels)[0]
+    #pdb.set_trace()
+    imgSuperPixels = spgraph.m_nodes
+    numberImgSuperPixels = len(imgSuperPixels)
     print "**Image contains", numberImgSuperPixels, "superpixels"
     
     # Get superpixel features
     superPixelFeatures = FeatureGenerator.generateSuperPixelFeatures(image, imgSuperPixelsMask, None)
     assert np.shape(superPixelFeatures)[0] == numberImgSuperPixels, "Number of superpixels in feature array != number super pixels in image!:: " + str(np.shape(superPixelFeatures)[0]) + " vs. " + str(numberImgSuperPixels)
 
-    superPixelLabels = np.array([], int)
+    superPixelLabels = classifier.predict( superPixelFeatures )
     
-    # predict class label for each super pixel in list
-    for idx in range(0, numberImgSuperPixels):
-        superPixelValue = imgSuperPixels[idx]
-        superPixelClassLabel = classifier.predict(superPixelFeatures[idx])
-        superPixelLabels = np.append( superPixelLabels , superPixelClassLabel )
-    
-    #return [superPixelLabels, imgSuperPixelsMask]
     return (superPixelLabels, spgraph)
 
 

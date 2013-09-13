@@ -119,10 +119,12 @@ if paramSearch:
             
     elif clfrType == 'randyforest':
         # create a set of parameters
-        params['min_samples_leaf'] = [5, 10]#list(np.arange(  1,           52, 20, int ))
-        params['n_estimators']     = [10,50]#list( np.logspace(1,np.log10(500),  3 ).astype(int) )
-        params['max_depth']        = [5]#list( np.arange(  5,           31, 15,int) )
+        params['min_samples_leaf'] = [5, 20,100,500]
+        params['n_estimators']     = [10,100,500]
+        params['max_depth']        = [5,15,50,100]
         params['max_depth'].append( None )
+        params['max_features']        = [2,10,25,100]
+        params['max_features'].append( 'auto' )
 
         print "\nRandyforest parameter search grid:\n" , params
         

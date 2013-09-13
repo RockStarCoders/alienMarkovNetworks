@@ -11,6 +11,11 @@ import skimage
 #
 #   testClassifier.py <clfr.pkl> <infile1> <infile2> ...
 #
+#
+# Good test image:
+#
+#   cp ~/data/sceneLabelling/MSRC_ObjCategImageDatabase_v2/Images/3_7_s.bmp
+#
 
 clfrFn = sys.argv[1]
 clfr = pomio.unpickleObject( clfrFn )

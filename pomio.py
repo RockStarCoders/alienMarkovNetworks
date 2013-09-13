@@ -124,7 +124,7 @@ def msrc_loadImages( dataSetPath, subset=None ):
         # create an image object, stuff in list
         res.append( msrc_Image( fn, gtfn, hqfn ) )
         #break
-    assert len(res) > 0
+    assert len(res) > 0, 'zarro images loaded.  subset = %s' % subset
     return res
 
 
