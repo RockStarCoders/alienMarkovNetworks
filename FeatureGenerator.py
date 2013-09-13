@@ -832,7 +832,7 @@ def test_FilterbankResponse():
 #if __name__ == "__main__":
 def test_superPixel_pixelFeatures():
     sourceImage = readImageFileRGB("ship-at-sea.jpg")
-    superPixelMask = SuperPixels.getSuperPixels_SLIC(sourceImage, 400, 10)
+    superPixelMask = SuperPixels.getSuperPixels_SLIC(sourceImage, 400, 10)[1].m_labels
     
     superPixelRegionFeatures = getSuperPixelFeatures_pixel(sourceImage, superPixelMask)
     
@@ -842,9 +842,9 @@ def test_superPixel_pixelFeatures():
 
 def test_superPixelFeatures():
     sourceImage = readImageFileRGB("ship-at-sea.jpg")
-    superPixelMask = SuperPixels.getSuperPixels_SLIC(sourceImage, 400, 10)
+    superPixelMask = SuperPixels.getSuperPixels_SLIC(sourceImage, 400, 10)[1].m_labels
     
-    spFeatures = generateSuperPixelFeatures(sourceImage, superPixelMask)
+    spFeatures = generateSuperPixelFeatures(sourceImage, superPixelMask, [])
     
     print "Shape of super pixel features =" , np.shape(spFeatures)
     
