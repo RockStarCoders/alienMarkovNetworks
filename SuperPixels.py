@@ -61,6 +61,7 @@ def generateImageWithSuperPixelBoundaries(image, segmentationMask):
     # Function returns an image with superpixel boundaries displayed as lines.  It is assumed that the image was the source for the segmentation mask.
     # See [http://scikit-image.org/docs/dev/api/skimage.segmentation.html?highlight=slic#skimage.segmentation.mark_boundaries]
     # Function signature: skimage.segmentation.mark_boundaries(image, label_img, color=(1, 1, 0), outline_color=(0, 0, 0))
+    
     superPixelImage = mark_boundaries(image, segmentationMask)
     return superPixelImage
 
@@ -110,9 +111,12 @@ def show_graph(grid, vertices, edges):
 # tests
 ###################################
 
-def testSLIC_lenaRGB(numSuperPixels):
+def testSLIC_lenaRGB(numSuperPixels, compactness):
     lenaImg = skimage.data.lena()
-    lena_superPixels_SLIC = generateImageWithSuperPixelBoundaries(lenaImg, getSuperPixels_SLIC(lenaImg, numSuperPixels) )
+    
+    spMask = getSuperPixels_SLIC(lenaImg, numSuperPixels, compactness)[1].m_labels
+    
+    lena_superPixels_SLIC = generateImageWithSuperPixelBoundaries(lenaImg, spMask )
     displayImage(lena_superPixels_SLIC, imgTitle="Lena SLIC" , orientation="upper")
     
 def testGraph_lenaRGB():
@@ -133,7 +137,8 @@ def testSuperPixelOnImage(image, superPixelAlgoName):
         print "\tWARN: Defaulting to SLIC algorithm with default settings to generate superpixel over-segmentation"
     
     if(superPixelAlgoName == "SLIC"):
-        displayImage( generateImageWithSuperPixelBoundaries(image, getSuperPixels_SLIC(image, 400) ) , imgTitle="Car SLIC" , orientation="lower" )
+        spMask = getSuperPixels_SLIC(image, 400, 10)[1].m_labels
+        displayImage( generateImageWithSuperPixelBoundaries(image, spMask) , imgTitle="Car SLIC" , orientation="lower" )
     elif(superPixelAlgoName == "Quickshift"):
         displayImage( generateImageWithSuperPixelBoundaries(image, getSuperPixels_Quickshift(image) ) , imgTitle="Car Quickshift" , orientation="lower" )
     elif(superPixelAlgoName == "Graph"):
@@ -146,6 +151,7 @@ def testSLIC_broomBroomRGB(carImg):
 
 
 def testGraph_broomBroomRGB(carImg):
+    
     testSuperPixelOnImage(carImg, "Graph")
 
 
@@ -211,7 +217,7 @@ if __name__ == "__main__":
     print "Oversegmentation examples will be displayed."
     print "\tOversegmentation with lena.png:\n"
     
-    testSLIC_lenaRGB(400)
+    testSLIC_lenaRGB(400, 10)
     testGraph_lenaRGB()
     testQuickshift_lenaRGB()
     
