@@ -389,3 +389,18 @@ def unpickleObject(fullFilename):
     f.close()
     return object
 
+
+def readEvaluationListFromCsv(evalListFile):
+# lines = pomio.readEvaluationListFromCsv("/home/amb/dev/mrf/data/eval/evalList.csv")
+
+    assert evalListFile.endswith(".csv") , "Please provide a CSV list of prediction and ground truth files"
+    f = open(evalListFile, "r")
+    lines = f.read().splitlines()
+    
+    data = []
+    
+    for idx in range(0, np.shape(lines)[0]):
+        data.append(lines[idx].split(","))
+    
+    return data
+
