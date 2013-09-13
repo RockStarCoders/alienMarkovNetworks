@@ -81,7 +81,6 @@ def evaluatePrediction(predictLabels, gtLabels):
                     correctPixels = correctPixels + 1
                 else:
                     incorrectPixels = incorrectPixels + 1
-                    print "Incorrect pixel label"
 
     assert allPixels == (rows * cols) , "Total iterated pixels != (rows * cols) num pixels!"
     
