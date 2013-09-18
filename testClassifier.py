@@ -31,7 +31,7 @@ plt.figure()
 for fn in infiles:
     print 'Classifying file ', fn
     image = skimage.io.imread(fn)
-    print 'heydy ho image type = ', image.dtype
+    #print 'heydy ho image type = ', image.dtype
     [spClassPreds, spGraph] = SuperPixelClassifier.predictSuperPixelLabels(clfr, image)
     spClassPredsImage = spGraph.imageFromSuperPixelData( spClassPreds.reshape( (len(spClassPreds),1) ) )
 
@@ -40,7 +40,7 @@ for fn in infiles:
     plt.imshow(image)
     plt.title(fn)
     plt.subplot(1,2,2)
-    print spClassPredsImage.shape
+    #print spClassPredsImage.shape
     pomio.showLabels(spClassPredsImage)
 
     plt.waitforbuttonpress()

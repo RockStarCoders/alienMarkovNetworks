@@ -286,8 +286,8 @@ static double inference2SuperPixelFunctorBased(
 
   // Add source and sink edge weights from given matrices.
   for ( int i=0; i<n; ++i ) {
-    std::cout << "sp " << i << ", adding src wt = " << cMatSourceEdge[i] 
-              << ", snk wt = " <<  cMatSinkEdge[i] << "\n";
+    // std::cout << "sp " << i << ", adding src wt = " << cMatSourceEdge[i] 
+    //           << ", snk wt = " <<  cMatSinkEdge[i] << "\n";
     g->add_tweights( i, cMatSourceEdge[i], cMatSinkEdge[i] );
   }
 
@@ -307,8 +307,8 @@ static double inference2SuperPixelFunctorBased(
     {
       wt = 0.0;
     }
-    std::cout << "  edge (" << idx << "," << nidx << "), v=" << validSP
-              << ", nv = " << nbrValidSP << ", wt = " << wt << "\n";
+    // std::cout << "  edge (" << idx << "," << nidx << "), v=" << validSP
+    //           << ", nv = " << nbrValidSP << ", wt = " << wt << "\n";
     g->add_edge( idx, nidx, wt, wt );
   }
 
@@ -521,8 +521,8 @@ double energyOfLabellingNSuperPixel(
     if ( lbl != cMatLabels[ ej[1] ] )
     {
       const double ee = functor( spDegree[ ej[0] ], spDegree[ ej[1] ] );
-      std::cout << "energy for edge " << ej[0] << ", " << ej[1] << " = "
-                << ee << "\n";
+      // std::cout << "energy for edge " << ej[0] << ", " << ej[1] << " = "
+      //           << ee << "\n";
       res += ee;
     }
     // else Same label, no penalty.

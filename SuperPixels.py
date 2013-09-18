@@ -174,7 +174,11 @@ class SuperPixelGraph:
 
     def imageFromSuperPixelData( self, data ):
         # data is an nxD matrix, where n is the number of superpixels.
-        assert data.ndim == 2 and data.shape[0] == self.getNumSuperPixels()
+        if type(data) == list or data.ndim==1:
+            data = np.array( [ data ] ).transpose()
+            #print data
+        assert data.ndim == 2 and data.shape[0] == self.getNumSuperPixels(), \
+            'dodgy data shape = %s' % data.shape
         D = data.shape[1]
         H,W = self.m_labels.shape
         # for a given region, make the data same for all pixels in that region

@@ -248,7 +248,8 @@ def inferenceSuperPixel(\
     #     for i,e in enumerate(superPixelGraph.m_edges):
     #         edgeMat[i,0] = e[0]
     #         edgeMat[i,1] = e[1]
-    assert edgeMat.shape[0] == N 
+    print type(edgeMat)
+    print edgeMat
     assert edgeMat.shape[1] == 2 
 
     # create output label array of length nbSuperPixels
@@ -269,7 +270,7 @@ def inferenceSuperPixel(\
         #&nbrPotentialParams[0],
 
     # turn labels to image array
-    print 'LabelResult has shape ', np.shape(labelResult), ' and is ', \
-        labelResult
+#    print 'LabelResult has shape ', np.shape(labelResult), ' and is ', \
+#        labelResult
     return superPixelGraph.imageFromSuperPixelData( \
         np.reshape(labelResult, (len(labelResult),1) ) )

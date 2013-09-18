@@ -1,4 +1,5 @@
 import pickle
+import pomio
 # Image-oriented tools for classification.
 
 def loadObject(filename):
@@ -24,6 +25,8 @@ def classifyFeatures( features, classifier, requireAllClasses=True ):
     c = classifier.predict( features )
     return c
 
+# IMPORTANT: there is a column for each CLASS, not each LABEL.  Void is not in there.
+# You'll need to offset the indices by 1 to compensate.
 def classProbsOfFeatures( features, classifier, requireAllClasses=True ):
     if requireAllClasses:
         assert classifier.classes_ == np.arange( pomio.getNumClasses() ), \
@@ -40,5 +43,6 @@ def classProbsOfFeatures( features, classifier, requireAllClasses=True ):
             cpnew[:,clfr.classes_[i]] = probs[:,i] 
         probs = cpnew
         del cpnew
+
     assert probs.shape[1] == pomio.getNumClasses()
     return probs

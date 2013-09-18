@@ -37,18 +37,17 @@ dbgMode = 0
 imgRGB = imread( imgFn )
 
 # Turn image into superpixels.
-spix = SuperPixels.computeSuperPixelGraph( imgRGB, 'slic', [100,10] )
+spix = SuperPixels.computeSuperPixelGraph( imgRGB, 'slic', [400,10] )
 
 print 'Loading classifier...'
 clfr = bonzaClass.loadObject(clfrFn)
 
 print 'Computing superpixel features...'
-ftrs = FeatureGenerator.computeSuperPixelFeatures( imgRGB, spix )
+ftrs = FeatureGenerator.generateSuperPixelFeatures( imgRGB, spix.m_labels, [] )
 
 print 'Computing class probabilities...'
-classProbs = bonzaClass.classpProbsOfFeatures(ftrs,clfr,\
-                                                  requireAllClasses=False)
-
+classProbs = bonzaClass.classProbsOfFeatures(ftrs,clfr,\
+                                                 requireAllClasses=False)
 
 plt.interactive(1)
 plt.imshow(imgRGB)
@@ -63,7 +62,9 @@ plt.title('Super Pixels')
 classLabs = np.argmax( classProbs, 1 )
 # these are labs per region. turn into an image of labels.
 plt.figure()
-pomio.showLabels( spix.imageFromSuperPixelData( classLabs ) )
+# +1 adds void class
+# todo: tidy this shemozzle up!
+pomio.showLabels( spix.imageFromSuperPixelData( classLabs + 1 ) )
 plt.title('Raw Classifier Labelling')
 plt.figure()
 pomio.showClassColours()
@@ -91,7 +92,8 @@ segResult = uflow.inferenceSuperPixel( \
 print '   done.'
 
 # Show the result.
-pomio.showLabels(segResult)
+plt.figure()
+pomio.showLabels(segResult+1)
 plt.title( 'Segmentation CRF result' )# with K=%f' % K )
 plt.draw()
 #print "labelling result, K = ", K 
