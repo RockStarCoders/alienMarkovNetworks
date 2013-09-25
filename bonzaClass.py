@@ -1,5 +1,6 @@
 import pickle
 import pomio
+import numpy as np
 # Image-oriented tools for classification.
 
 def loadObject(filename):
@@ -40,7 +41,7 @@ def classProbsOfFeatures( features, classifier, requireAllClasses=True ):
         cpnew = np.zeros( (n, nbClasses) )
         for i in range( probs.shape[1] ):
             # stuff this set of probs to new label
-            cpnew[:,clfr.classes_[i]] = probs[:,i] 
+            cpnew[:,classifier.classes_[i]-1] = probs[:,i] 
         probs = cpnew
         del cpnew
 

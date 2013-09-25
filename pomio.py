@@ -80,7 +80,12 @@ def msrc_convertRGBToLabels( imgRGB ):
         imgL[msk] = l
         l += 1
     # Check we got every pixel
-    assert( not np.any( imgL == 255 ) )
+    #plt.imshow(imgL==255)
+    #plt.show()
+    dodgyMsk = (imgL==255)
+    if np.any( dodgyMsk ):
+        print '  WARNING: there are %d pixels with invalid colours.  Setting these to void.' % dodgyMsk.sum()
+        imgL[ dodgyMsk ] = 0
     return imgL
 
 class msrc_Image:
@@ -92,16 +97,25 @@ class msrc_Image:
     m_gtFn  = None
     m_hqFn  = None
 
-    def __init__( self,  fn, gtfn, hqfn ):
+    def __init__( self,  fn, gtfn, hqfn, verbose=False ):
         # load the image (as numpy nd array, 8bit)
-        self.m_img = pylab.imread( fn )
-#         self.m_gt  = msrc_convertRGBToLabels( pylab.imread( gtfn ) )
+        if verbose:
+            print 'Loading image ', fn
+        self.m_img = skimage.io.imread( fn ) #pylab.imread( fn )
+        if verbose:
+            print 'Loading gt image ', gtfn
         self.m_gt  = msrc_convertRGBToLabels( skimage.io.imread( gtfn ) )
         # not necessarily hq
         try:
             #self.m_hq  = msrc_convertRGBToLabels( pylab.imread( hqfn ) )
+            if verbose:
+                print 'Looking for high quality gt image ', hqfn
             self.m_hq  = msrc_convertRGBToLabels( skimage.io.imread( hqfn ) )
+            if verbose:
+                print '   - found'
         except IOError:
+            if verbose:
+                print '   - not found'
             self.m_hq = None
         self.m_imgFn = fn
         self.m_gtFn  = gtfn
@@ -113,16 +127,16 @@ class msrc_Image:
 def msrc_loadImages( dataSetPath, subset=None ):
     res = []
     if subset == None:
-        subset = glob.glob( dataSetPath + '/Images/*.bmp' )
+        subset = glob.glob( dataSetPath + '/Images/*.bmp' ) + glob.glob( dataSetPath + '/Images/*.png' )
     else:
         subset = [ dataSetPath + '/' + fn for fn in subset ]
     # For each image file:
     for fn in subset:
         # load the ground truth, convert to discrete label
-        gtfn = fn.replace('Images/', 'GroundTruth/').replace('.bmp','_GT.bmp')
-        hqfn = fn.replace('Images/', 'SegmentationsGTHighQuality/').replace('.bmp','_HQGT.bmp')
+        gtfn = fn.replace('Images/', 'GroundTruth/').replace('.','_GT.')
+        hqfn = fn.replace('Images/', 'SegmentationsGTHighQuality/').replace('.','_HQGT.')
         # create an image object, stuff in list
-        res.append( msrc_Image( fn, gtfn, hqfn ) )
+        res.append( msrc_Image( fn, gtfn, hqfn, verbose=True ) )
         #break
     assert len(res) > 0, 'zarro images loaded.  subset = %s' % subset
     return res
@@ -134,7 +148,13 @@ def msrc_loadImages( dataSetPath, subset=None ):
 # Data preparation utils
 #
 
-def splitInputDataset_msrcData(msrcImages, datasetScale=1.0 , keepClassDistForTraining=True, trainSplit=0.6, validationSplit=0.2, testSplit=0.2, ):
+def splitInputDataset_msrcData( msrcImages,
+                                datasetScale=1.0,
+                                keepClassDistForTraining=True,
+                                trainSplit=0.6,
+                                validationSplit=0.2,
+                                testSplit=0.2
+                                ):
     assert (trainSplit + validationSplit + testSplit) == 1, "values for train, validation and test must sum to 1"
     # MUST ENSURE that the returned sample contains at least 1 example of each class label, or else the classifier doesn't consider all classes!
     # go for a random 60, 20, 20 split for train, validate and test
@@ -160,13 +180,14 @@ def splitInputDataset_msrcData(msrcImages, datasetScale=1.0 , keepClassDistForTr
         trainClasses = set()
     
         for idx in range(0, len(trainData)):
-            trainClasses.update( trainData[idx].m_gt )
+            trainClasses.update( trainData[idx].m_gt.flatten() )
         # Take void out of the set
         trainClasses.remove(0)
 
         numClasses = getNumClasses()
         # Note here we don't filter out void - do that at the pixel level when generating features
-        assert len(trainClasses) == numClasses , "Training failed to include each of the 24 classes:: trainClasses = " + str(trainClasses)
+        if not len(trainClasses) == numClasses:
+            print "  WARNING: Training failed to include each of the 24 classes:: trainClasses = " + str(trainClasses) + '. proceeding anyway since keepClassDistForTraining was false.'
         
         print "\nAssigned " + str(np.shape(trainData)) + " images to TRAIN set, " + str(np.shape(testData)) + " samples to TEST set and "+ str(np.shape(validationData)) + " samples to VALIDATION set"
         
@@ -214,7 +235,8 @@ def classSampleFromList(msrcData , numberSamples, classDist, includeAllClassLabe
     numLabels = getNumLabels()
     #print "\tINFO: number of labels=" , numLabels, " , number labels in training=" , np.shape(classDist)[0]
     assert( np.size(classDist) == numLabels) , "\n\tWARN:: For some reason the labels in distribution array doesnt match label set - " + str(np.size(classDist)) + " vs. " + str(numLabels)
-    
+
+    # TODO: there is a bug here.  If numberSamples is 1 for example, all these are 0.
     classSampleSizes = np.round((numberSamples * classDist) , 0).astype('int')
     
     result = []
