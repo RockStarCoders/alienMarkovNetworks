@@ -13,10 +13,10 @@ import pomio
 
 def displayImage(image, imgTitle, orientation):
     assert orientation == "upper" or orientation == "lower", "orientation parameter to displayImage must be \"upper\" or \"lower\"."
+    plt.interactive(True)
     plt.imshow(image, origin=orientation)
     plt.title(imgTitle)
-    plt.show()
-
+    plt.waitforbuttonpress()
 
 #def getSuperPixels_SLIC(image, nbSegments):
 #    # See [http://scikit-image.org/docs/dev/api/skimage.segmentation.html?highlight=slic#skimage.segmentation.slic] for parameter definitions
@@ -221,7 +221,9 @@ if __name__ == "__main__":
     print "Oversegmentation examples will be displayed."
     print "\tOversegmentation with lena.png:\n"
     
-    testSLIC_lenaRGB(400, 10)
+    # use this to make nbRegions and compactness the 2nd and 3rd args (1st is msrc path)
+    #testSLIC_lenaRGB(int(sys.argv[2]),int(sys.argv[3]))
+    testSLIC_lenaRGB(400,10)
     testGraph_lenaRGB()
     testQuickshift_lenaRGB()
     
