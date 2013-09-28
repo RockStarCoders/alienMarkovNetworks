@@ -228,7 +228,8 @@ def splitInputDataset_msrcData( msrcImages,
 
 
 def classSampleFromList(msrcData , numberSamples, classDist, includeAllClassLabels=True):
-    """This function takes random samples from input dataset (wihout replacement) maintaining a preset class label ratio.
+    """This function takes random samples from input dataset (wihout replacement).
+    Seeks to maintain user-specified preset class distribution, and also include all labels.
     The indices of the are assumed to align with the indicies of the class labels.
     Returns a list of data samples and the reduced input dataset."""
     
@@ -236,33 +237,42 @@ def classSampleFromList(msrcData , numberSamples, classDist, includeAllClassLabe
     #print "\tINFO: number of labels=" , numLabels, " , number labels in training=" , np.shape(classDist)[0]
     assert( np.size(classDist) == numLabels) , "\n\tWARN:: For some reason the labels in distribution array doesnt match label set - " + str(np.size(classDist)) + " vs. " + str(numLabels)
 
+    if numberSamples == 0:
+        return msrcData
+    elif numberSamples == 1:
+        print "\tWARN: You only asked for 1 sample, so will just return random sample - regardless of label options"
+        return selectRandomSetFromList(msrcData, numberSamples, includeAllClassLabels=False) 
+
+    # Would be nice to have general function to calc the min number of samples required to get all classes...
+    
     # TODO: there is a bug here.  If numberSamples is 1 for example, all these are 0.
     classSampleSizes = np.round((numberSamples * classDist) , 0).astype('int')
-    
-    result = []
-    
     addedCount = 0
-    if includeAllClassLabels == True:
-        for idx in range(0, np.size(classSampleSizes)):
-            if classSampleSizes[idx] == 0.0:
-                classSampleSizes[idx] = 1
-                addedCount = addedCount + 1
-        numClassSamples = int(np.sum(classSampleSizes) )
-        print "\tWARN: There were" , addedCount , "0 classes - each has been replaced by 1.  Returned sample size =" , numClassSamples
+    for idx in range(0, np.size(classSampleSizes)):
+        if classSampleSizes[idx] == 0 or classSampleSizes[idx] == 0.0:
+            classSampleSizes[idx] = 1
+            addedCount = addedCount + 1
+            numClassSamples = int(np.sum(classSampleSizes) )
+    print "\tWARN: There were" , addedCount , "classes with 0 samples.  Each has been replaced by 1 sample requirement::" , numClassSamples
+
     
+    if includeAllClassLabels == True:
         # if number of required samples is less than number of class, over-rule
-        if numberSamples < getNumClasses():
-            print "\tWARN: You wanted all classes present, but requested #samples less than #classes.  Will return data including all classes."
+        if numberSamples > 1 and numberSamples < getNumClasses():
+            print "\tWARN: You wanted all classes present, but requested #samples less than #classes; generate sample list including all classes."
             return selectRandomSetFromList(msrcData, getNumClasses(), includeAllClassLabels=True)
+
         else:
             print "\tINFO: Seek to maintain class dist AND include all classes"
+            result = []
             includedClasses = None
+
             for labelIdx in range(0 , np.size(classDist)):
                 
                 classSampleSize = classSampleSizes[labelIdx]
                 classSampleCount = 0
                 
-                # Get samples and add to list while less than desired sample size for the class
+                # Add sample to list while we need labels to preserve class dist
                 while classSampleCount < classSampleSize:
                     
                     sampleIdx = np.random.randint(0, np.size(msrcData))
@@ -284,21 +294,12 @@ def classSampleFromList(msrcData , numberSamples, classDist, includeAllClassLabe
                             classSampleCount = classSampleCount+1
                             # update included classes list
                             includedClasses = np.unique( np.append( includedClasses, imgClasses ) )
+            # Now return result
+            return result, msrcData
                     
-            else:
-                # Simply run through class samples list
-                while classSampleCount < classSampleSize:
-                    
-                    sampleIdx = np.random.randint(0, np.size(msrcData))
-                    sample = msrcData[sampleIdx]
-                    
-                    if labelIdx in sample.m_gt:
-                        includedClasses = np.unique(sample.m_gt)
-                        result.insert(np.size(result) , sample)
-                        msrcData.pop(sampleIdx)
-                        classSampleCount = classSampleCount+1
-                        
-    return result, msrcData
+    else:
+        # Simply run grab random samples, regardless of classes in samples
+        return selectRandomSetFromList(msrcData, numberSamples, includeAllClassLabels=False)
         
 
 
@@ -352,6 +353,7 @@ def selectRandomSetFromList(data, numberSamples, includeAllClassLabels):
                     idx = idx+1
     
     elif includeAllClassLabels == False:
+        idx = 0
         while idx < numberSamples:
             # randomly sample from imageset, and assign to sample array
             # randIdx = np.round(random.randrange(0,numImages), 0).astype(int)
