@@ -14,18 +14,34 @@ import argparse
 
 def evaluateFromFile(evalFile, sourceData):
     evalData = None
+    
     evalData = pomio.readEvaluationListFromCsv(evalFile)
+    
     assert evalData != None , "Exception reading evaluation data from " + str(evalFile)
+
+    print "\nINFO: Eval file list = " + str(evalFile)
+    print "INFO: Source data = " + str(sourceData)
+    print "\nINFO 1st element in eval result::" , evalData[0]
 
     results = []
 
     # for each eval pair (prediction labels and ground truth labels) do pixel count
+    
+    predictDir = "/home/amb/dev/mrf/data/classifierResults"
     for idx in range(0, len(evalData)):
+    
+        print "\n\tINFO: Input eval data" , len(evalData[idx]) , "\n\t\t" , evalData[idx] , "\n\t\t" , evalData[idx][0] , "\n\t\t" , evalData[idx][1]
+    
         predictFile = evalData[idx][0]
         gtFile = evalData[idx][1]
         
+        print "\tINFO: predict file = " + str(predictFile)
+        print "\tINFO: ground truth = " + str(gtFile)
+        
         gt = loadReferenceGroundTruthLabels(sourceData, gtFile)
-        predict = loadPredictionImageLabels(predictFile)
+        
+        predict = loadPredictionImageLabels(predictDir + "/" + predictFile)
+        
         result = evaluatePrediction(predict, gt)
         results.append(result.append(gtFile))
 
@@ -46,6 +62,7 @@ def evaluatePrediction(predictLabels, gtLabels):
 
     rows = np.shape(predictLabels)[1]
     cols = np.shape(gtLabels)[0]
+    
     print "Evaluating image of size = [" , rows, " ," , cols, " ]"
     voidLabel = pomio.getVoidIdx()
     
@@ -91,14 +108,17 @@ def evaluatePrediction(predictLabels, gtLabels):
 
     
 
-def loadReferenceGroundTruthLabels(sourceData, gtImg):
-    print "Loading ground truth labels from " + str(sourceData) + " directory"
-    gtImgLabels = pomio.msrc_loadImages( sourceData + "/Images/", gtImg )
+def loadReferenceGroundTruthLabels(sourceData, imgName):
 
-    print "Loading prediction labels"
-    imgFile = "Images/" + gtImg
+    print "\tLoading ground truth labels from " + str(sourceData) + " directory"
     # should be only one image
-    gtImgLabels = pomio.msrc_loadImages(msrcData , imgFile)[0].m_gt
+    gtFile = str(sourceData) + "/GroundTruth/" + str(imgName)
+    
+    if "_GT" in imgName:
+        imgName = imgName.replace("_GT" , "")
+
+    print "\tGT file = " + str(imgName)    
+    gtImgLabels = pomio.msrc_loadImages(sourceData , ["Images/" + imgName] )[0].m_gt
 
     return gtImgLabels
 
@@ -106,6 +126,8 @@ def loadReferenceGroundTruthLabels(sourceData, gtImg):
 
 def loadPredictionImageLabels(predictImgLabelsFile):
     # use pomio to read in the labels file
+    print "\n\tPredicted labels @ " + str(predictImgLabelsFile)
+    
     predictLabels = None
     if predictImgLabelsFile.endswith(".csv"):
         predictLabels = pomio.readMatFromCSV(predictImg)
@@ -123,13 +145,17 @@ def loadPredictionImageLabels(predictImgLabelsFile):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Evaluate predicted class labels against ground truth image labels')
+    
     parser.add_argument('evalFile', type=str, action='store', \
                             help='full filename of evaluation file which specifies a comma-separated list of predictions+ground truth pairs')
     parser.add_argument('sourceData', type=str, action='store', \
                             help='Path to source data directory for reference data (assumed to be same structure as MSRC data)')
     args = parser.parse_args()
 
-    evaluateFromFile(evalFileList, sourceData)
+    evalFile = args.evalFile
+    sourceData = args.sourceData
+    
+    evaluateFromFile(evalFile, sourceData)
 
 
 
