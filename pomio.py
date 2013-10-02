@@ -45,16 +45,6 @@ msrc_classToRGB = [\
 
 msrc_classLabels = [z[0] for z in msrc_classToRGB]
 
-overhead_classToRGB = [\
-('void'     , (0     ,0       ,0     )), # 0 \
-('building' , (255   ,0       ,0     )), # 1 \
-('grass'    , (0     ,255     ,0     )), # 2 \
-('tree'     , (200   ,100     ,20    )), # 3 \
-('water'    , (0     ,0       ,255   )), # 4 \
-('road'     , (100   ,100     ,100   )), # 5 \
-]
-
-overhead_classLabels = [z[0] for z in overhead_classToRGB]
 
 def getVoidIdx():
     return 0
@@ -78,7 +68,6 @@ def msrc_convertRGBToLabels( imgRGB ):
                                                       imgRGB[:,:,2]==clr[2] ) )
         # Set these in the output image
         imgL[msk] = l
-        l += 1
     # Check we got every pixel
     #plt.imshow(imgL==255)
     #plt.show()
@@ -87,6 +76,19 @@ def msrc_convertRGBToLabels( imgRGB ):
         print '  WARNING: there are %d pixels with invalid colours.  Setting these to void.' % dodgyMsk.sum()
         imgL[ dodgyMsk ] = 0
     return imgL
+
+def msrc_convertLabelsToRGB( imgL ):
+    assert imgL.ndim == 2 
+    imgRGB = np.zeros( imgL.shape + (3,), dtype='uint8' )
+    # For each label, find matching RGB and set that value
+    for l,ctuple in enumerate(msrc_classToRGB):
+        # Get a mask of matching pixels
+        msk = (imgL==l)
+        clr = ctuple[1]
+        for i in range(3):
+            x = imgRGB[:,:,i]
+            x[msk] = clr[i]
+    return imgRGB
 
 class msrc_Image:
     'Structure containing image and ground truth from MSRC v2 data set'
