@@ -5,11 +5,10 @@ import numpy as np
 import argparse
 
 
-# Usage:
+# Overhead example:
 #
-#   createFeatures.py <MSRC data path> <scaleFrac> <splitRatio> <outfileBase> <type=csv|pkl>
+#  ./createFeatures.py ~/data/sceneLabelling/overhead/MSRC-like overhead --type pkl --scaleFrac 1.0 --splitRatio 1 0 0
 #
-# split ratio should be for example "0.5,0.3,0.2" for training, validation and test sets.
 
 parser = argparse.ArgumentParser(description='Create super-pixel features for MRF project.')
 

@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 import argparse
+import matplotlib.pyplot as plt
+import pomio
 
 parser = argparse.ArgumentParser(description='Train a classifier for MRF project.')
 
@@ -18,10 +20,11 @@ parser.add_argument('--paramSearchFolds', type=int, action='store', default=0, \
 # rf options
 parser.add_argument('--rf_n_estimators', type=int, default=50,  help='nb trees in forest')
 parser.add_argument('--rf_max_depth',    type=str, default='None',  help='max depth of trees')
+parser.add_argument('--rf_max_features', type=str, default='auto',  help='max features used in a split')
 parser.add_argument('--rf_min_samples_leaf', type=str, default='10',  help='min samples in a tree leaf')
 parser.add_argument('--ftrsTest', type=str, help='optional test set features for generalisation evaluation')
 parser.add_argument('--labsTest', type=str, help='optional test set labels for generalisation evaluation')
-
+parser.add_argument('--verbose', action='store_true')
 
 args = parser.parse_args()
 
@@ -75,9 +78,15 @@ assert n == ftrs.shape[0], 'Error: there are %d labels and %d features' \
 
 assert np.all( np.isfinite( ftrs ) )
 
+if args.verbose:
+    print 'There are %d training examples' % len(labs)
+    plt.interactive(True)
+    plt.hist( labs, bins=range(pomio.getNumLabels()) )
+    plt.waitforbuttonpress()
+    
 # Train the classifier, either with CV param search or with default values
 if paramSearch:
-
+    paramSrc = 'grid search'
     # create crossValidation object
     stratCV = cross_validation.StratifiedKFold(labs, paramSearchFolds)
 
@@ -146,7 +155,7 @@ if paramSearch:
         sys.exit(1)
 
 else:
-
+    paramSrc = 'default/specified'
     # no grid search, use defaults    
     print '\nUsing default/given params'
     if clfrType == 'randyforest':
@@ -154,6 +163,7 @@ else:
         rfParams['min_samples_leaf'] = args.rf_min_samples_leaf
         rfParams['n_estimators']     = args.rf_n_estimators
         rfParams['max_depth']        = args.rf_max_depth
+        rfParams['max_features']     = args.rf_max_features
         # some of these might be int
         for k,v in rfParams.items():
             if type(v)==str:
@@ -171,14 +181,14 @@ else:
         sys.exit(1)
 
 
-print '\nTraining %s classifier on %d examples with deafult param values...' % (clfrType, n)
+print '\nTraining %s classifier on %d examples with %s param values...' % (clfrType, n, paramSrc)
 if clfrType == 'randyforest':
     print '   Introducing Britains hottest rock performer, Randy Forest!'
     clfr = sklearn.ensemble.RandomForestClassifier(\
             max_depth=rfParams['max_depth'],\
             n_estimators=rfParams['n_estimators'], \
             criterion='gini', \
-            max_features='auto', \
+            max_features=rfParams['max_features'], \
             min_samples_split=100, \
             min_samples_leaf =rfParams['min_samples_leaf'],\
             bootstrap=True, \
