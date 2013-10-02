@@ -247,21 +247,29 @@ def classSampleFromList(msrcData , numberSamples, classDist, includeAllClassLabe
 
     # Would be nice to have general function to calc the min number of samples required to get all classes...
     
-    # TODO: there is a bug here.  If numberSamples is 1 for example, all these are 0.
+    # Added a check on the sum of the result
     classSampleSizes = np.round((numberSamples * classDist) , 0).astype('int')
-    addedCount = 0
-    for idx in range(0, np.size(classSampleSizes)):
-        if classSampleSizes[idx] == 0 or classSampleSizes[idx] == 0.0:
-            classSampleSizes[idx] = 1
-            addedCount = addedCount + 1
-            numClassSamples = int(np.sum(classSampleSizes) )
-    print "\tWARN: There were" , addedCount , "classes with 0 samples.  Each has been replaced by 1 sample requirement::" , numClassSamples
-
+    
+    
+    # If we get a 0 class dist, just return number of samples requested at random
+    if np.sum(classSampleSizes) < 1.0 or np.sum(classSampleSizes) < 1:
+        print "WARN: The requested number of samples and class dist leads to a < 1 sample request; returning " + str(numberSamples) + " random samples."
+        return selectRandomSetFromList(msrcData, numberSamples, includeAllClassLabels=False)
     
     if includeAllClassLabels == True:
+        
+        # We dont want 0 samples for any class; do a check on classSampleSizes values
+        addedCount = 0
+        for idx in range(0, np.size(classSampleSizes)):
+            if classSampleSizes[idx] == 0 or classSampleSizes[idx] == 0.0:
+                classSampleSizes[idx] = 1
+                addedCount = addedCount + 1
+                numClassSamples = int(np.sum(classSampleSizes) )
+        print "\tWARN: Requested samples and class dist resulted in " + str(addedCount) + " classes with 0 samples.  Each has been replaced by 1 sample requirement."
+    
         # if number of required samples is less than number of class, over-rule
         if numberSamples > 1 and numberSamples < getNumClasses():
-            print "\tWARN: You wanted all classes present, but requested #samples less than #classes; generate sample list including all classes."
+            print "\tWARN: You wanted all classes present, but requested #samples less than #classes; returning " + str(getNumClasses()) + " random samples"
             return selectRandomSetFromList(msrcData, getNumClasses(), includeAllClassLabels=True)
 
         else:
