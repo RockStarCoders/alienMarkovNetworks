@@ -10,18 +10,6 @@ import pomio, FeatureGenerator, SuperPixels, SuperPixelClassifier
 import numpy as np
 
 import argparse
-
-
-if __name__ == "__main__":
-
-    parser = argparse.ArgumentParser(description='Evaluate predicted class labels against ground truth image labels')
-    parser.add_argument('evalFile', type=str, action='store', \
-                            help='full filename of evaluation file which specifies a comma-separated list of predictions+ground truth pairs')
-    parser.add_argument('sourceData', type=str, action='store', \
-                            help='Path to source data directory for reference data (assumed to be same structure as MSRC data)')
-    args = parser.parse_args()
-
-    evaluateFromFile(evalFileList, sourceData)
     
 
 def evaluateFromFile(evalFile, sourceData):
@@ -129,6 +117,20 @@ def loadPredictionImageLabels(predictImgLabelsFile):
     assert predictLabels != None, "Exception trying to load prediction labels from " + str(predictImgLabelsFile)
     
     return predictLabels
+
+
+
+if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(description='Evaluate predicted class labels against ground truth image labels')
+    parser.add_argument('evalFile', type=str, action='store', \
+                            help='full filename of evaluation file which specifies a comma-separated list of predictions+ground truth pairs')
+    parser.add_argument('sourceData', type=str, action='store', \
+                            help='Path to source data directory for reference data (assumed to be same structure as MSRC data)')
+    args = parser.parse_args()
+
+    evaluateFromFile(evalFileList, sourceData)
+
 
 
 
