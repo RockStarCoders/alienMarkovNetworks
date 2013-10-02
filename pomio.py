@@ -247,13 +247,13 @@ def classSampleFromList(msrcData , numberSamples, classDist, includeAllClassLabe
 
     # Would be nice to have general function to calc the min number of samples required to get all classes...
     
-    # TODO: there is a bug here.  If numberSamples is 1 for example, all these are 0.
+    # Added a check on the sum of the result
     classSampleSizes = np.round((numberSamples * classDist) , 0).astype('int')
     
     
     # If we get a 0 class dist, just return number of samples requested at random
-    if np.sum(classSampleSizes) == 0 or np.sum(classSampleSizes) == 0:
-        print "WARN: The requested number of samples and class dist leads to a 0 request; returning " + str(numberSamples) + " random samples."
+    if np.sum(classSampleSizes) < 1.0 or np.sum(classSampleSizes) < 1:
+        print "WARN: The requested number of samples and class dist leads to a < 1 sample request; returning " + str(numberSamples) + " random samples."
         return selectRandomSetFromList(msrcData, numberSamples, includeAllClassLabels=False)
     
     if includeAllClassLabels == True:
