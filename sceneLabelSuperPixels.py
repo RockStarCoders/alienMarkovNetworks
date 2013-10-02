@@ -81,25 +81,25 @@ if dointeract:
 # prefer to merge regions with high degree
 nbrPotentialMethod = 'degreeSensitive'
 
-#nbrPotentialParams = [K0,K,sigsq]
-
 print 'Performing CRF inference...'
-segResult = uflow.inferenceSuperPixel( \
-    spix,\
-    -np.log( np.maximum(1E-10, np.ascontiguousarray(classProbs) ) ), \
-    'abswap',\
-    nbrPotentialMethod )#, np.ascontiguousarray(nbrPotentialParams) )
-print '   done.'
-
-# Show the result.
 plt.figure()
-pomio.showLabels(segResult+1)
-plt.title( 'Segmentation CRF result' )# with K=%f' % K )
-plt.draw()
-#print "labelling result, K = ", K 
-if dointeract:
-    plt.waitforbuttonpress()
 
+for K in np.logspace(-2,0,5):
+    segResult = uflow.inferenceSuperPixel( \
+        spix,\
+        -np.log( np.maximum(1E-10, np.ascontiguousarray(classProbs) ) ), \
+        'abswap',\
+        nbrPotentialMethod, K )#, np.ascontiguousarray(nbrPotentialParams) )
+    print '   done.'
+    
+    # Show the result.
+    pomio.showLabels(segResult+1)
+    plt.title( 'Segmentation CRF result with K=%f' % K )
+    plt.draw()
+    print "labelling result, K = ", K 
+    if dointeract:
+        plt.waitforbuttonpress()
+    
 #plt.interactive(False)
 #plt.show()
 

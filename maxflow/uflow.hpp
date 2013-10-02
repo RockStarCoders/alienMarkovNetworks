@@ -67,7 +67,7 @@ extern void ultraflow_inferenceSuperPixel(
   int32_t*        cMatEdges,
   double*         cMatLabelWeights,
   char*           nbrPotentialMethod,
-  //      double* nbrPotentialParams,
+  double          K, //      double* nbrPotentialParams,
   int32_t*        cMatOut
 );
 

@@ -92,14 +92,14 @@ class NbrPotentialFunctorContrastSensitive {
 /////////////////////////////////////////////
 class NbrPotentialFunctorDegreeSensitive {
   public:
-    NbrPotentialFunctorDegreeSensitive(){}
+    NbrPotentialFunctorDegreeSensitive(double K) : m_w(K) {}
 
     inline double operator()( double deg1, double deg2 )
     {
       return m_w / ( 0.5 * ( deg1 + deg2 ) );
     }
   private:
-    const double m_w = 1.0;
+    const double m_w;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1013,13 +1013,13 @@ void ultraflow_inferenceSuperPixel(
   int32_t*        cMatEdges,
   double*         cMatLabelWeights,
   char*           nbrPotentialMethod,
-  //      double* nbrPotentialParams,
+  double          K,
   int32_t*        cMatOut
 )
 {
   if ( nbrPotentialMethod == std::string("degreeSensitive") )
   {
-    NbrPotentialFunctorDegreeSensitive functor;
+    NbrPotentialFunctorDegreeSensitive functor(K);
     inferenceSuperPixelUsingTFunctor(
       method,
       nbSuperPixels,

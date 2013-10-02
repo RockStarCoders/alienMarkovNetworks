@@ -81,7 +81,7 @@ cdef extern from "uflow.hpp": # essential!
       np.int32_t*     cMatEdges,
       double*         cMatLabelWeights,
       char*           nbrPotentialMethod, 
-#      double*         nbrPotentialParams,
+      double          K,
       np.int32_t*     cMatOut
     )
 
@@ -226,7 +226,8 @@ def inferenceSuperPixel(\
     superPixelGraph,
     np.ndarray[double, ndim=2, mode="c"] labelWeights not None,
     method,
-    nbrPotentialMethod ):
+    nbrPotentialMethod,
+    K ):
     #    np.ndarray[double, ndim=1, mode="c"] nbrPotentialParams not None ):
 
     N = superPixelGraph.getNumSuperPixels()
@@ -265,6 +266,7 @@ def inferenceSuperPixel(\
         &edgeMat[0,0],
         &labelWeights[0,0], 
         nbrPotentialMethod, 
+        K,
         &labelResult[0] 
       )
         #&nbrPotentialParams[0],
