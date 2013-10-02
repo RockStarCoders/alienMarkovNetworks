@@ -80,6 +80,7 @@ cdef extern from "uflow.hpp": # essential!
       int             nbEdges,
       np.int32_t*     cMatEdges,
       double*         cMatLabelWeights,
+      double*         cMatAdjProbs, # can be null
       char*           nbrPotentialMethod, 
       double          K,
       np.int32_t*     cMatOut
@@ -225,6 +226,7 @@ def inferenceNCallback( np.ndarray[double, ndim=3, mode="c"] inputImage not None
 def inferenceSuperPixel(\
     superPixelGraph,
     np.ndarray[double, ndim=2, mode="c"] labelWeights not None,
+    np.ndarray[double, ndim=2, mode="c"] adjProbs, # can be None
     method,
     nbrPotentialMethod,
     K ):
@@ -258,6 +260,12 @@ def inferenceSuperPixel(\
         np.zeros( (N), dtype=np.int32 )
 
     # Call C++ inference function.  This will get us a label per superpixel.
+    cdef double* adjProbsRef
+    if adjProbs == None:
+        adjProbsRef = NULL
+    else:
+        adjProbsRef = &adjProbs[0,0]
+
     ultraflow_inferenceSuperPixel(
         method,
         N,
@@ -265,6 +273,7 @@ def inferenceSuperPixel(\
         len( superPixelGraph.m_edges ), 
         &edgeMat[0,0],
         &labelWeights[0,0], 
+        adjProbsRef,
         nbrPotentialMethod, 
         K,
         &labelResult[0] 

@@ -92,14 +92,32 @@ class NbrPotentialFunctorContrastSensitive {
 /////////////////////////////////////////////
 class NbrPotentialFunctorDegreeSensitive {
   public:
-    NbrPotentialFunctorDegreeSensitive(double K) : m_w(K) {}
+    NbrPotentialFunctorDegreeSensitive(double K) : m_K(K) {}
 
-    inline double operator()( double deg1, double deg2 )
+    inline double operator()( double deg1, double deg2, int cl1, int cl2 )
     {
-      return m_w / ( 0.5 * ( deg1 + deg2 ) );
+      return m_K / ( 0.5 * ( deg1 + deg2 ) );
     }
   private:
-    const double m_w;
+    const double m_K;
+};
+
+/////////////////////////////////////////////
+class NbrPotentialFunctorAdjacencyAndDegreeSensitive {
+  public:
+    NbrPotentialFunctorAdjacencyAndDegreeSensitive(const double* adjProbs, int nbLabels, double K) 
+      : m_adjProbs(adjProbs), m_nbLabels(nbLabels), m_K(K)
+    {}
+
+    inline double operator()( double deg1, double deg2, int cl1, int cl2 )
+    {
+      const double a = m_adjProbs[ cl1*m_nbLabels + cl2 ];
+      return m_K * a / ( 0.5 * ( deg1 + deg2 ) );
+    }
+  private:
+    const double* m_adjProbs;
+    const int m_nbLabels;
+    const double m_K;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -259,7 +277,9 @@ static double inference2SuperPixelFunctorBased(
   double*         cMatSinkEdge,
   FUNCTOR_TYPE&   functor,
   int32_t*        cMatOut,
-  bool*           validMask
+  bool*           validMask,
+  int             srcClass,  // todo: hope I got this order right! doesn't matter.
+  int             snkClass
 )
 {
   std::cout << "Inference superpixel 2-label:\n";
@@ -301,7 +321,10 @@ static double inference2SuperPixelFunctorBased(
 
     if ( validSP && nbrValidSP )
     {
-      wt = functor( spDegree[idx], spDegree[nidx] );
+      // todo: this is a bit shonky.  There is some adjacency probability for a
+      // class to itself.  However in this case the weight will be zero.  Maybe
+      // normalise probs relative to this prob, but how for difft classes?
+      wt = functor( spDegree[idx], spDegree[nidx], srcClass, snkClass );
     }
     else
     {
@@ -520,7 +543,7 @@ double energyOfLabellingNSuperPixel(
     const int lbl = cMatLabels[ ej[0] ];
     if ( lbl != cMatLabels[ ej[1] ] )
     {
-      const double ee = functor( spDegree[ ej[0] ], spDegree[ ej[1] ] );
+      const double ee = functor( spDegree[ ej[0] ], spDegree[ ej[1] ], lbl, cMatLabels[ ej[1] ] );
       // std::cout << "energy for edge " << ej[0] << ", " << ej[1] << " = "
       //           << ee << "\n";
       res += ee;
@@ -791,7 +814,9 @@ static void inferenceSuperPixelABSwap(
           snkEdges.get(),
           functor,
           t.get(),
-          NULL
+          NULL, 
+          a, 
+          b
         );
 
         // To compute the energy, have to construct the proposed labelling.
@@ -1012,6 +1037,7 @@ void ultraflow_inferenceSuperPixel(
   int             nbEdges,
   int32_t*        cMatEdges,
   double*         cMatLabelWeights,
+  double*         cMatAdjProbs, // can be null
   char*           nbrPotentialMethod,
   double          K,
   int32_t*        cMatOut
@@ -1020,6 +1046,23 @@ void ultraflow_inferenceSuperPixel(
   if ( nbrPotentialMethod == std::string("degreeSensitive") )
   {
     NbrPotentialFunctorDegreeSensitive functor(K);
+    inferenceSuperPixelUsingTFunctor(
+      method,
+      nbSuperPixels,
+      nbLabels,
+      nbEdges,
+      cMatEdges,
+      cMatLabelWeights,
+      functor,
+      cMatOut
+    );
+  }
+  else if ( nbrPotentialMethod == std::string("adjacencyAndDegreeSensitive") )
+  {
+    NbrPotentialFunctorAdjacencyAndDegreeSensitive functor(cMatAdjProbs, nbLabels, K);
+    // todo: can get rid of this repeated code with a base class with virtual
+    // oeprator method.  Because there's no polymorphism it will not incur the
+    // cost of a virtual call.
     inferenceSuperPixelUsingTFunctor(
       method,
       nbSuperPixels,
