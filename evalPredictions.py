@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 # evaluation of classifier performance
 # assumptions
 # calculate performance at pixel level - no superpixel refs
