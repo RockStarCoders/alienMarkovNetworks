@@ -6,7 +6,6 @@
 # discount any and all void labels in ground truth; count as incorrect if predicted
 # images are the same size :)
 # assume that the indexes align i.e. idx=1 refers to the same class
-# python evalPredictions.py "/home/amb/dev/mrf/data/classifierResults/evalpairs.csv" "/home/amb/dev/mrf/data/MSRC_ObjCategImageDatabase_v2"
 
 import pomio, FeatureGenerator, SuperPixels, SuperPixelClassifier
 
