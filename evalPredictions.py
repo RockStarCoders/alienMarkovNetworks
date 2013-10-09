@@ -7,6 +7,8 @@
 # images are the same size :)
 # assume that the indexes align i.e. idx=1 refers to the same class
 
+import sys
+
 import pomio, FeatureGenerator, SuperPixels, SuperPixelClassifier
 
 import numpy as np
@@ -15,6 +17,9 @@ import argparse
 
 from skimage import io
     
+
+#logFile = open('/home/amb/dev/mrf/zeroAccuracyStatslog.txt' , 'w')
+#zeroListFile = open('/home/dev/mrf/zeroAccuracyFileList.txt' , 'w');
 
 def evaluateFromFile(evalFile, sourceData, predictDir):
     evalData = None
@@ -30,7 +35,10 @@ def evaluateFromFile(evalFile, sourceData, predictDir):
     if predictDir.endswith("/") == False:
         predictDir = predictDir + "/"
 
+    headers = [ "numCorrectPixels" , "numberValidGroundTruthPixels" , "numberVoidGroundTruthPixels" , "numberPixelsInImage" ]
+    
     results = []
+    results.append(headers)
 
     # for each eval pair (prediction labels and ground truth labels) do pixel count
     
@@ -45,20 +53,19 @@ def evaluateFromFile(evalFile, sourceData, predictDir):
         
         predict = loadPredictionImageLabels(predictDir + predictFile)
         
-        result = evaluatePrediction(predict, gt)
+        result = evaluatePrediction(predict, gt, gtFile)
         results.append(result)
 
     # Results
     print "Processed total of ", len(results) , "predictions"
     for idx in range(0, len(results)):
         print "\tResult#" + str(idx+1) + ":" , results[idx]
-    
+
+    logFile.close()    
     print "Processing complete."
 
 
-def evaluatePrediction(predictLabels, gtLabels):
-    print np.shape(predictLabels)
-    print np.shape(gtLabels)
+def evaluatePrediction(predictLabels, gtLabels, imageName):
     
     assert np.shape(predictLabels) == np.shape(gtLabels) , "Predict image and ground truth image are not the same size..."
 
@@ -98,27 +105,30 @@ def evaluatePrediction(predictLabels, gtLabels):
     
     validGtPixels = allPixels - voidGtPixels
     
-    print "\tTotal pixels =\t" , allPixels
-    print "\tVOID pixels  =\t" , voidGtPixels
-    print "\tValid GT pixels =\t" , validGtPixels
-    print "\tCorrect pixels =\t" , correctPixels
-    print "\tIncorrect pixels=\t" , incorrectPixels
-    print "Pecentage accuracy = " + str( float(correctPixels) / float(validGtPixels) * 100.0 ) + str("%")
+    percentage = float(correctPixels) / float(validGtPixels) * 100.0
     
+    if percentage == 0 or percentage == 0.0:
+        print "WARNING:: " + str(imageName) + " accuracy is 0%"
+        
+        data = "ImageName = " + str(imageName) + "\n\tTotal pixels =" + str(allPixels) + "\n\tVOID pixels  = " + str(voidGtPixels) + "\n\tCorrect pixels = " + str(correctPixels) + "\n\tIncorrect pixels=" + str(incorrectPixels) + "\n"
+        
+        #logFile.write(data)
+        #zeroListFile.write(imageName + "\n")
+        
+    print "Pecentage accuracy = " + str( float(correctPixels) / float(validGtPixels) * 100.0 ) + str("%")
     return [correctPixels, validGtPixels, voidGtPixels, allPixels]
 
+def evaluateClassPerformance(predictedImg, gtImg):
+    # need to write something that accumulates stats on a class basis
+    print "Finish me!"
     
 
 def loadReferenceGroundTruthLabels(sourceData, imgName):
-
-    # should be only one image
     gtFile = str(sourceData) + "/GroundTruth/" + str(imgName)
-    
     if "_GT" in imgName:
         imgName = imgName.replace("_GT" , "")
 
     gtImgLabels = pomio.msrc_loadImages(sourceData , ["Images/" + imgName] )[0].m_gt
-
     return gtImgLabels
 
 
@@ -153,7 +163,7 @@ if __name__ == "__main__":
 
 
 def test():
-    # Create classifier
+    # TODO use reference classifier
     classifierName = "/home/amb/dev/mrf/classifiers/randomForest/superpixel/randyForest_superPixel_maxDepth15_0.6Data.pkl"
     classifier = pomio.unpickleObject(classifierName)
     carFile = "7_3_s.bmp"
