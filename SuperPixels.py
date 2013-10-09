@@ -18,18 +18,8 @@ def displayImage(image, imgTitle, orientation):
     plt.title(imgTitle)
     plt.waitforbuttonpress()
 
-#def getSuperPixels_SLIC(image, nbSegments):
-#    # See [http://scikit-image.org/docs/dev/api/skimage.segmentation.html?highlight=slic#skimage.segmentation.slic] for parameter definitions
-#    # Function signature: skimage.segmentation.slic(image, n_segments=100, ratio=10.0, max_iter=10, sigma=1, multichannel=None, convert2lab=True)
-#    segmentationMask = slic(image, nbSegments)
-#    return segmentationMask
-
 def getSuperPixels_SLIC(image, nbSegments, compactness):
-    spgraph = computeSuperPixelGraph( image, 'slic', [nbSegments, compactness] )
-    superPixelLabels = spgraph.m_labels
-    return (superPixelLabels,spgraph)
-
-
+    return slic.slic_n(image, nbSegments, compactness)
 
 def getSuperPixels_Graph(image):
     # See [http://scikit-image.org/docs/dev/api/skimage.segmentation.html?highlight=slic#skimage.segmentation.felzenszwalb]
@@ -114,7 +104,7 @@ def show_graph(grid, vertices, edges):
 def testSLIC_lenaRGB(numSuperPixels, compactness):
     lenaImg = skimage.data.lena()
     
-    spMask = getSuperPixels_SLIC(lenaImg, numSuperPixels, compactness)[1].m_labels
+    spMask = getSuperPixels_SLIC(lenaImg, numSuperPixels, compactness)
     
     lena_superPixels_SLIC = generateImageWithSuperPixelBoundaries(lenaImg, spMask )
     displayImage(lena_superPixels_SLIC, imgTitle="Lena SLIC" , orientation="upper")
@@ -137,7 +127,7 @@ def testSuperPixelOnImage(image, superPixelAlgoName):
         print "\tWARN: Defaulting to SLIC algorithm with default settings to generate superpixel over-segmentation"
     
     if(superPixelAlgoName == "SLIC"):
-        spMask = getSuperPixels_SLIC(image, 400, 10)[1].m_labels
+        spMask = getSuperPixels_SLIC(image, 400, 10)
         displayImage( generateImageWithSuperPixelBoundaries(image, spMask) , imgTitle="Car SLIC" , orientation="lower" )
     elif(superPixelAlgoName == "Quickshift"):
         displayImage( generateImageWithSuperPixelBoundaries(image, getSuperPixels_Quickshift(image) ) , imgTitle="Car Quickshift" , orientation="lower" )
@@ -206,8 +196,8 @@ class SuperPixelGraph:
 
 def computeSuperPixelGraph( imgRGB, method, params ):
     if method == 'slic':
-        print 'image type = ', imgRGB.dtype
-        labels = slic.slic_n(imgRGB,params[0],params[1])
+        nbSegments, compactness = params[0], params[1]
+        labels = getSuperPixels_SLIC(imgRGB, nbSegments, compactness)
         nodes, edges = make_graph(labels) 
     else:
         raise Exception('invalid superpixel method %s' % method)
@@ -217,27 +207,29 @@ def computeSuperPixelGraph( imgRGB, method, params ):
 # MAIN
 ################################################################################
 if __name__ == "__main__":
-    # Examples on lena.png from skimage
+    # Examples on given image
+    infile = sys.argv[1]
+    nbSuperPixels = int(sys.argv[2])
+    superPixelCompactness = float(sys.argv[3])
+
+    image = skimage.io.imread(infile)
+
     print "Oversegmentation examples will be displayed."
-    print "\tOversegmentation with lena.png:\n"
     
-    # use this to make nbRegions and compactness the 2nd and 3rd args (1st is msrc path)
     #testSLIC_lenaRGB(int(sys.argv[2]),int(sys.argv[3]))
-    testSLIC_lenaRGB(400,10)
+    testSLIC_lenaRGB(nbSuperPixels,superPixelCompactness)
     testGraph_lenaRGB()
     testQuickshift_lenaRGB()
     
     # Examples on car image (idx ) from MSRC
     print "\tOversegmentation with car image from MSRC dataset::\n"
-    msrcData = sys.argv[1] #"/home/amb/dev/mrf/data/MSRC_ObjCategImageDatabase_v2"
-    carImg = pomio.msrc_loadImages(msrcData, ['Images/7_3_s.bmp'] )[0].m_img
     print "\tSLIC algo:"
-    testSLIC_broomBroomRGB(carImg)
+    testSLIC_broomBroomRGB(image)
     
     print "\tGraph algo:"
-    testGraph_broomBroomRGB(carImg)
+    testGraph_broomBroomRGB(image)
 
     print "\tQuickshift algo:"
-    testQuickshift_broomBroomRGB(carImg)
+    testQuickshift_broomBroomRGB(image)
     
     print "Test super pixel examples complete."

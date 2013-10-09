@@ -162,9 +162,9 @@ def test():
     car = pomio.msrc_loadImages(msrcData , [ "Images/" + carFile ] )[0]
     groundTruth = car.m_gt
     
-    mask = SuperPixels.getSuperPixels_SLIC(car.m_img, 400, 10)[1].m_labels
+    mask = SuperPixels.getSuperPixels_SLIC(car.m_img, 400, 10)
     
-    spLabels = SuperPixelClassifier.predictSuperPixelLabels(classifier, car.m_img)[0]
+    spLabels = SuperPixelClassifier.predictSuperPixelLabels(classifier, car.m_img,400,10)[0]
     
     prediction = SuperPixelClassifier.getSuperPixelLabelledImage(car.m_img, mask, spLabels)
     
