@@ -56,12 +56,23 @@ def evaluateFromFile(evalFile, sourceData, predictDir):
         result = evaluatePrediction(predict, gt, gtFile)
         results.append(result)
 
-    # Results
+    # Aggregate results
     print "Processed total of ", len(results) , "predictions"
-    for idx in range(0, len(results)):
-        print "\tResult#" + str(idx+1) + ":" , results[idx]
+    
+    sumAccuracy = 0.0
+    sumValid = 0.0
+    
+    # The first entry is headers, so iterate from 1 index
+    for idx in range(1, len(results)):
+        sumAccuracy = sumAccuracy + results[idx][0]
+        sumValid = sumValid + results[idx][1]
 
-    logFile.close()    
+    avgAccuracy = (sumAccuracy / sumValid) * 100.0
+    
+    #logFile.close()
+    print "\n*****\nAverage accuracy =" , avgAccuracy
+    print "Over" , len(results) , "predictions"
+    
     print "Processing complete."
 
 
@@ -116,7 +127,7 @@ def evaluatePrediction(predictLabels, gtLabels, imageName):
         #zeroListFile.write(imageName + "\n")
         
     print "Pecentage accuracy = " + str( float(correctPixels) / float(validGtPixels) * 100.0 ) + str("%")
-    return [correctPixels, validGtPixels, voidGtPixels, allPixels]
+    return [int(correctPixels), int(validGtPixels), int(voidGtPixels), int(allPixels)]
 
 def evaluateClassPerformance(predictedImg, gtImg):
     # need to write something that accumulates stats on a class basis
