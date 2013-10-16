@@ -22,6 +22,7 @@ parser.add_argument('--rf_n_estimators', type=int, default=50,  help='nb trees i
 parser.add_argument('--rf_max_depth',    type=str, default='None',  help='max depth of trees')
 parser.add_argument('--rf_max_features', type=str, default='auto',  help='max features used in a split')
 parser.add_argument('--rf_min_samples_leaf', type=str, default='10',  help='min samples in a tree leaf')
+parser.add_argument('--rf_min_samples_split', type=int, default=100,  help='min nb samples to split a node')
 parser.add_argument('--ftrsTest', type=str, help='optional test set features for generalisation evaluation')
 parser.add_argument('--labsTest', type=str, help='optional test set labels for generalisation evaluation')
 parser.add_argument('--verbose', action='store_true')
@@ -129,11 +130,12 @@ if paramSearch:
     elif clfrType == 'randyforest':
         # create a set of parameters
         params['min_samples_leaf'] = [5, 20,100,500]
-        params['n_estimators']     = [50] # [10,100,500]
-        params['max_depth']        = [5,15,50,100]
+        params['n_estimators']     = [50,150,500]
+        params['max_depth']        = [5,15,50]
         params['max_depth'].append( None )
-        params['max_features']        = [2,10,25,100]
+        params['max_features']        = [5,25,75]
         params['max_features'].append( 'auto' )
+        params['min_samples_split'] = [10,100]
 
         print "\nRandyforest parameter search grid:\n" , params
         
@@ -164,6 +166,8 @@ else:
         rfParams['n_estimators']     = args.rf_n_estimators
         rfParams['max_depth']        = args.rf_max_depth
         rfParams['max_features']     = args.rf_max_features
+        rfParams['min_samples_split']= args.rf_min_samples_split
+
         # some of these might be int
         for k,v in rfParams.items():
             if type(v)==str:
@@ -189,7 +193,7 @@ if clfrType == 'randyforest':
             n_estimators=rfParams['n_estimators'], \
             criterion='gini', \
             max_features=rfParams['max_features'], \
-            min_samples_split=100, \
+            min_samples_split=rfParams['min_samples_split'], \
             min_samples_leaf =rfParams['min_samples_leaf'],\
             bootstrap=True, \
             oob_score=True,\

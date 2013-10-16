@@ -28,14 +28,12 @@ import pdb
 
 
 # Use this if you have generated a set of MSRC image to process
-def getSuperPixelData(msrcImages):
+def getSuperPixelData(msrcImages,numberSuperPixels, superPixelCompactness):
     
     # Should probably make this a call to pomio in case the ordering changes in the future...
     voidClassLabel = pomio.getVoidIdx()
     
     numberImages = len(msrcImages)    
-    numberSuperPixels = 400
-    superPixelCompactness = 10
     
     # for each image:
     #   determine superpixel label (discard if void)
@@ -61,10 +59,9 @@ def getSuperPixelData(msrcImages):
         imgPixelLabels = msrcImages[imgIdx].m_gt
         
         # create superpixel map and graph for image
-        imgSuperPixelMask, spgraph = SuperPixels.getSuperPixels_SLIC(img, numberSuperPixels, superPixelCompactness)
-
+        spgraph = SuperPixels.computeSuperPixelGraph( img, 'slic', [numberSuperPixels, superPixelCompactness] )
+        imgSuperPixelMask = spgraph.m_labels
         imgSuperPixels = spgraph.m_nodes
-
         numberImgSuperPixels = spgraph.getNumSuperPixels()
     
         # create superpixel exclude list & superpixel label array
@@ -111,7 +108,7 @@ def getSuperPixelData(msrcImages):
 
 
 # use this function to generate features and labels for default training dataset split
-def getSuperPixelTrainingData(msrcDataDirectory, scale, trainSplit=0.6, validationSplit=0.2, testSplit=0.2):
+def getSuperPixelTrainingData(msrcDataDirectory, nbSuperPixels,superPixelCompactness, scale, trainSplit=0.6, validationSplit=0.2, testSplit=0.2):
     
     # Should probably make this a call to pomio in case the ordering changes in the future...
     voidClassLabel = pomio.getVoidIdx()
@@ -120,9 +117,6 @@ def getSuperPixelTrainingData(msrcDataDirectory, scale, trainSplit=0.6, validati
     if scale == None:
         scale = 0.05 # default to 10% of data
         
-    numberSuperPixels = 400
-    superPixelCompactness = 10
-    
     msrcData = pomio.msrc_loadImages(msrcDataDirectory, None)
 
     print "Now generating superpixel classifier for MSRC data"
@@ -134,16 +128,16 @@ def getSuperPixelTrainingData(msrcDataDirectory, scale, trainSplit=0.6, validati
     trainingMsrcImages = splitData[0]
     
     # Just use the above function to get superpixel features and labels for training data
-    return SuperPixelClassifier.getSuperPixelData(trainingMsrcImages)
+    return SuperPixelClassifier.getSuperPixelData(trainingMsrcImages,nbSuperPixels,superPixelCompactness)
     
     
 
 
 # Could use other params e.g. training dataset size
-def createSuperPixelRandomForestClassifier(msrcDataDirectory, classifierDirectory, scale):
+def createSuperPixelRandomForestClassifier(msrcDataDirectory, classifierDirectory,nbSuperPixels,superPixelCompactness, scale):
     
     # Get training data
-    superPixelTrainData = getSuperPixelTrainingData(msrcDataDirectory, scale)
+    superPixelTrainData = getSuperPixelTrainingData(msrcDataDirectory,nbSuperPixels,superPixelCompactness, scale)
     superPixelTrainFeatures = superPixelTrainData[0]
     superPixelTrainLabels = superPixelTrainData[1]
     
@@ -169,7 +163,7 @@ def createSuperPixelRandomForestClassifier(msrcDataDirectory, classifierDirector
 def createSuperPixelLogisticRegressionClassifier(msrcDataDirectory, classifierDirectory, scale):
     
     # Get training data
-    superPixelTrainData = getSuperPixelTrainingData(msrcDataDirectory, scale)
+    superPixelTrainData = getSuperPixelTrainingData(msrcDataDirectory,nbSuperPixels,superPixelCompactness, scale)
     superPixelTrainFeatures = superPixelTrainData[0]
     superPixelTrainLabels = superPixelTrainData[1]
     
@@ -194,15 +188,12 @@ def createSuperPixelLogisticRegressionClassifier(msrcDataDirectory, classifierDi
 
 
 
-def predictSuperPixelLabels(classifier, image):
+def predictSuperPixelLabels(classifier, image,numberSuperPixels, superPixelCompactness):
     print "\n**Computing super pixel labelling for input image"
     
-    desiredSuperPixels = 400
-    superPixelCompactness = 10
-    
     # Get superpixels
-    (imgSuperPixelsMask, spgraph) = SuperPixels.getSuperPixels_SLIC(image, desiredSuperPixels, superPixelCompactness)
-    #pdb.set_trace()
+    spgraph = SuperPixels.computeSuperPixelGraph(image,'slic',[numberSuperPixels, superPixelCompactness])
+    imgSuperPixelsMask = spgraph.m_labels
     imgSuperPixels = spgraph.m_nodes
     numberImgSuperPixels = len(imgSuperPixels)
     print "**Image contains", numberImgSuperPixels, "superpixels"
@@ -313,7 +304,9 @@ def testClassifier(classifierFilename, case):
         orientation = "upper"
     
     print "*Predicting superpixel labels in image::"
-    [superPixelLabels, superPixelsMask] = predictSuperPixelLabels(superPixelClassifier, image)
+    numberSuperPixels = 400
+    superPixelCompactness = 10
+    [superPixelLabels, superPixelsMask] = predictSuperPixelLabels(superPixelClassifier, image,numberSuperPixels, superPixelCompactness)
     
     carSuperPixelLabels = getSuperPixelLabelledImage(image, superPixelsMask, superPixelLabels)
     

@@ -26,7 +26,10 @@ parser.add_argument('infile', type=str, action='store', \
 parser.add_argument('--outfile', type=str, action='store', \
                         help='filename of output image to be classified')
 parser.add_argument('--verbose', action='store_true')
-
+parser.add_argument('--nbSuperPixels', type=int, default=400, \
+                        help='Desired number of super pixels in SLIC over-segmentation')
+parser.add_argument('--superPixelCompactness', type=float, default=10.0, \
+                        help='Super pixel compactness parameter for SLIC')
 args = parser.parse_args()
 
 clfrFn = args.clfrFn
@@ -34,6 +37,8 @@ clfr = pomio.unpickleObject( clfrFn )
 
 infile = args.infile
 outfile = args.outfile
+numberSuperPixels = args.nbSuperPixels
+superPixelCompactness = args.superPixelCompactness
 
 if args.verbose:
     plt.interactive(1)
@@ -43,7 +48,7 @@ if args.verbose:
 
 print 'Classifying file ', args.infile
 image = skimage.io.imread(args.infile)
-[spClassPreds, spGraph] = SuperPixelClassifier.predictSuperPixelLabels(clfr, image)
+[spClassPreds, spGraph] = SuperPixelClassifier.predictSuperPixelLabels(clfr, image,numberSuperPixels, superPixelCompactness)
 spClassPredsImage = spGraph.imageFromSuperPixelData( spClassPreds.reshape( (len(spClassPreds),1) ) )
 
 if args.verbose:

@@ -21,6 +21,10 @@ parser.add_argument('--scaleFrac', type=float, action='store', default=1.0, \
 parser.add_argument('--splitRatio', action='store', default=[0.7,0.0,0.3], \
                         nargs=3, metavar=('rTrain','rValidation', 'rTest'),\
                         help = 'Ratio of data to use for training, validation and test. They don''t have to sum to unity.' )
+parser.add_argument('--nbSuperPixels', type=int, default=400, \
+                        help='Desired number of super pixels in SLIC over-segmentation')
+parser.add_argument('--superPixelCompactness', type=float, default=10.0, \
+                        help='Super pixel compactness parameter for SLIC')
 
 # arguments
 parser.add_argument('MSRCPath', type=str, action='store', \
@@ -30,8 +34,13 @@ parser.add_argument('outfileBase', type=str, action='store', \
 
 args = parser.parse_args()
 
+numberSuperPixels = args.nbSuperPixels
+superPixelCompactness = args.superPixelCompactness
+
 # Function to take msrc data, create features and labels for superpixels and then save to disk
-def createAndSaveFeatureLabelData(msrcData, outfileBase, dataType, outfileType):
+def createAndSaveFeatureLabelData(
+      msrcData, outfileBase, dataType, outfileType, nbSuperPixels, superPixelCompactness
+    ):
     outfileFtrs = '%s_%s_ftrs.%s' % ( outfileBase, dataType, outfileType )
     outfileLabs = '%s_%s_labs.%s' % ( outfileBase, dataType, outfileType )
     outfileAdj  = '%s_%s_adj.%s'  % ( outfileBase, dataType, outfileType )
@@ -42,7 +51,7 @@ def createAndSaveFeatureLabelData(msrcData, outfileBase, dataType, outfileType):
     f.close()
     
     # Edited getSuperPixelTrainingData to allow user-defined data split ratios
-    superPixelData     = SuperPixelClassifier.getSuperPixelData(msrcData)
+    superPixelData     = SuperPixelClassifier.getSuperPixelData(msrcData,nbSuperPixels,superPixelCompactness)
     
     superPixelFeatures = superPixelData[0]
     superPixelLabels   = superPixelData[1].astype(np.int32)
@@ -102,14 +111,29 @@ print "Creating training set from %d images, and test set from %d images" % (len
 
 # Process and persist feature and labels for superpixels in image dataset
 print "Create & save training feature and label superpixel data"
-createAndSaveFeatureLabelData(trainData, outfileBase, "train" , outfileType)
+createAndSaveFeatureLabelData( trainData,
+                               outfileBase,
+                               "train",
+                               outfileType,
+                               numberSuperPixels,
+                               superPixelCompactness )
 
 if testData != None and len(testData)>0:
     print "Create & save test feature and label superpixel data"
-    createAndSaveFeatureLabelData(testData, outfileBase, "test" , outfileType)
+    createAndSaveFeatureLabelData( testData,
+                                   outfileBase,
+                                   "test",
+                                   outfileType,
+                                   numberSuperPixels,
+                                   superPixelCompactness )
     if(cvData != None and len(cvData) > 0):
         print ""
-        createAndSaveFeatureLabelData(cvData, outfileBase, "crossValid" , outfileType)
+        createAndSaveFeatureLabelData( cvData,
+                                       outfileBase,
+                                       "crossValid",
+                                       outfileType,
+                                       numberSuperPixels,
+                                       superPixelCompactness )
 
 
 

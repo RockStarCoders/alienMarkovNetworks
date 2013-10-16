@@ -39,10 +39,16 @@ parser.add_argument('--K', type=float, action='store', default=0.1, \
 parser.add_argument('--nbrPotentialMethod', type=str, action='store', \
                         choices=['degreeSensitive', 'adjacencyAndDegreeSensitive'], default='degreeSensitive',\
                         help='Neighbour potential method.  If adjacency is used, then --adjFn must be specified.')
+parser.add_argument('--nbSuperPixels', type=int, default=400, \
+                        help='Desired number of super pixels in SLIC over-segmentation')
+parser.add_argument('--superPixelCompactness', type=float, default=10.0, \
+                        help='Super pixel compactness parameter for SLIC')
 
 args = parser.parse_args()
 
 K = args.K
+numberSuperPixels = args.nbSuperPixels
+superPixelCompactness = args.superPixelCompactness
 dointeract = 1
 dbgMode = 0
 
@@ -53,7 +59,7 @@ dbgMode = 0
 imgRGB = imread( args.infile )
 
 # Turn image into superpixels.
-spix = SuperPixels.computeSuperPixelGraph( imgRGB, 'slic', [400,10] )
+spix = SuperPixels.computeSuperPixelGraph( imgRGB, 'slic', [numberSuperPixels,superPixelCompactness] )
 
 print 'Loading classifier...'
 clfr = bonzaClass.loadObject(args.clfrFn)
