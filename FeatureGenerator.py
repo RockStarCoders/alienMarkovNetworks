@@ -700,26 +700,26 @@ def generateSuperPixelFeatures(image, mask, excludeSuperPixelList):
             skippedSuperPixelCount = skippedSuperPixelCount + 1
         
         else:
-            # mean of each feature, over m pixel values
+            #print("\n\tmean of each feature, over m pixel values")
             spMeanFeatures = np.mean(superPixelFeatures_pixel[superPixelValue] , 0)
             assert np.shape(spMeanFeatures)[0] == numFeatures, "The number of SP" + str(spIdx) + " mean features != the number of features per pixel"
         
-            # standard deviation of each feature, over m pixel values
+            #print("\tstandard deviation of each feature, over m pixel values")
             spSDFeatures = np.std(superPixelFeatures_pixel[superPixelValue], 0)
             assert np.shape(spMeanFeatures)[0] == numFeatures, "The number of SP" + str(spIdx) + " std features != the number of features per pixel"
 
-            # skewness of each feature, over m pixel values
+            #print("\tskewness of each feature, over m pixel values")
             spSkewFeatures = stats.skew(superPixelFeatures_pixel[superPixelValue] , 0)
             assert np.shape(spMeanFeatures)[0] == numFeatures, "The number of SP" + str(spIdx) + " skewness features != the number of features per pixel"
         
-            # kurtosis of each feature, over m pixel values
+            #print("\tkurtosis of each feature, over m pixel values")
             spKurtosisFeatures = stats.kurtosis(superPixelFeatures_pixel[spIdx], 0)
             assert np.shape(spMeanFeatures)[0] == numFeatures, "The number of SP" + str(spIdx) + " kurtosis features != the number of features per pixel"
         
             # size feature = m pixels in superpixel
             spSizeFeature = np.shape(superPixelFeatures_pixel[superPixelValue])[0]
         
-            # create a single array for all stats features
+            #print("\n\tcreate a single array for all stats features")
             superPixelFeatures = np.hstack([ spMeanFeatures, spSDFeatures, spSkewFeatures, spKurtosisFeatures, spSizeFeature])
             assert np.shape(superPixelFeatures)[0] == numStatFeatures, "Total features stats != number of features per pixel"
         
@@ -732,6 +732,15 @@ def generateSuperPixelFeatures(image, mask, excludeSuperPixelList):
             validSuperPixelCount = validSuperPixelCount + 1
 
     print "\tINFO: processed" , validSuperPixelCount , "& skipped " , skippedSuperPixelCount , "superpixels. Type:" , type(allImgSuperPixelFeatures)
+    
+    # Check for NaN values
+    numNanValues = np.sum( ((np.isnan(allImgSuperPixelFeatures) == True)[0]).astype('int') )
+    if numNanValues > 0:
+        print "\tINFO: SuperPixelFeature data includes", numNanValues , "NaN values.  These will be replaced by 0."
+        allImgSuperPixelFeatures[np.where(np.isnan(allImgSuperPixelFeatures) == True)[0]] = 0.0
+        # refresh the count of Nans
+        numNanValues = np.sum( ((np.isnan(allImgSuperPixelFeatures) == True)[0]).astype('int') )
+        print "Remaining Nan values should equal 0 :" , (numNanValues == 0)
     
     assert skippedSuperPixelCount == totalExcludedSuperPixels, "Skipped superpixels != number excluded superpixels:: " + str(skippedSuperPixelCount) + " vs. " + str(totalExcludedSuperPixels)
     
@@ -848,5 +857,6 @@ def test_superPixelFeatures():
     
     print "Shape of super pixel features =" , np.shape(spFeatures)
     
-    return spFeatures
+    numNanValues = np.sum( ((np.isnan(spFeatures) == True)[0]).astype('int') )
+    print "\n\nPost-processing total NaN values =", numNanValues
 
