@@ -736,8 +736,8 @@ def generateSuperPixelFeatures(image, mask, excludeSuperPixelList):
     # Check for NaN values
     numNanValues = np.sum( ((np.isnan(allImgSuperPixelFeatures) == True)[0]).astype('int') )
     if numNanValues > 0:
-        print "\tINFO: SuperPixelFeature data includes", numNanValues , "NaN values.  These will be replaced by 10000."
-        allImgSuperPixelFeatures[np.where(np.isnan(allImgSuperPixelFeatures) == True)[0]] = 10*5
+        print "\tINFO: SuperPixelFeature data includes", numNanValues , "NaN values.  These will be replaced by 0."
+        allImgSuperPixelFeatures[np.where(np.isnan(allImgSuperPixelFeatures) == True)[0]] = 0.0
         # refresh the count of Nans
         numNanValues = np.sum( ((np.isnan(allImgSuperPixelFeatures) == True)[0]).astype('int') )
         print "Remaining Nan values should equal 0 :" , (numNanValues == 0)
