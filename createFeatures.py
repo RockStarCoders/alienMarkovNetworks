@@ -18,7 +18,7 @@ parser.add_argument('--type', type=str, action='store', default='pkl', \
                         help='output file type')
 parser.add_argument('--scaleFrac', type=float, action='store', default=1.0, \
                         help='Fraction of the available data to use.' )
-parser.add_argument('--splitRatio', action='store', default=[0.7,0.0,0.3], \
+parser.add_argument('--splitRatio', action='store', default=[1.0,0.0,0.0], \
                         nargs=3, metavar=('rTrain','rValidation', 'rTest'),\
                         help = 'Ratio of data to use for training, validation and test. They don''t have to sum to unity.' )
 parser.add_argument('--nbSuperPixels', type=int, default=400, \
@@ -126,14 +126,14 @@ if testData != None and len(testData)>0:
                                    outfileType,
                                    numberSuperPixels,
                                    superPixelCompactness )
-    if(cvData != None and len(cvData) > 0):
-        print ""
-        createAndSaveFeatureLabelData( cvData,
-                                       outfileBase,
-                                       "crossValid",
-                                       outfileType,
-                                       numberSuperPixels,
-                                       superPixelCompactness )
+if(cvData != None and len(cvData) > 0):
+    print "Create & save validation feature and label superpixel data"
+    createAndSaveFeatureLabelData( cvData,
+                                   outfileBase,
+                                   "crossValid",
+                                   outfileType,
+                                   numberSuperPixels,
+                                   superPixelCompactness )
 
 
 
