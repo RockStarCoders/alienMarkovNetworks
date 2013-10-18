@@ -9,7 +9,7 @@ parser.add_argument('ftrs', type=str, action='store', \
                         help='filename of pkl or csv training features data')
 parser.add_argument('labs', type=str, action='store', \
                         help='filename of pkl or csv training labels data')
-parser.add_argument('outfile', type=str, action='store', \
+parser.add_argument('--outfile', type=str, action='store', \
                         help='filename of pkl for output trained classifier object')
 parser.add_argument('--type', type=str, action='store', default='randyforest', \
                         choices = ['logreg', 'randyforest'], \
@@ -47,14 +47,15 @@ infileLabsTest = args.labsTest
 
 paramSearch = (paramSearchFolds>0)
 
-assert outfile.endswith('.pkl')
+assert outfile == None or outfile.endswith('.pkl')
 
 assert clfrType in ['logreg', 'randyforest'], \
-    'Unknown classifier type ' + outfileType
+    'Unknown classifier type ' + clfrType
 
 # Check can write these files.
-f=open(outfile,'w')
-f.close()
+if outfile != None:
+    f=open(outfile,'w')
+    f.close()
 
 
 clfr = None
@@ -237,9 +238,9 @@ if infileFtrsTest != None and infileLabsTest != None:
     print 'Test set accuracy (frac correct)     = ', clfr.score( ftrsTest, labsTest )
 
 # Write the classifier
-if clfr != None:
+if clfr != None and outfile != None:
     pomio.pickleObject( clfr, outfile )
     print 'Output written to file ', outfile
 else:
-    print "No classifier to persist; review input parameters."
+    print "No classifier to persist or no output filename; review input parameters."
 
