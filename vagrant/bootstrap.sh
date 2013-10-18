@@ -3,9 +3,9 @@
 # Install packages
 apt-get update
 apt-get install -y emacs git-core cython python-pip python-dev \
-    python-numpy python-matplotlib python-scipy python-skimage \
+    python-numpy python-matplotlib python-scipy \
     libboost-dev
-pip install scikit-learn 
+pip install scikit-learn scikit-image
 
 # Clone slic repo
 cd /vagrant && \
