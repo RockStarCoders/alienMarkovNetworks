@@ -28,7 +28,7 @@ spCompactVals="10.0 15.0 30.0"
 
 for spNum in $spNumVals; do
     for spCompact in $spCompactVals; do
-	outfileBaseCombo=$(printf "%s_slic-%d-%06.2f_" "$outfileBase" $spNum $spCompact)
+	outfileBaseCombo=$(printf "%s_slic-%d-%06.2f" "$outfileBase" $spNum $spCompact)
 	echo "*** Combo: spNum = $spNum, spCompact = $spCompact, outfileBase = $outfileBaseCombo"
 
 	echo ./createFeatures.py --type=pkl --nbSuperPixels=$spNum --superPixelCompactness=$spCompact "$dataPath" "$outfileBaseCombo"
