@@ -41,9 +41,16 @@ superPixelCompactness = args.superPixelCompactness
 def createAndSaveFeatureLabelData(
       msrcData, outfileBase, dataType, outfileType, nbSuperPixels, superPixelCompactness
     ):
-    outfileFtrs = '%s_%s_ftrs.%s' % ( outfileBase, dataType, outfileType )
-    outfileLabs = '%s_%s_labs.%s' % ( outfileBase, dataType, outfileType )
-    outfileAdj  = '%s_%s_adj.%s'  % ( outfileBase, dataType, outfileType )
+
+    if dataType == None or dataType == "":
+        outfileFtrs = '%s_ftrs.%s' % ( outfileBase, outfileType )
+        outfileLabs = '%s_labs.%s' % ( outfileBase, outfileType )
+        outfileAdj  = '%s_adj.%s'  % ( outfileBase, outfileType )
+    else:
+        outfileFtrs = '%s_%s_ftrs.%s' % ( outfileBase, dataType, outfileType )
+        outfileLabs = '%s_%s_labs.%s' % ( outfileBase, dataType, outfileType )
+        outfileAdj  = '%s_%s_adj.%s'  % ( outfileBase, dataType, outfileType )
+
     # Check can write these files.
     f=open(outfileFtrs,'w')
     f.close()
@@ -88,53 +95,77 @@ trainSplit = float(splitRatio[0])
 cvSplit = float(splitRatio[1])
 testSplit = float(splitRatio[2])
 
-# This has already been checked.  to be sure, to be sure
+
+# This has already been checked.  To be sure, to be sure
 assert (trainSplit + cvSplit + testSplit) == 1.0 , "Data split values do not add up to 1 : " + str(trainSplit + cvSplit + testSplit) + ".  Check input data: " + str(splitRatio)
 assert outfileType in ['csv', 'pkl'], 'Unknown outfile type ' + outfileType
 assert 0 <= scaleFrac and scaleFrac <= 1
 
+# Only write the type of data (i.e. train, validation, test) if a non-default split is provided as input
+writeDataType = False
+if (trainSplit == 1.0) and (cvSplit == 0.0 and testSplit == 0.0):
+    writeDataType = False
+else:
+    # we get here if we have non-default splits
+    writeDataType = True
 
-# Get train, test and cv datasets
-print "\nSplitting data into sets: train =" , trainSplit , "test =" , testSplit , "cvSplit =" , cvSplit
-keepClassDistForTraining= False #!!
-[trainData, cvData, testData] = pomio.splitInputDataset_msrcData(\
-    pomio.msrc_loadImages(msrcDataDirectory, subset=None),
-    scaleFrac, keepClassDistForTraining, trainSplit , cvSplit , testSplit)
+# Do the expected thing if we have a non-default split
+if writeDataType == True:
+    # Get train, test and cv datasets
+    print "\nSplitting data into sets: train =" , trainSplit , "test =" , testSplit , "cvSplit =" , cvSplit
+    keepClassDistForTraining= False #!!
+    [trainData, cvData, testData] = pomio.splitInputDataset_msrcData(\
+        pomio.msrc_loadImages(msrcDataDirectory, subset=None),
+        scaleFrac, keepClassDistForTraining, trainSplit , cvSplit , testSplit)
 
-assert trainData != None , "Training data object is null"
-assert len(trainData) > 0 , "Training data contains no data"
+    assert trainData != None , "Training data object is null"
+    assert len(trainData) > 0 , "Training data contains no data"
 
-if testData == None or  len(testData) == 0:
-    print 'WARNING: Testing data contains no data'
+    if testData == None or  len(testData) == 0:
+        print 'WARNING: Testing data contains no data'
 
-print "Creating training set from %d images, and test set from %d images" % (len(trainData), len(testData))
+    print "Creating training set from %d images, and test set from %d images" % (len(trainData), len(testData))
 
-# Process and persist feature and labels for superpixels in image dataset
-print "Create & save training feature and label superpixel data"
-createAndSaveFeatureLabelData( trainData,
-                               outfileBase,
-                               "train",
-                               outfileType,
-                               numberSuperPixels,
-                               superPixelCompactness )
-
-if testData != None and len(testData)>0:
-    print "Create & save test feature and label superpixel data"
-    createAndSaveFeatureLabelData( testData,
+    # Process and persist feature and labels for superpixels in image dataset
+    print "Create & save training feature and label superpixel data"
+    createAndSaveFeatureLabelData( trainData,
                                    outfileBase,
-                                   "test",
-                                   outfileType,
-                                   numberSuperPixels,
-                                   superPixelCompactness )
-if(cvData != None and len(cvData) > 0):
-    print "Create & save validation feature and label superpixel data"
-    createAndSaveFeatureLabelData( cvData,
-                                   outfileBase,
-                                   "crossValid",
+                                   "train",
                                    outfileType,
                                    numberSuperPixels,
                                    superPixelCompactness )
 
+    if testData != None and len(testData)>0:
+        print "Create & save test feature and label superpixel data"
+        createAndSaveFeatureLabelData( testData,
+                                       outfileBase,
+                                       "test",
+                                       outfileType,
+                                       numberSuperPixels,
+                                       superPixelCompactness )
+    if(cvData != None and len(cvData) > 0):
+        print "Create & save validation feature and label superpixel data"
+        createAndSaveFeatureLabelData( cvData,
+                                       outfileBase,
+                                       "crossValid",
+                                       outfileType,
+                                       numberSuperPixels,
+                                       superPixelCompactness )
+
+# Otherwise, just process all the data as a single data set, and write data to file without type in the filename
+else:
+    keepClassDistForTraining= False #!!
+    [actualData, cvData, testData] = pomio.splitInputDataset_msrcData(\
+        pomio.msrc_loadImages(msrcDataDirectory, subset=None),
+        scaleFrac, keepClassDistForTraining, trainSplit , cvSplit , testSplit)
+
+    assert actualData != None , "Training data object is null"
+    createAndSaveFeatureLabelData( actualData,
+                                   outfileBase,
+                                   "",
+                                   outfileType,
+                                   numberSuperPixels,
+                                   superPixelCompactness )
 
 
 

@@ -15,6 +15,10 @@ import PossumStats
 #   http://research.microsoft.com/en-us/projects/ObjectClassRecognition/
 #
 # It comes with a html doc file describing the labels rgb signatures.
+# Shotton 21 classes:
+#       building, grass, tree, cow, sheep, sky, airplane,
+#       water, face, car, bicycle, flower, sign, bird, book,
+#       chair, road, cat, dog, body, and boat.
 
 msrc_classToRGB = [\
 ('void'     , (0     ,0       ,0     )), # 0 \
@@ -22,10 +26,10 @@ msrc_classToRGB = [\
 ('grass'    , (0     ,128     ,0     )), # 2 \
 ('tree'     , (128   ,128     ,0     )), # 3 \
 ('cow'      , (0     ,0       ,128   )), # 4 \
-('horse'    , (128   ,0       ,128   )), # 5 \
+#('horse'    , (128   ,0       ,128   )), # 5 \
 ('sheep'    , (0     ,128     ,128   )), # 6 \
 ('sky'      , (128   ,128     ,128   )), # 7 \
-('mountain' , (64    ,0       ,0     )), # 8 \
+#('mountain' , (64    ,0       ,0     )), # 8 \
 ('aeroplane', (192   ,0       ,0     )), # 9 \
 ('water'    , (64    ,128     ,0     )), # 10 \
 ('face'     , (192   ,128     ,0     )), # 11 \
