@@ -1,4 +1,4 @@
-alien markov networks: experiments in MRFs for image segmentation
+*Alien Markov Networks*: experiments in MRFs for image segmentation
 ------------------------------------------------------------------
 
 Currently the aim is to get some decent results on the MSRC data set.  The
@@ -7,13 +7,10 @@ on a VM using vagrant.  If you're running Ubuntu 13.04, you could try running
 the provisioning script in the vagrant directory (bootstrap.sh) to install the
 necessary dependencies.
 
-MSRC data is available here:
-```
-    http://research.microsoft.com/en-us/downloads/b94de342-60dc-45d0-830b-9f6eff91b301/default.aspx
-```
+[MSRC data is available here] (http://research.microsoft.com/en-us/downloads/b94de342-60dc-45d0-830b-9f6eff91b301/default.aspx)
 
 
-# VM
+## VM
 
 *NOTE:* vagrant uses virtualbox by default.  For me this required switching
 virtualisation on in the bios.
@@ -42,7 +39,7 @@ On the host machine, you can provide the MSRC data to the VM as follows:
 ```
 
 
-# RUN
+## RUN
 
 Inside the VM, first create features from the data.  For each of the training,
 validation and test sets of images, features can be created for a range of
