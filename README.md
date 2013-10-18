@@ -7,6 +7,12 @@ on a VM using vagrant.  If you're running Ubuntu 13.04, you could try running
 the provisioning script in the vagrant directory (bootstrap.sh) to install the
 necessary dependencies.
 
+MSRC data is available here:
+```
+    http://research.microsoft.com/en-us/downloads/b94de342-60dc-45d0-830b-9f6eff91b301/default.aspx
+```
+
+
 # VM
 
 *NOTE:* vagrant uses virtualbox by default.  For me this required switching
@@ -35,26 +41,18 @@ On the host machine, you can provide the MSRC data to the VM as follows:
       vagrant/msrcData
 ```
 
-# INSTALL
 
-You will have to install some python packages, like numpy, sklearn, etc.
+# RUN
 
-Some pip installed like pybrain.
+Inside the VM, first create features from the data.  For each of the training,
+validation and test sets of images, features can be created for a range of
+oversegmentation parameter settings as follows:
 
-Some you download, make sure they are on your python path:
-```
-  slic-python:  git clone https://github.com/amueller/slic-python.git
-```
-You will need the microsoft data set probably, from:
-```
-  http://research.microsoft.com/en-us/downloads/b94de342-60dc-45d0-830b-9f6eff91b301/default.aspx
+```  
+  cd /vagrant/alienMarkovNetworks/
+  ./createMSRCFeatures.sh /vagrant/msrcData/training   /vagrant/features/msrcTraining
+  ./createMSRCFeatures.sh /vagrant/msrcData/validation /vagrant/features/msrcValidation
+  ./createMSRCFeatures.sh /vagrant/msrcData/test       /vagrant/features/msrcTest
 ```
 
-
-# BUILD
-
-It's python, you don't.  But you do have to build the C++ cython bindings:
-```
-   cd maxflow
-   python setup.py build_ext --inplace
-```
+Each feature set consists of 3 files: features, labels and super-pixel adjacency statistics.
