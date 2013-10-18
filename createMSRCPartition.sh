@@ -43,8 +43,15 @@
 
 function Usage() {
     echo "Usage:"
-    echo "   ./createMSRCPartition.sh <MSRCDataPath> <trList.txt> <valList.txt> <tstList.txt> <destPath>"
+    echo "   ./createMSRCPartition.sh [-c] <MSRCDataPath> <trList.txt> <valList.txt> <tstList.txt> <destPath>"
+    echo "If the optional -c flag is given, then the files are copied instead of symlinked."
 }
+
+if [ "$1" == "-c" ]; then
+    doCopy="true"
+    echo "COPY MODE"
+    shift
+fi
 
 typeset -a dataSets=('training' 'validation' 'test')
 
@@ -94,8 +101,13 @@ for (( i=0; i<3; ++i )) {
     listFile="${fileLists[$i]}"
     while read imgFile; do 
 	bfn=$(basename $imgFile)
-	ln -s "$msrcPath/Images/$imgFile" "$odir/Images/"
-	ln -s "$msrcPath/GroundTruth/${imgFile%.bmp}_GT.bmp" "$odir/GroundTruth/"
+	if [ -z "$doCopy" ]; then
+	    ln -s "$msrcPath/Images/$imgFile" "$odir/Images/"
+	    ln -s "$msrcPath/GroundTruth/${imgFile%.bmp}_GT.bmp" "$odir/GroundTruth/"
+	else
+	    cp "$msrcPath/Images/$imgFile" "$odir/Images/"
+	    cp "$msrcPath/GroundTruth/${imgFile%.bmp}_GT.bmp" "$odir/GroundTruth/"
+	fi
     done < "$listFile"
     echo ""
 }

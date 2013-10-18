@@ -25,6 +25,15 @@ Run these commands:
 ```
 Go get some coffee, and after that you should be up and running inside the VM.
 
+On the host machine, you can provide the MSRC data to the VM as follows:
+```
+  cd alienMarkovNetworks
+  ./createMSRCPartition.sh -c  /path/to/MSRC_ObjCategImageDatabase_v2 \
+      MSRC_dataSplit_Shotton/Train.txt \
+      MSRC_dataSplit_Shotton/Validation.txt \
+      MSRC_dataSplit_Shotton/Test.txt  \
+      vagrant/msrcData
+```
 
 # INSTALL
 
