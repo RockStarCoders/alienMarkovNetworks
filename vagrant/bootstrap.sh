@@ -3,7 +3,8 @@
 # Install packages
 apt-get update
 apt-get install -y emacs git-core cython python-pip python-dev \
-    python-numpy python-matplotlib libboost-dev
+    python-numpy python-matplotlib python-scipy python-skimage \
+    libboost-dev
 pip install scikit-learn 
 
 # Clone slic repo
@@ -20,6 +21,8 @@ cd /vagrant/alienMarkovNetworks/maxflow/ && \
     python setup.py build_ext --inplace
 
 # Make these findable to python
-echo "" >> ~/.bashrc
-echo 'export PYTHONPATH="$PYTHONPATH":/vagrant/slic-python:/vagrant/alienMarkovNetworks/maxflow' >> ~/.bashrc
+echo "ADDING PYTHONPATH to .bashrc"
+echo "" >> /home/vagrant/.bashrc
+echo 'export PYTHONPATH="$PYTHONPATH":/vagrant/slic-python:/vagrant/alienMarkovNetworks/maxflow' \
+    >> /home/vagrant/.bashrc
 
