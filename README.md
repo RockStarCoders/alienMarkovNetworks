@@ -46,6 +46,7 @@ validation and test sets of images, features can be created for a range of
 oversegmentation parameter settings as follows:
 
 ```  
+  mkdir /vagrant/features
   cd /vagrant/alienMarkovNetworks/
   ./createMSRCFeatures.sh /vagrant/msrcData/training   /vagrant/features/msrcTraining
   ./createMSRCFeatures.sh /vagrant/msrcData/validation /vagrant/features/msrcValidation
