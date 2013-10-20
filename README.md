@@ -19,7 +19,7 @@ Run these commands:
 ```
   sudo apt-get install vagrant
   vagrant box add raring64 \
-  	 http://cloud-images.ubuntu.com/vagrant/raring/current/raring-server-cloudimg-amd64-vagrant-disk1.box
+         http://cloud-images.ubuntu.com/vagrant/raring/current/raring-server-cloudimg-amd64-vagrant-disk1.box
   git clone https://github.com/RockStarCoders/alienMarkovNetworks.git
   cd alienMarkovNetworks/vagrant
   vagrant up
@@ -54,3 +54,26 @@ oversegmentation parameter settings as follows:
 ```
 
 Each feature set consists of 3 files: features, labels and super-pixel adjacency statistics.
+Train a classifier with default parameters on each of these training sets, and test on
+the corresponding validation set:
+
+```
+  ./evaluateMSRCOverseg.sh /vagrant/features/msrc
+```
+
+Of the parameters considered, the best values are ??.  Use this data set to
+perform a grid search for parameters of the random forest classifier.  Uses
+cross-validation on the training set.  In this context, the validation set can
+be a hold-out test set to check the generalisation.
+
+```
+    nohup time ./trainClassifier.py \
+     --outfile /vagrant/classifier_msrc_rf_400-10_grid.pkl \
+      --type=randyforest --paramSearchFolds=5 \
+       --ftrsTest=/vagrant/features/msrcValidation_slic-400-010.00_ftrs.pkl \
+        --labsTest=/vagrant/features/msrcValidation_slic-400-010.00_labs.pkl \
+        /vagrant/features/msrcTraining_slic-400-010.00_ftrs.pkl \
+        /vagrant/features/msrcTraining_slic-400-010.00_labs.pkl \
+         --nbJobs=2 &
+```
+

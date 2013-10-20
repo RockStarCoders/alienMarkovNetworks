@@ -179,9 +179,13 @@ class SuperPixelGraph:
             res = res.squeeze()
         return res
 
+    # Returns: (adjMatrix,nbAdjInvolvingVoid,nbAdj)
     def countClassAdjacencies( self, nbClasses, allSPClassLabels ):
         counts = np.zeros( ( nbClasses, nbClasses ) )
         voidLabel = pomio.getVoidIdx()
+        adjVoidCount = 0
+        adjCount = len(self.m_edges)
+
         for (ei, ej) in self.m_edges:
             ci = allSPClassLabels[ ei ]
             cj = allSPClassLabels[ ej ]
@@ -189,7 +193,9 @@ class SuperPixelGraph:
             if ci != voidLabel and cj != voidLabel:
                 counts[ ci-1, cj-1 ] += 1
                 counts[ cj-1, ci-1 ] += 1
-        return counts
+            else:
+                adjVoidCount += 1
+        return (counts, adjVoidCount, adjCount)
 
     def getNumSuperPixels( self ):
         return len(self.m_nodes)

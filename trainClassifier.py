@@ -26,6 +26,8 @@ parser.add_argument('--rf_min_samples_split', type=int, default=100,  help='min 
 parser.add_argument('--ftrsTest', type=str, help='optional test set features for generalisation evaluation')
 parser.add_argument('--labsTest', type=str, help='optional test set labels for generalisation evaluation')
 parser.add_argument('--verbose', action='store_true')
+parser.add_argument('--nbJobs', type=int, default=-1, \
+                        help='Number of parallel jobs during RF training.  -1 to use all available cores.')
 
 args = parser.parse_args()
 
@@ -143,7 +145,7 @@ if paramSearch:
         
         # create classifier and gridsearch classifier
         rf = sklearn.ensemble.RandomForestClassifier()
-        gsearch = grid_search.GridSearchCV(rf, params, cv=stratCV, refit=True, verbose=10, n_jobs=-1)
+        gsearch = grid_search.GridSearchCV(rf, params, cv=stratCV, refit=True, verbose=10, n_jobs=args.nbJobs)
 
         # train grid search on data
         gsearch.fit(ftrs, labs)
@@ -198,7 +200,7 @@ if clfrType == 'randyforest':
             min_samples_leaf =rfParams['min_samples_leaf'],\
             bootstrap=True, \
             oob_score=True,\
-            n_jobs=-1,\
+            n_jobs=args.nbJobs,\
             random_state=None,\
             verbose=0)
 

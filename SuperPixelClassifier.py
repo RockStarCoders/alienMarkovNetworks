@@ -47,6 +47,8 @@ def getSuperPixelData(msrcImages,numberSuperPixels, superPixelCompactness):
 
     nbClasses = pomio.getNumClasses()
     classAdjCounts = np.zeros( (nbClasses, nbClasses) )
+    adjCountsTotal = 0
+    adjVoidCountsTotal = 0
 
     for imgIdx in range(0, numberImages):
     
@@ -87,7 +89,10 @@ def getSuperPixelData(msrcImages,numberSuperPixels, superPixelCompactness):
                 superPixelLabels = np.append(superPixelLabels, superPixelLabel)
         
         assert len(allSPClassLabels) == numberImgSuperPixels
-        classAdjCounts += spgraph.countClassAdjacencies( nbClasses, allSPClassLabels )
+        (theseClassAdjCounts,adjVoidCount,adjCount) = spgraph.countClassAdjacencies( nbClasses, allSPClassLabels )
+        classAdjCounts     += theseClassAdjCounts
+        adjCountsTotal     += adjCount
+        adjVoidCountsTotal += adjVoidCount
 
         # Now we have the superpixel labels, and an ignore list of void superpixels - time to get the features!
         imgSuperPixelFeatures = FeatureGenerator.generateSuperPixelFeatures(img, imgSuperPixelMask, excludeSuperPixelList=superPixelIgnoreList)
@@ -101,7 +106,10 @@ def getSuperPixelData(msrcImages,numberSuperPixels, superPixelCompactness):
     
     assert np.shape(superPixelFeatures)[0] == np.shape(superPixelFeatures)[0] , "Number of samples != number labels"
     print "\n**Processed total of" , numberImages, "images"
-    
+    print "  %d out of %d adjacencies were ignored due to void (%.2f %%)" % \
+        (adjVoidCountsTotal, adjCountsTotal, \
+             100.0*adjVoidCountsTotal/adjCountsTotal)
+
     # Now return the results
     return [ superPixelFeatures, superPixelLabels, classAdjCounts ]
 
