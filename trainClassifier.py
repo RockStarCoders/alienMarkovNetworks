@@ -132,11 +132,11 @@ if paramSearch:
             
     elif clfrType == 'randyforest':
         # create a set of parameters
-        params['min_samples_leaf'] = [5, 20,100,500]
+        params['min_samples_leaf'] = [5, 20,100]
         params['n_estimators']     = [50,150,500]
-        params['max_depth']        = [5,15,50]
+        params['max_depth']        = [15,50]
         params['max_depth'].append( None )
-        params['max_features']        = [5,25,75]
+        params['max_features']        = [5,75]
         params['max_features'].append( 'auto' )
         params['min_samples_split'] = [10,100]
 
