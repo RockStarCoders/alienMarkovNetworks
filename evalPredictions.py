@@ -21,6 +21,8 @@ from skimage import io
 #logFile = open('/home/amb/dev/mrf/zeroAccuracyStatslog.txt' , 'w')
 #zeroListFile = open('/home/dev/mrf/zeroAccuracyFileList.txt' , 'w');
 
+avgAccuracyPhrase = "**Avg prediction accuracy="
+
 def evaluateFromFile(evalFile, sourceData, predictDir):
     evalData = None
     
@@ -43,8 +45,6 @@ def evaluateFromFile(evalFile, sourceData, predictDir):
     # for each eval pair (prediction labels and ground truth labels) do pixel count
     
     for idx in range(0, len(evalData)):
-    
-        print "\n\tINFO: Input eval data" , len(evalData[idx]) , "\n\t\t" , evalData[idx] , "\n\t\t" , evalData[idx][0] , "\n\t\t" , evalData[idx][1]
     
         predictFile = evalData[idx][0]
         gtFile = evalData[idx][1]
@@ -70,7 +70,7 @@ def evaluateFromFile(evalFile, sourceData, predictDir):
     avgAccuracy = (sumAccuracy / sumValid) * 100.0
     
     #logFile.close()
-    print "\n*****\nAverage accuracy =" , avgAccuracy
+    print  avgAccuracyPhrase + str(avgAccuracy)
     print "Over" , len(results) , "predictions"
     
     print "Processing complete."
