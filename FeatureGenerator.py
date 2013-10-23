@@ -223,10 +223,9 @@ def generatePixelFeaturesForImage(rgbSourceImage):
 #                                 hsvColour1DHistogramFeatures, \
 # prob not needed due to crf smoothing      hsvColour3DHistogramFeatures,  \
                                 hogFeatures, \
-# !!come back to this later                                lbpFeatures, \
+                                lbpFeatures, \
                                 filterResponseFeatures \
                                 ] )
-    # 14/06/13 Reference feature set = rgbColourValuesFeature, hsvColour3DHistogramFeatures, hogFeatures, hogFeatures, lbpFeatures & filterResponseFeatures
     
     assert (np.shape(imageFeatures)[0] == totalImagePixels) , ("Number of ImageFeatures rows not equal to total pixels:: " + str(np.shape(imageFeatures)[0]) + ", " + str(totalImagePixels))
     
