@@ -24,8 +24,24 @@ import SuperPixels
 import argparse
 import skimage
 
+def getAdjProbs(name):
+    if name != None and len(name)>0:
+        print 'Loading adjacency probs...'
+        adjProbs = bonzaClass.loadObject(name)
+        # This is actually a bunch of counts.  Some will be zero, which is probably
+        # a sampling error, so let's offset with some default number of counts.
+        adjProbs += 10.0
+        # Now turn it into normalised probabilities.
+        # todo: hey but this is not normalised for default class probability!
+        adjProbs /= adjProbs.sum()
+        # transform
+        adjProbs = -np.log( adjProbs )
+    else:
+        adjProbs = None
+    return adjProbs
+
 parser = argparse.ArgumentParser(description='Classify image and then apply MRF at the superPixel level.')
-parser.add_argument('clfrFn', type=str, action='store', \
+parser.add_argument('--clfrFn', type=str, action='store', \
                         help='filename of pkl or csv superPixel classifier file')
 parser.add_argument('--adjFn', type=str, action='store', \
                         help='filename of pkl or csv superPixel class adjacency probability matrix file')
@@ -46,9 +62,17 @@ parser.add_argument('--superPixelCompactness', type=float, default=10.0, \
 
 args = parser.parse_args()
 
+# prefer to merge regions with high degree
+if args.nbrPotentialMethod == 'adjacencyAndDegreeSensitive':
+    assert args.adjFn != None, 'You asked for neighbour potential method "%s", but no adjacency probs specified'\
+        % args.nbrPotentialMethod
+
+
 #
 # MAIN
 #
+dointeract = 1
+dbgMode = 0
 
 # Class vars
 K = args.K
@@ -61,7 +85,7 @@ precomputedMode = args.infile.endswith('.pkl')
 if precomputedMode == True:
     # If the input file is a pkl (not image) assume we've run necessary superpixel classifier, and input is class label probabilities
     # Input is assumed to be a tuple [superpixels, classProbs]
-    
+
     print "Using pre-computed superpixels and class label probabilities"
     superPixelInput = pomio.unpickleObject(args.infile)
     spix = superPixelInput[0]
@@ -73,8 +97,6 @@ else:
     
     numberSuperPixels = args.nbSuperPixels
     superPixelCompactness = args.superPixelCompactness
-    dointeract = 1
-    dbgMode = 0
 
 
     imgRGB = imread( args.infile )
@@ -83,12 +105,9 @@ else:
     spix = SuperPixels.computeSuperPixelGraph( imgRGB, 'slic', [numberSuperPixels,superPixelCompactness] )
 
     print 'Loading classifier...'
+    assert args.clfrFn != None, 'No classifier filename specified!'
+        
     clfr = bonzaClass.loadObject(args.clfrFn)
-
-    # prefer to merge regions with high degree
-    if args.nbrPotentialMethod == 'adjacencyAndDegreeSensitive':
-        assert adjProbs != None, 'You asked for neighbour potential method "%s", but no adjacency probs specified'\
-            % args.nbrPotentialMethod
 
     print 'Computing superpixel features...'
     ftrs = FeatureGenerator.generateSuperPixelFeatures( imgRGB, spix.m_labels, [] )
@@ -172,19 +191,4 @@ if args.verbose:
         plt.waitforbuttonpress()
 
 
-
-def getAdjProbs(name):
-    if name != None and len(name)>0:
-        print 'Loading adjacency probs...'
-        adjProbs = bonzaClass.loadObject(name)
-        # This is actually a bunch of counts.  Some will be zero, which is probably
-        # a sampling error, so let's offset with some default number of counts.
-        adjProbs += 10.0
-        # Now turn it into normalised probabilities.
-        # todo: hey but this is not normalised for default class probability!
-        adjProbs /= adjProbs.sum()
-        # transform
-        adjProbs = -np.log( adjProbs )
-    else:
-        adjProbs = None
 
