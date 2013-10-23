@@ -46,88 +46,100 @@ parser.add_argument('--superPixelCompactness', type=float, default=10.0, \
 
 args = parser.parse_args()
 
-K = args.K
-numberSuperPixels = args.nbSuperPixels
-superPixelCompactness = args.superPixelCompactness
-dointeract = 1
-dbgMode = 0
-
-
 #
 # MAIN
 #
-imgRGB = imread( args.infile )
 
-# Turn image into superpixels.
-spix = SuperPixels.computeSuperPixelGraph( imgRGB, 'slic', [numberSuperPixels,superPixelCompactness] )
+# Class vars
+K = args.K
+spix = None
+classProbs = None
+adjProbs = None
 
-print 'Loading classifier...'
-clfr = bonzaClass.loadObject(args.clfrFn)
-if args.adjFn != None and len(args.adjFn)>0:
-    print 'Loading adjacency probs...'
-    adjProbs = bonzaClass.loadObject(args.adjFn)
-    # This is actually a bunch of counts.  Some will be zero, which is probably
-    # a sampling error, so let's offset with some default number of counts.
-    adjProbs += 10.0
-    # Now turn it into normalised probabilities.
-    # todo: hey but this is not normalised for default class probability!
-    adjProbs /= adjProbs.sum()
-    # transform
-    adjProbs = -np.log( adjProbs )
+precomputedMode = args.infile.endswith('.pkl')
+
+if precomputedMode == True:
+    # If the input file is a pkl (not image) assume we've run necessary superpixel classifier, and input is class label probabilities
+    # Input is assumed to be a tuple [superpixels, classProbs]
+    
+    print "Using pre-computed superpixels and class label probabilities"
+    superPixelInput = pomio.unpickleObject(args.infile)
+    spix = superPixelInput[0]
+    classProbs = superPixelInput[1]
+
 else:
-    adjProbs = None
+    # Assume input image needs processing and classifying
+    print "Superpixel generation mode"
+    
+    numberSuperPixels = args.nbSuperPixels
+    superPixelCompactness = args.superPixelCompactness
+    dointeract = 1
+    dbgMode = 0
 
-# prefer to merge regions with high degree
-if args.nbrPotentialMethod == 'adjacencyAndDegreeSensitive':
-    assert adjProbs != None, 'You asked for neighbour potential method "%s", but no adjacency probs specified'\
-        % args.nbrPotentialMethod
 
-print 'Computing superpixel features...'
-ftrs = FeatureGenerator.generateSuperPixelFeatures( imgRGB, spix.m_labels, [] )
+    imgRGB = imread( args.infile )
 
-print 'Computing class probabilities...'
-classProbs = bonzaClass.classProbsOfFeatures(ftrs,clfr,\
-                                                 requireAllClasses=False)
+    # Turn image into superpixels.
+    spix = SuperPixels.computeSuperPixelGraph( imgRGB, 'slic', [numberSuperPixels,superPixelCompactness] )
 
-if args.verbose:
-    plt.interactive(1)
+    print 'Loading classifier...'
+    clfr = bonzaClass.loadObject(args.clfrFn)
 
-    if adjProbs != None:
+    # prefer to merge regions with high degree
+    if args.nbrPotentialMethod == 'adjacencyAndDegreeSensitive':
+        assert adjProbs != None, 'You asked for neighbour potential method "%s", but no adjacency probs specified'\
+            % args.nbrPotentialMethod
+
+    print 'Computing superpixel features...'
+    ftrs = FeatureGenerator.generateSuperPixelFeatures( imgRGB, spix.m_labels, [] )
+
+
+    print 'Computing class probabilities...'
+    classProbs = bonzaClass.classProbsOfFeatures(ftrs,clfr,\
+                                                     requireAllClasses=False)
+
+    if args.verbose:
+        plt.interactive(1)
+
+        if adjProbs != None:
+            plt.figure()
+            plt.imshow(np.log(1+adjProbs), cmap=cm.get_cmap('gray'), interpolation='none')
+            plt.title('Adjacency probabilities')
+            plt.waitforbuttonpress()
+
         plt.figure()
-        plt.imshow(np.log(1+adjProbs), cmap=cm.get_cmap('gray'), interpolation='none')
-        plt.title('Adjacency probabilities')
-        plt.waitforbuttonpress()
+        plt.imshow(imgRGB)
+        plt.title('original image')
 
-    plt.figure()
-    plt.imshow(imgRGB)
-    plt.title('original image')
-
-    # show superpixels
-    plt.figure()
-    spix.draw()
-    plt.title('Super Pixels')
-    
-    # show class labels per pixel
-    classLabs = np.argmax( classProbs, 1 )
-    # these are labs per region. turn into an image of labels.
-    plt.figure()
-    # +1 adds void class
-    # todo: tidy this shemozzle up!
-    pomio.showLabels( spix.imageFromSuperPixelData( classLabs + 1 ) )
-    plt.title('Raw Classifier Labelling')
-    plt.figure()
-    pomio.showClassColours()
-    
-    plt.draw()
-    if dointeract:
-        print 'Click plot to continue...'
-        plt.waitforbuttonpress()
+        # show superpixels
+        plt.figure()
+        spix.draw()
+        plt.title('Super Pixels')
+        
+        # show class labels per pixel
+        classLabs = np.argmax( classProbs, 1 )
+        # these are labs per region. turn into an image of labels.
+        plt.figure()
+        # +1 adds void class
+        # todo: tidy this shemozzle up!
+        pomio.showLabels( spix.imageFromSuperPixelData( classLabs + 1 ) )
+        plt.title('Raw Classifier Labelling')
+        plt.figure()
+        pomio.showClassColours()
+        
+        plt.draw()
+        if dointeract:
+            print 'Click plot to continue...'
+            plt.waitforbuttonpress()
 
 #
 # Do the inference
 #
 
-
+# Get adjacency probs
+adjProbs = getAdjProbs(args.adjFn)
+    
+    
 print 'Performing CRF inference...'
 if args.verbose:
     plt.figure()
@@ -158,4 +170,21 @@ if args.verbose:
     print "labelling result, K = ", K 
     if dointeract:
         plt.waitforbuttonpress()
+
+
+
+def getAdjProbs(name):
+    if name != None and len(name)>0:
+        print 'Loading adjacency probs...'
+        adjProbs = bonzaClass.loadObject(name)
+        # This is actually a bunch of counts.  Some will be zero, which is probably
+        # a sampling error, so let's offset with some default number of counts.
+        adjProbs += 10.0
+        # Now turn it into normalised probabilities.
+        # todo: hey but this is not normalised for default class probability!
+        adjProbs /= adjProbs.sum()
+        # transform
+        adjProbs = -np.log( adjProbs )
+    else:
+        adjProbs = None
 
