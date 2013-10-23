@@ -19,6 +19,8 @@ import FeatureGenerator
 
 import pdb
 
+import bonzaClass
+
 # Create a random forest classifier for superpixel class given observed image features
 # 1) Get labelled training data
 # 2) Create single training dataset for each superpixel in each training image:    data = [superPixelFeatures , superPixelLabels]
@@ -195,10 +197,13 @@ def createSuperPixelLogisticRegressionClassifier(msrcDataDirectory, classifierDi
 
 
 
-
-def predictSuperPixelLabels(classifier, image,numberSuperPixels, superPixelCompactness):
+# If makeProbabilities is true, the third output arg is the prob
+# matrix. Otherwise, None.
+def predictSuperPixelLabels(classifier, image,numberSuperPixels,  \
+                                superPixelCompactness, makeProbabilities ):
     print "\n**Computing super pixel labelling for input image"
-    
+    outProbs = None
+
     # Get superpixels
     spgraph = SuperPixels.computeSuperPixelGraph(image,'slic',[numberSuperPixels, superPixelCompactness])
     imgSuperPixelsMask = spgraph.m_labels
@@ -212,7 +217,11 @@ def predictSuperPixelLabels(classifier, image,numberSuperPixels, superPixelCompa
 
     superPixelLabels = classifier.predict( superPixelFeatures )
     
-    return (superPixelLabels, spgraph)
+    if makeProbabilities:
+        outProbs = bonzaClass.classProbsOfFeatures(
+            superPixelFeatures, classifier, requireAllClasses=False
+        )
+    return (superPixelLabels, spgraph, outProbs)
 
 
 

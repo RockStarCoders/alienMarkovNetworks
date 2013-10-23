@@ -24,7 +24,9 @@ parser.add_argument('clfrFn', type=str, action='store', \
 parser.add_argument('infile', type=str, action='store', \
                         help='filename of input image to be classified')
 parser.add_argument('--outfile', type=str, action='store', \
-                        help='filename of output image to be classified')
+                        help='filename of output image.  This is an RGB image with the most-likely labelling at each pixel.')
+parser.add_argument('--outprobsfile', type=str, \
+                        help='filename of output probabilities image.  If specified, the 3D matrix of probabilities will be output as a pickle (.pkl) file')
 parser.add_argument('--verbose', action='store_true')
 parser.add_argument('--nbSuperPixels', type=int, default=400, \
                         help='Desired number of super pixels in SLIC over-segmentation')
@@ -35,8 +37,11 @@ args = parser.parse_args()
 clfrFn = args.clfrFn
 clfr = pomio.unpickleObject( clfrFn )
 
-infile = args.infile
-outfile = args.outfile
+makeProbs = ( args.outprobsfile and len(args.outprobsfile)>0 )
+
+#infile = args.infile
+#outfile = args.outfile
+#outprobsfile = args.outprobsfile
 numberSuperPixels = args.nbSuperPixels
 superPixelCompactness = args.superPixelCompactness
 
@@ -48,7 +53,7 @@ if args.verbose:
 
 print 'Classifying file ', args.infile
 image = skimage.io.imread(args.infile)
-[spClassPreds, spGraph] = SuperPixelClassifier.predictSuperPixelLabels(clfr, image,numberSuperPixels, superPixelCompactness)
+[spClassPreds, spGraph, spClassProbs] = SuperPixelClassifier.predictSuperPixelLabels(clfr, image,numberSuperPixels, superPixelCompactness, makeProbs)
 spClassPredsImage = spGraph.imageFromSuperPixelData( spClassPreds.reshape( (len(spClassPreds),1) ) )
 
 if args.verbose:
@@ -64,6 +69,12 @@ if args.outfile and len(args.outfile)>0:
     outimg = pomio.msrc_convertLabelsToRGB( spClassPredsImage )
     skimage.io.imsave(args.outfile, outimg)
     print '   done.'
+
+if makeProbs:
+    print 'Writing output (superpixels, class probabilities) to pickle file %s' % \
+        args.outprobsfile
+    assert spClassProbs != None
+    pomio.pickleObject( (spGraph,spClassProbs), args.outprobsfile )
 
 if args.verbose:
     plt.interactive(0)

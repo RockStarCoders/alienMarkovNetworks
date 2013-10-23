@@ -49,7 +49,8 @@ for file in $*; do
     extn="${ifn##*.}"
     ifnBase="${ifn%.*}"
     ofn="$outDir"/"$ifn"
-    ./testClassifier.py "$clfrName" "$file" --outfile "$ofn" >> "$logFn" 2>&1
+    ./testClassifier.py "$clfrName" "$file" --outfile "$ofn" \
+	--outprobsfile "${ofn%.$extn}.pkl" >> "$logFn" 2>&1
 
     # append to csv
     echo "${ofn},${ifnBase}_GT.$extn" >> "$csvFn"
