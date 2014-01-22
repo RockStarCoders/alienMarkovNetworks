@@ -129,9 +129,73 @@ def evaluatePrediction(predictLabels, gtLabels, imageName):
     print "Pecentage accuracy = " + str( float(correctPixels) / float(validGtPixels) * 100.0 ) + str("%")
     return [int(correctPixels), int(validGtPixels), int(voidGtPixels), int(allPixels)]
 
+
 def evaluateClassPerformance(predictedImg, gtImg):
     # need to write something that accumulates stats on a class basis
     print "Finish me!"
+    
+    assert np.shape(predictImg) == np.shape(gtImg) , "Predict image and ground truth image are not the same size..."
+    
+    print "Comparing class-level accuracy between ground truth image and predicted image."
+    
+    # Per class pixel counts
+    actualPixelsPerClass = PossumStats.imagePixelCountPerClass(gtImg)
+    predictedPixelsPerClass = PossumStats.imagePixelCountPerClass(predictedImg)
+
+    correctPixelsPerClass = np.zeros(numClasses)
+    incorrectPixelsPerClass = np.zeros(numClasses)
+    
+    # either count unique values in gt... or non-zero values in the actualPixelsPerClass variable...
+    numberOfActualClasses = len(np.unique(gtImg));
+    numberOfPredictedClasses = len(np.unique(predictedImg))
+    
+    imageSize = np.shape(gtImg);    
+    numRows = imgSize[1]
+    numCols = imgSize[0]
+    
+    for row in range(0, numRows):
+    
+        for col in range(0, numCols):
+            
+            correctPixelClass = gtImg[col][row]
+            predPixelClass = predictedImg[col][row]
+                
+            if (predPixelClass == corectPixelClass):
+                correctPixelsPerClass[correctPixelClass] = correctPixelsPerClass[correctPixelClass] + 1
+            else:
+                incorrectPixelsPerClass[predPixelClass] = incorrectPixelsPerClass[predPixelClass] + 1
+
+    print "Completed evaluation."
+    
+    # summary stats
+    totalCorrectPixels = np.sum(correctPixelsPerClass)
+    totalCorrectClasses = np.sum(correctPixelsPerClass > 0)
+    
+    totalIncorrectPixels = np.sum(incorrectPixelsPerClass)
+    totalIncorrectClasses = np.sum(incorrectPixelsPerClass > 0)
+    
+    print "Accuracy per class:"
+    
+    avgClassAccuracy = 0
+    for idx in range(0, correctPixelsPerClass):
+        accuracy = float(correctPixelsPerClass[idx]) / float(actualPixelsPerClass[idx]) * 100
+        avgClassAccuracy = avgClassAccuracy + accuracy
+        print "\tClass_" + str(idx) + " accuracy = " + str(accuracy) + "%"
+        
+    avgClassAccuracy = float(avgClassAccuracy) / float(numCorrectClasses)
+    print "\tAverage class accuracy = " + str(avgClassAccuracy) + "%"
+
+        
+    print "Incorrect per class:"
+    avgIncorrectClass = 0
+    print "\tTotal number incorrect pixels = " + str(totalIncorrectPixels)
+    for idx in range(0, incorrectPixelsPerClass):
+        percentInccorect = float(incorrectPixelsPerClass(idx)) / float(totalIncorrectPixels)  * 100
+        avgIncorrectClass = avgIncorrectClass + percentIncorrect
+        
+        print "\tClass_" + str(idx) + " accounts for " + str(precentIncorrect) + "% of incorrect pixels"
+    
+    return avgClassAccuracy
     
 
 def loadReferenceGroundTruthLabels(sourceData, imgName):
@@ -174,9 +238,10 @@ if __name__ == "__main__":
 
 
 def test():
-    # TODO use reference classifier
-    classifierName = "/home/amb/dev/mrf/classifiers/randomForest/superpixel/randyForest_superPixel_maxDepth15_0.6Data.pkl"
-    classifier = pomio.unpickleObject(classifierName)
+    classifierName = "msrcFull_randForest_grid_REF.pkl"
+    classifierLocation = "/home/amb/dev/mrf/classifiers/randomForest/superpixel/" + classifierName
+    
+    classifier = pomio.unpickleObject(classifierLocation)
     carFile = "7_3_s.bmp"
     msrcData = "/home/amb/dev/mrf/data/MSRC_ObjCategImageDatabase_v2"
 
@@ -185,7 +250,7 @@ def test():
     
     mask = SuperPixels.getSuperPixels_SLIC(car.m_img, 400, 10)
     
-    spLabels = SuperPixelClassifier.predictSuperPixelLabels(classifier, car.m_img,400,10)[0]
+    spLabels = SuperPixelClassifier.predictSuperPixelLabels(classifier, car.m_img,400,10,True)[0]
     
     prediction = SuperPixelClassifier.getSuperPixelLabelledImage(car.m_img, mask, spLabels)
     
@@ -193,8 +258,10 @@ def test():
     pomio.writeMatToCSV(prediction, "/home/amb/dev/eval/test/predict/testPrediction1.labels")
     
     results = evaluatePrediction(prediction, groundTruth)
-    
     print "\nINFO: Car test eval results::\n\t" , results
+    
+    classResults = evaluateClassPerformance(prediction, groundTruth)
+    print "\nINFO: Car test eval class results::\n\t" , classResults
     
     #print "\tNow do a check of ground truth vs ground truth::" , evaluatePrediction(groundTruth, groundTruth)
     #print "\tNow do a check of prediction vs prediction::" , evaluatePrediction(prediction, prediction)
