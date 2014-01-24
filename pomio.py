@@ -61,6 +61,10 @@ def getNumClasses():
     # doesn't include void
     return len(msrc_classLabels)-1
 
+def getClasses():
+    return ['void' , 'building' , 'grass' , 'tree' , 'cow' , 'sheep' , 'sky' , 'aeroplan' , 'water' , 'face' , 'car' , 'bicycle' , 'flower' , 'sign' , 'bird' , 'book' , 'chair' , 'road' , 'cat' , 'dog' , 'body' , 'boat' ]
+
+
 def msrc_convertRGBToLabels( imgRGB ):
     imgL = 255 * np.ones( imgRGB.shape[0:2], dtype='uint8' )
     # For each label, find matching RGB and set that value

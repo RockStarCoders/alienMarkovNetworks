@@ -89,7 +89,7 @@ def totalPixelCountPerClass(msrcImages, printTotals=True):
     return result
 
 
-def imagePixelCountPerClass(msrcImage):
+def imagePixelCountPerClass(msrcImage , gtFlag=True):
     classes = pomio.msrc_classLabels
     totalClasses = np.size(classes)
     
@@ -101,10 +101,13 @@ def imagePixelCountPerClass(msrcImage):
         
         classValue = classes[classIdx]
         
-        imageGroundTruth = msrcImage.m_gt
-            
+        if gtFlag == True:
+            imageGroundTruth = msrcImage.m_gt
+        else:
+            imageGroundTruth = msrcImage
+
         pixelCountForClass = imageGroundTruth[(imageGroundTruth == classIdx)].size
-            
+        
         # add total count to the class count result
         print "Class name = " + str(classValue), "class index=" , classIdx, ", pixel count=" + str(pixelCountForClass)
         

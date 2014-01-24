@@ -9,7 +9,7 @@
 
 import sys
 
-import pomio, FeatureGenerator, SuperPixels, SuperPixelClassifier
+import pomio, PossumStats, FeatureGenerator, SuperPixels, SuperPixelClassifier
 
 import numpy as np
 
@@ -134,13 +134,15 @@ def evaluateClassPerformance(predictedImg, gtImg):
     # need to write something that accumulates stats on a class basis
     print "Finish me!"
     
-    assert np.shape(predictImg) == np.shape(gtImg) , "Predict image and ground truth image are not the same size..."
+    assert np.shape(predictedImg) == np.shape(gtImg) , "Predict image and ground truth image are not the same size..."
     
     print "Comparing class-level accuracy between ground truth image and predicted image."
     
-    # Per class pixel counts
-    actualPixelsPerClass = PossumStats.imagePixelCountPerClass(gtImg)
-    predictedPixelsPerClass = PossumStats.imagePixelCountPerClass(predictedImg)
+    numClasses = pomio.getNumClasses() #doesnt include void.. should we remove horse and mountain?
+
+    # Per class pixel counts - assume same class index ordering :)
+    actualPixelsPerClass = PossumStats.imagePixelCountPerClass(gtImg, False)[1]
+    predictedPixelsPerClass = PossumStats.imagePixelCountPerClass(predictedImg, False)[1]
 
     correctPixelsPerClass = np.zeros(numClasses)
     incorrectPixelsPerClass = np.zeros(numClasses)
@@ -148,8 +150,10 @@ def evaluateClassPerformance(predictedImg, gtImg):
     # either count unique values in gt... or non-zero values in the actualPixelsPerClass variable...
     numberOfActualClasses = len(np.unique(gtImg));
     numberOfPredictedClasses = len(np.unique(predictedImg))
+
+    print "Number of classes in GT =", numberOfActualClasses , ", number of predicted classes =" , numberOfPredictedClasses
     
-    imageSize = np.shape(gtImg);    
+    imgSize = np.shape(gtImg);    
     numRows = imgSize[1]
     numCols = imgSize[0]
     
@@ -160,12 +164,12 @@ def evaluateClassPerformance(predictedImg, gtImg):
             correctPixelClass = gtImg[col][row]
             predPixelClass = predictedImg[col][row]
                 
-            if (predPixelClass == corectPixelClass):
+            if (predPixelClass == correctPixelClass):
                 correctPixelsPerClass[correctPixelClass] = correctPixelsPerClass[correctPixelClass] + 1
             else:
                 incorrectPixelsPerClass[predPixelClass] = incorrectPixelsPerClass[predPixelClass] + 1
 
-    print "Completed evaluation."
+    print "\nCompleted evaluation."
     
     # summary stats
     totalCorrectPixels = np.sum(correctPixelsPerClass)
@@ -173,28 +177,32 @@ def evaluateClassPerformance(predictedImg, gtImg):
     
     totalIncorrectPixels = np.sum(incorrectPixelsPerClass)
     totalIncorrectClasses = np.sum(incorrectPixelsPerClass > 0)
-    
-    print "Accuracy per class:"
-    
-    avgClassAccuracy = 0
-    for idx in range(0, correctPixelsPerClass):
-        accuracy = float(correctPixelsPerClass[idx]) / float(actualPixelsPerClass[idx]) * 100
-        avgClassAccuracy = avgClassAccuracy + accuracy
-        print "\tClass_" + str(idx) + " accuracy = " + str(accuracy) + "%"
-        
-    avgClassAccuracy = float(avgClassAccuracy) / float(numCorrectClasses)
-    print "\tAverage class accuracy = " + str(avgClassAccuracy) + "%"
+    print "\tTotal number correct pixels in image = " + str(totalIncorrectPixels)
+    print "\tTotal number incorrect pixels in image = " + str(totalIncorrectPixels)
 
-        
-    print "Incorrect per class:"
-    avgIncorrectClass = 0
-    print "\tTotal number incorrect pixels = " + str(totalIncorrectPixels)
-    for idx in range(0, incorrectPixelsPerClass):
-        percentInccorect = float(incorrectPixelsPerClass(idx)) / float(totalIncorrectPixels)  * 100
-        avgIncorrectClass = avgIncorrectClass + percentIncorrect
-        
-        print "\tClass_" + str(idx) + " accounts for " + str(precentIncorrect) + "% of incorrect pixels"
+    print "\nAccuracy per class:"
     
+    sumClassAccuracy = 0
+    for idx in range(0, len(correctPixelsPerClass)):
+        if (int(actualPixelsPerClass[idx]) >= 1) == True:
+            
+            assert (int(actualPixelsPerClass[idx]) >= 1), "Why is the if check failing? Should only process classes with > 0 pixels in GT image!"
+
+            accuracy = float(correctPixelsPerClass[idx]) / float(actualPixelsPerClass[idx]) * 100
+            sumClassAccuracy = (sumClassAccuracy + accuracy)
+            print "\tClass_" + str(idx) + " accuracy = " + str(accuracy) + "%"
+    
+    avgClassAccuracy = float(sumClassAccuracy) / float(numberOfActualClasses)
+    print "\nINFO: Average class accuracy = " + str(avgClassAccuracy) + "%"
+    
+
+    print "\nIncorrect pixels per class:"
+    for idx in range(0, len(incorrectPixelsPerClass)):
+        if (int(incorrectPixelsPerClass[idx]) >= 1):
+            percentIncorrect = float(incorrectPixelsPerClass[idx]) / float(totalIncorrectPixels)  * 100     
+            print "\tclass_" + str(idx) + " accounts for " + str(percentIncorrect) + "% of incorrect pixels"        
+    
+
     return avgClassAccuracy
     
 
@@ -238,9 +246,9 @@ if __name__ == "__main__":
 
 
 def test():
-    classifierName = "msrcFull_randForest_grid_REF.pkl"
-    classifierLocation = "/home/amb/dev/mrf/classifiers/randomForest/superpixel/" + classifierName
-    
+
+    classifierLocation = "/home/amb/dev/mrf/classifiers/logisticRegression/superpixel/logReg_miniMSRC.pkl"
+
     classifier = pomio.unpickleObject(classifierLocation)
     carFile = "7_3_s.bmp"
     msrcData = "/home/amb/dev/mrf/data/MSRC_ObjCategImageDatabase_v2"
@@ -255,9 +263,9 @@ def test():
     prediction = SuperPixelClassifier.getSuperPixelLabelledImage(car.m_img, mask, spLabels)
     
     # save prediction to file
-    pomio.writeMatToCSV(prediction, "/home/amb/dev/eval/test/predict/testPrediction1.labels")
+    pomio.writeMatToCSV(prediction, "/home/amb/dev/mrf/eval/testPrediction1.labels")
     
-    results = evaluatePrediction(prediction, groundTruth)
+    results = evaluatePrediction(prediction, groundTruth , carFile)
     print "\nINFO: Car test eval results::\n\t" , results
     
     classResults = evaluateClassPerformance(prediction, groundTruth)
