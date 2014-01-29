@@ -130,6 +130,54 @@ def evaluatePrediction(predictLabels, gtLabels, imageName):
     return [int(correctPixels), int(validGtPixels), int(voidGtPixels), int(allPixels)]
 
 
+
+
+
+def evaluateConfusionMatrix(predictedImg, gtImg):
+    
+    assert np.shape(predictedImg) == np.shape(gtImg) , "Predict image and ground truth image are not the same size..."
+    
+    numClasses = 21
+    numberOfActualClasses = len(np.unique(gtImg));
+    numberOfPredictedClasses = len(np.unique(predictedImg))
+    
+    print "Evaluating total " + str(np.size(gtImg)) + " pixels"
+    print "\tNum actual classes in image: " + str(numberOfActualClasses) + " classes"
+    print "\tNum predicted classes in image: " + str(numberOfPredictedClasses) + " classes"
+    
+    confusionMatrix = np.zeros([numClasses , numClasses] , int)
+    
+    numRows = np.shape(predictedImg)[1]
+    numCols = np.shape(gtImg)[0]
+    
+    for row in range(0, numRows):
+    
+        for col in range(0, numCols):
+            
+            actualPixelClass = gtImg[col][row]
+            predictedPixelClass = predictedImg[col][row]
+            
+            if (predictedPixelClass == actualPixelClass):
+                confusionMatrix[actualPixelClass][actualPixelClass]       = int(confusionMatrix[actualPixelClass][actualPixelClass] + 1)
+                
+            else:
+                confusionMatrix[actualPixelClass][predictedPixelClass]    = int(confusionMatrix[actualPixelClass][predictedPixelClass] + 1)
+    
+    print "Evaluation complete:"
+    
+    correctPixels = 0
+    for idx in range(0, numClasses):
+        correctPixels = correctPixels + confusionMatrix[idx][idx]
+    
+    print "\tTotal pixels = " + str(np.size(gtImg))
+    print "\tTotal correct pixels:" , correctPixels
+    
+    return confusionMatrix;
+    
+
+
+
+
 def evaluateClassPerformance(predictedImg, gtImg):
     # need to write something that accumulates stats on a class basis
     print "Finish me!"
@@ -144,8 +192,8 @@ def evaluateClassPerformance(predictedImg, gtImg):
     actualPixelsPerClass = PossumStats.imagePixelCountPerClass(gtImg, False)[1]
     predictedPixelsPerClass = PossumStats.imagePixelCountPerClass(predictedImg, False)[1]
 
-    correctPixelsPerClass = np.zeros(numClasses)
-    incorrectPixelsPerClass = np.zeros(numClasses)
+    correctPixelsPerClass = np.zeros(numClasses , int)
+    incorrectPixelsPerClass = np.zeros(numClasses , int)
     
     # either count unique values in gt... or non-zero values in the actualPixelsPerClass variable...
     numberOfActualClasses = len(np.unique(gtImg));
@@ -270,6 +318,9 @@ def test():
     
     classResults = evaluateClassPerformance(prediction, groundTruth)
     print "\nINFO: Car test eval class results::\n\t" , classResults
+    
+    confusionResults = evaluateConfusionMatrix(prediction, groundTruth)
+    print "\nINFO: Car test eval confusion matrix results::\n\t" , "Just sum up entries... ",  np.sum(confusionResults)
     
     #print "\tNow do a check of ground truth vs ground truth::" , evaluatePrediction(groundTruth, groundTruth)
     #print "\tNow do a check of prediction vs prediction::" , evaluatePrediction(prediction, prediction)
