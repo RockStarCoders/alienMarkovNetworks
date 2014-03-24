@@ -41,7 +41,7 @@ def estimateNeighbourRMSPixelDiff(imgRGB, nhoodSz):
     return np.sqrt(sigsq)
 
 
-def gplotmatrix( X, labels, msize=5, classColours=None ):
+def gplotmatrix( X, labels, msize=5, classColours=None, featureNames=None ):
     assert X.ndim == 2
     D = X.shape[1]
     print labels
@@ -76,8 +76,14 @@ def gplotmatrix( X, labels, msize=5, classColours=None ):
                 plt.hold(0)
             plt.grid(1)
             if c==0:
-                plt.ylabel( str(r) )
+              sl = str(r)
+              if featureNames != None:
+                sl += ': ' + featureNames[r]
+              plt.ylabel( sl )
             if r==D-1:
-                plt.xlabel( str(c) )
+              sl = str(c)
+              if featureNames != None:
+                sl += ': ' + featureNames[c]
+              plt.xlabel( sl )
 
     
