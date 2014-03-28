@@ -1,8 +1,5 @@
 #!/usr/bin/env python
 import argparse
-import matplotlib.pyplot as plt
-import pomio
-
 parser = argparse.ArgumentParser(description='Train a classifier for MRF project.')
 
 parser.add_argument('ftrs', type=str, action='store', \
@@ -38,6 +35,8 @@ import sklearn.ensemble
 import sklearn.linear_model
 from sklearn import grid_search, cross_validation
 import numpy as np
+import matplotlib.pyplot as plt
+
 
 infileFtrs = args.ftrs
 infileLabs = args.labs

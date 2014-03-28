@@ -1,11 +1,4 @@
 #!/usr/bin/env python
-import sys
-import pomio
-import sklearn.ensemble
-import numpy as np
-import matplotlib.pyplot as plt
-import SuperPixelClassifier
-import skimage
 import argparse
 
 # Usage:
@@ -33,6 +26,14 @@ parser.add_argument('--nbSuperPixels', type=int, default=400, \
 parser.add_argument('--superPixelCompactness', type=float, default=10.0, \
                         help='Super pixel compactness parameter for SLIC')
 args = parser.parse_args()
+
+import sys
+import pomio
+import sklearn.ensemble
+import numpy as np
+import matplotlib.pyplot as plt
+import SuperPixelClassifier
+import skimage
 
 clfrFn = args.clfrFn
 clfr = pomio.unpickleObject( clfrFn )

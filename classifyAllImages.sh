@@ -14,11 +14,13 @@
 
 function Usage() {
     echo "Usage:"
-    echo "   ./classifyAllImages.sh <classifierFilename> <outDir> file1 file2 .... fileN"
+    echo "   ./classifyAllImages.sh <classifierFilename> <outDir> <nbSuperPix> <superPixCompact> file1 file2 .... fileN"
 }
 
 clfrName="$1"; shift
 outDir="$1"; shift
+nbSuperPixels="$1"; shift
+superPixelCompactness="$1"; shift
 
 if [ ! -d "$outDir" ]; then
     echo "Error: output directory $outDir does not exist."
@@ -50,6 +52,8 @@ for file in $*; do
     ifnBase="${ifn%.*}"
     ofn="$outDir"/"$ifn"
     ./testClassifier.py "$clfrName" "$file" --outfile "$ofn" \
+	--nbSuperPixels $nbSuperPixels \
+	--superPixelCompactness $superPixelCompact \
 	--outprobsfile "${ofn%.$extn}.pkl" >> "$logFn" 2>&1
 
     # append to csv

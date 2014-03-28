@@ -4,41 +4,7 @@
 #
 #     ./sceneLabelSuperPixels.py randForestClassifierSP.pkl /home/jamie/data/MSRC_ObjCategImageDatabase_v2/Images/7_3_s.bmp
 
-import pickle as pkl
-import sys
-import numpy as np
-import scipy
-from scipy.misc import imread
-from matplotlib import pyplot as plt
-from matplotlib import cm
-import scipy.ndimage.filters
-import cython_uflow as uflow
-import sklearn
-import sklearn.ensemble
-import bonzaClass
-import amntools
-import pomio
-import FeatureGenerator
-import slic
-import SuperPixels
 import argparse
-import skimage
-
-def getAdjProbs(name):
-    if name != None and len(name)>0:
-        print 'Loading adjacency probs...'
-        adjProbs = bonzaClass.loadObject(name)
-        # This is actually a bunch of counts.  Some will be zero, which is probably
-        # a sampling error, so let's offset with some default number of counts.
-        adjProbs += 10.0
-        # Now turn it into normalised probabilities.
-        # todo: hey but this is not normalised for default class probability!
-        adjProbs /= adjProbs.sum()
-        # transform
-        adjProbs = -np.log( adjProbs )
-    else:
-        adjProbs = None
-    return adjProbs
 
 parser = argparse.ArgumentParser(description='Classify image and then apply MRF at the superPixel level.')
 parser.add_argument('--clfrFn', type=str, action='store', \
@@ -61,6 +27,46 @@ parser.add_argument('--superPixelCompactness', type=float, default=10.0, \
                         help='Super pixel compactness parameter for SLIC')
 
 args = parser.parse_args()
+
+
+
+import pickle as pkl
+import sys
+import numpy as np
+import scipy
+from scipy.misc import imread
+from matplotlib import pyplot as plt
+from matplotlib import cm
+import scipy.ndimage.filters
+import cython_uflow as uflow
+import sklearn
+import sklearn.ensemble
+import bonzaClass
+import amntools
+import pomio
+import FeatureGenerator
+import slic
+import SuperPixels
+import skimage
+
+
+
+
+def getAdjProbs(name):
+    if name != None and len(name)>0:
+        print 'Loading adjacency probs...'
+        adjProbs = bonzaClass.loadObject(name)
+        # This is actually a bunch of counts.  Some will be zero, which is probably
+        # a sampling error, so let's offset with some default number of counts.
+        adjProbs += 10.0
+        # Now turn it into normalised probabilities.
+        # todo: hey but this is not normalised for default class probability!
+        adjProbs /= adjProbs.sum()
+        # transform
+        adjProbs = -np.log( adjProbs )
+    else:
+        adjProbs = None
+    return adjProbs
 
 # prefer to merge regions with high degree
 if args.nbrPotentialMethod == 'adjacencyAndDegreeSensitive':

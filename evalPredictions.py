@@ -7,15 +7,25 @@
 # images are the same size :)
 # assume that the indexes align i.e. idx=1 refers to the same class
 
-import sys
-
-import pomio, PossumStats, FeatureGenerator, SuperPixels, SuperPixelClassifier
-
-import numpy as np
 
 import argparse
 
+parser = argparse.ArgumentParser(description='Evaluate predicted class labels against ground truth image labels')
+
+parser.add_argument('evalFile', type=str, action='store', \
+                        help='CSV file listing predictions+ground truth pairs')
+parser.add_argument('sourceData', type=str, action='store', \
+                        help='Path to source data directory for reference data (assumed to be same structure as MSRC data)')
+parser.add_argument('predictData', type=str, action='store', \
+                        help='Parent path for relative filenames for predictions')
+
+args = parser.parse_args()
+
+
 from skimage import io
+import sys
+import pomio, PossumStats, FeatureGenerator, SuperPixels, SuperPixelClassifier
+import numpy as np
     
 
 #logFile = open('/home/amb/dev/mrf/zeroAccuracyStatslog.txt' , 'w')
@@ -272,17 +282,6 @@ def loadPredictionImageLabels(predictImgLabelsFile):
     
 
 if __name__ == "__main__":
-
-    parser = argparse.ArgumentParser(description='Evaluate predicted class labels against ground truth image labels')
-    
-    parser.add_argument('evalFile', type=str, action='store', \
-                            help='CSV file listing predictions+ground truth pairs')
-    parser.add_argument('sourceData', type=str, action='store', \
-                            help='Path to source data directory for reference data (assumed to be same structure as MSRC data)')
-    parser.add_argument('predictData', type=str, action='store', \
-                            help='Parent path for relative filenames for predictions')
-                            
-    args = parser.parse_args()
 
     evalFile = args.evalFile
     sourceData = args.sourceData

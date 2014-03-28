@@ -298,7 +298,7 @@ def assignClassLabelToSuperPixel(superPixelValueMask, imagePixelLabels):
     else:
         maxLabelValue = maxLabel[0,0]
     
-    return maxLabelValue
+    return int(maxLabelValue)
 
 
 def testClassifier(classifierFilename, case):
