@@ -7,6 +7,9 @@
 # images are the same size :)
 # assume that the indexes align i.e. idx=1 refers to the same class
 
+#
+# NOTE: we are in a land where void==0 and really is not used.  Usually convert back to starting at 0
+#
 
 import argparse
 
@@ -26,7 +29,7 @@ from skimage import io
 import sys
 import pomio, PossumStats, FeatureGenerator, SuperPixels, SuperPixelClassifier
 import numpy as np
-    
+import pandas    
 
 #logFile = open('/home/amb/dev/mrf/zeroAccuracyStatslog.txt' , 'w')
 #zeroListFile = open('/home/dev/mrf/zeroAccuracyFileList.txt' , 'w');
@@ -47,10 +50,11 @@ def evaluateFromFile(evalFile, sourceData, predictDir):
     if predictDir.endswith("/") == False:
         predictDir = predictDir + "/"
 
+    # Tells us what the elements of the results are
     headers = [ "numCorrectPixels" , "numberValidGroundTruthPixels" , "numberVoidGroundTruthPixels" , "numberPixelsInImage" ]
     
-    results = []
-    results.append(headers)
+    results = None
+    confMat = None
 
     # for each eval pair (prediction labels and ground truth labels) do pixel count
     
@@ -60,40 +64,43 @@ def evaluateFromFile(evalFile, sourceData, predictDir):
         gtFile = evalData[idx][1]
         
         gt = loadReferenceGroundTruthLabels(sourceData, gtFile)
-        
         predict = loadPredictionImageLabels(predictDir + predictFile)
         
         result = evaluatePrediction(predict, gt, gtFile)
-        results.append(result)
+        cmat = evaluateConfusionMatrix(predict, gt)
+
+        if idx == 0:
+          results = result
+          confMat = cmat
+        else:
+          results += result
+          confMat += cmat
 
     # Aggregate results
-    print "Processed total of ", len(results) , "predictions"
-    
-    sumAccuracy = 0.0
-    sumValid = 0.0
-    
-    # The first entry is headers, so iterate from 1 index
-    for idx in range(1, len(results)):
-        sumAccuracy = sumAccuracy + results[idx][0]
-        sumValid = sumValid + results[idx][1]
+    perClass = evaluateClassPerformance( confMat )
 
-    avgAccuracy = (sumAccuracy / sumValid) * 100.0
-    
-    #logFile.close()
-    print  avgAccuracyPhrase + str(avgAccuracy)
-    print "Over" , len(results) , "predictions"
-    
+    print "Processed total of ", len(evalData) , "predictions:"
+    print "  Average accuracy per pixel: ", 100.0 * results[0] / float( results[1] )
+    print "  Average accuracy per class: ", perClass.mean()
+    print "  Accuracy per class: "
+    print pandas.DataFrame( perClass.reshape((1,len(perClass))), \
+                              columns=pomio.getClasses()[1:] ).to_string()
+    print ""
+    print "  Confusion matrix (row=gt, col=predicted): "
+    print pandas.DataFrame( confMat, columns=pomio.getClasses()[1:], \
+                              index=pomio.getClasses()[1:] ).to_string()
     print "Processing complete."
 
 
-def evaluatePrediction(predictLabels, gtLabels, imageName):
+def evaluatePrediction(predictLabels, gtLabels, gtimageName, dbg=False):
     
     assert np.shape(predictLabels) == np.shape(gtLabels) , "Predict image and ground truth image are not the same size..."
 
     rows = np.shape(predictLabels)[1]
     cols = np.shape(gtLabels)[0]
     
-    print "Evaluating image of size = [" , rows, " ," , cols, " ]"
+    if dbg:
+      print "Evaluating image of size = [" , rows, " ," , cols, " ]"
     voidLabel = pomio.getVoidIdx()
     
     allPixels = 0
@@ -102,44 +109,23 @@ def evaluatePrediction(predictLabels, gtLabels, imageName):
     incorrectPixels = 0
 
     # for each pixel, do a comparision of index    
-    for r in range(0,rows):
-        
-        for c in range(cols):
-        
-            allPixels = allPixels + 1
-            
-            gtLabel = gtLabels[c][r]
-            predictLabel = predictLabels[c][r]
-                
-            if gtLabel == voidLabel:
-                voidGtPixels = voidGtPixels + 1
-            else:
-                # only compare if GT isnt void
-                if (predictLabel != voidLabel) and (predictLabels[c][r] == gtLabels[c][r]):
-                    correctPixels = correctPixels + 1
-                else:
-                    incorrectPixels = incorrectPixels + 1
+    allPixels = rows * cols
+    voidGtPixels    = np.count_nonzero( gtLabels == voidLabel )
+    correctPixels   = np.count_nonzero( np.logical_and( gtLabels != voidLabel, predictLabels == gtLabels ) )
+    validGtPixels = allPixels - voidGtPixels
+    incorrectPixels = validGtPixels - correctPixels
 
     assert allPixels == (rows * cols) , "Total iterated pixels != (rows * cols) num pixels!"
-    
     assert allPixels == (voidGtPixels + correctPixels + incorrectPixels) , "Some mismatch on pixel counts:: all" + str(allPixels) + " void=" + str(voidGtPixels) + " correct=" + str(correctPixels) + " incorrect=" + str(incorrectPixels)
-    
-    validGtPixels = allPixels - voidGtPixels
-    
+        
     percentage = float(correctPixels) / float(validGtPixels) * 100.0
     
     if percentage == 0 or percentage == 0.0:
-        print "WARNING:: " + str(imageName) + " accuracy is 0%"
+        print "WARNING:: " + str(gtimageName) + " accuracy is 0%"
         
-        data = "ImageName = " + str(imageName) + "\n\tTotal pixels =" + str(allPixels) + "\n\tVOID pixels  = " + str(voidGtPixels) + "\n\tCorrect pixels = " + str(correctPixels) + "\n\tIncorrect pixels=" + str(incorrectPixels) + "\n"
-        
-        #logFile.write(data)
-        #zeroListFile.write(imageName + "\n")
-        
-    print "Pecentage accuracy = " + str( float(correctPixels) / float(validGtPixels) * 100.0 ) + str("%")
-    return [int(correctPixels), int(validGtPixels), int(voidGtPixels), int(allPixels)]
-
-
+    if dbg:
+      print "Pecentage accuracy = " + str( float(correctPixels) / float(validGtPixels) * 100.0 ) + str("%")
+    return np.array( [correctPixels, validGtPixels, voidGtPixels, allPixels], dtype=int )
 
 
 
@@ -147,122 +133,29 @@ def evaluateConfusionMatrix(predictedImg, gtImg):
     
     assert np.shape(predictedImg) == np.shape(gtImg) , "Predict image and ground truth image are not the same size..."
     
-    numClasses = 21
-    numberOfActualClasses = len(np.unique(gtImg));
-    numberOfPredictedClasses = len(np.unique(predictedImg))
-    
-    print "Evaluating total " + str(np.size(gtImg)) + " pixels"
-    print "\tNum actual classes in image: " + str(numberOfActualClasses) + " classes"
-    print "\tNum predicted classes in image: " + str(numberOfPredictedClasses) + " classes"
+    numClasses = pomio.getNumClasses()
     
     confusionMatrix = np.zeros([numClasses , numClasses] , int)
+    # rows are actual, cols are predicted
+    for cl in range(numClasses):
+      # The plus 1 is because of void!
+      clMask = (gtImg == cl+1)
+      # It's easy, just histogram those values
+      vals = predictedImg[clMask] - 1
+      assert np.all( np.logical_and( 0 <= vals, vals < numClasses+1 ) ), vals.max()
+      confusionMatrix[cl,:] = np.histogram( vals, range(numClasses+1) )[0]
     
-    numRows = np.shape(predictedImg)[1]
-    numCols = np.shape(gtImg)[0]
-    
-    for row in range(0, numRows):
-    
-        for col in range(0, numCols):
-            
-            actualPixelClass = gtImg[col][row]
-            predictedPixelClass = predictedImg[col][row]
-            
-            if (predictedPixelClass == actualPixelClass):
-                confusionMatrix[actualPixelClass][actualPixelClass]       = int(confusionMatrix[actualPixelClass][actualPixelClass] + 1)
-                
-            else:
-                confusionMatrix[actualPixelClass][predictedPixelClass]    = int(confusionMatrix[actualPixelClass][predictedPixelClass] + 1)
-    
-    print "Evaluation complete:"
-    
-    correctPixels = 0
-    for idx in range(0, numClasses):
-        correctPixels = correctPixels + confusionMatrix[idx][idx]
-    
-    print "\tTotal pixels = " + str(np.size(gtImg))
-    print "\tTotal correct pixels:" , correctPixels
-    
+    assert confusionMatrix.sum() == np.count_nonzero( gtImg != pomio.getVoidIdx() ) 
+
     return confusionMatrix;
     
 
+def evaluateClassPerformance( confusionMatrix ):
+    # Returns a vector of percentage accuracies, one per class.
+    denom = confusionMatrix.sum(axis=1).astype('float')
+    denom[ denom == 0 ] = 1
+    return 100.0 * np.diag( confusionMatrix ).astype('float') / denom
 
-
-
-def evaluateClassPerformance(predictedImg, gtImg):
-    # need to write something that accumulates stats on a class basis
-    print "Finish me!"
-    
-    assert np.shape(predictedImg) == np.shape(gtImg) , "Predict image and ground truth image are not the same size..."
-    
-    print "Comparing class-level accuracy between ground truth image and predicted image."
-    
-    numClasses = pomio.getNumClasses() #doesnt include void.. should we remove horse and mountain?
-
-    # Per class pixel counts - assume same class index ordering :)
-    actualPixelsPerClass = PossumStats.imagePixelCountPerClass(gtImg, False)[1]
-    predictedPixelsPerClass = PossumStats.imagePixelCountPerClass(predictedImg, False)[1]
-
-    correctPixelsPerClass = np.zeros(numClasses , int)
-    incorrectPixelsPerClass = np.zeros(numClasses , int)
-    
-    # either count unique values in gt... or non-zero values in the actualPixelsPerClass variable...
-    numberOfActualClasses = len(np.unique(gtImg));
-    numberOfPredictedClasses = len(np.unique(predictedImg))
-
-    print "Number of classes in GT =", numberOfActualClasses , ", number of predicted classes =" , numberOfPredictedClasses
-    
-    imgSize = np.shape(gtImg);    
-    numRows = imgSize[1]
-    numCols = imgSize[0]
-    
-    for row in range(0, numRows):
-    
-        for col in range(0, numCols):
-            
-            correctPixelClass = gtImg[col][row]
-            predPixelClass = predictedImg[col][row]
-                
-            if (predPixelClass == correctPixelClass):
-                correctPixelsPerClass[correctPixelClass] = correctPixelsPerClass[correctPixelClass] + 1
-            else:
-                incorrectPixelsPerClass[predPixelClass] = incorrectPixelsPerClass[predPixelClass] + 1
-
-    print "\nCompleted evaluation."
-    
-    # summary stats
-    totalCorrectPixels = np.sum(correctPixelsPerClass)
-    totalCorrectClasses = np.sum(correctPixelsPerClass > 0)
-    
-    totalIncorrectPixels = np.sum(incorrectPixelsPerClass)
-    totalIncorrectClasses = np.sum(incorrectPixelsPerClass > 0)
-    print "\tTotal number correct pixels in image = " + str(totalIncorrectPixels)
-    print "\tTotal number incorrect pixels in image = " + str(totalIncorrectPixels)
-
-    print "\nAccuracy per class:"
-    
-    sumClassAccuracy = 0
-    for idx in range(0, len(correctPixelsPerClass)):
-        if (int(actualPixelsPerClass[idx]) >= 1) == True:
-            
-            assert (int(actualPixelsPerClass[idx]) >= 1), "Why is the if check failing? Should only process classes with > 0 pixels in GT image!"
-
-            accuracy = float(correctPixelsPerClass[idx]) / float(actualPixelsPerClass[idx]) * 100
-            sumClassAccuracy = (sumClassAccuracy + accuracy)
-            print "\tClass_" + str(idx) + " accuracy = " + str(accuracy) + "%"
-    
-    avgClassAccuracy = float(sumClassAccuracy) / float(numberOfActualClasses)
-    print "\nINFO: Average class accuracy = " + str(avgClassAccuracy) + "%"
-    
-
-    print "\nIncorrect pixels per class:"
-    for idx in range(0, len(incorrectPixelsPerClass)):
-        if (int(incorrectPixelsPerClass[idx]) >= 1):
-            percentIncorrect = float(incorrectPixelsPerClass[idx]) / float(totalIncorrectPixels)  * 100     
-            print "\tclass_" + str(idx) + " accounts for " + str(percentIncorrect) + "% of incorrect pixels"        
-    
-
-    return avgClassAccuracy
-    
 
 def loadReferenceGroundTruthLabels(sourceData, imgName):
     gtFile = str(sourceData) + "/GroundTruth/" + str(imgName)

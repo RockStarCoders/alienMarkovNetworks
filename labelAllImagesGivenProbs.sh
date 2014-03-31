@@ -19,12 +19,15 @@
 
 function Usage() {
     echo "Usage:"
-    echo "   ./labelAllImages.sh <adjacencyStatsFilename> K <outDir> file1.pkl file2 .... fileN"
+    echo "   ./labelAllImages.sh <adjacencyStatsFilename> K <outDir> <nbCores> file1.pkl file2 .... fileN"
 }
 
 adjName="$1"; shift
 K="$1"; shift
 outDir="$1"; shift
+typeset -i nbCores="$1"; shift
+
+echo "Using $nbCores cores"
 
 if [ ! -d "$outDir" ]; then
     echo "Error: output directory $outDir does not exist."
@@ -40,6 +43,7 @@ rm -f "$csvFn"
 
 logFn="$outDir"/log.txt
 rm -f "$logFn"
+typeset -i ctr=0
 
 for file in $*; do 
     echo "Processing input probability pickle file $file..."
@@ -54,12 +58,19 @@ for file in $*; do
 
     ./sceneLabelSuperPixels.py "$file" \
 	--adjFn="$adjName" \
-	--nbrPotentialMethod=adjacencyAndDegreeSensitive  \
+	--nbrPotentialMethod=degreeSensitive  \
 	--K=$K \
-	--outfile="$ofn"
+	--outfile="$ofn" >> "$logFn" 2>&1 &
 
     # append to csv
     echo "${ofn},${ifnBase}_GT.bmp" >> "$csvFn"
+
+    ctr=$(($ctr+1))
+
+    if [ $(($ctr % $nbCores)) = 0 ]; then
+	wait
+    fi
 done
 
+wait
 echo "All done"

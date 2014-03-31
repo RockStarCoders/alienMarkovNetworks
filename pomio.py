@@ -62,7 +62,7 @@ def getNumClasses():
     return len(msrc_classLabels)-1
 
 def getClasses():
-    return ['void' , 'building' , 'grass' , 'tree' , 'cow' , 'sheep' , 'sky' , 'aeroplan' , 'water' , 'face' , 'car' , 'bicycle' , 'flower' , 'sign' , 'bird' , 'book' , 'chair' , 'road' , 'cat' , 'dog' , 'body' , 'boat' ]
+    return msrc_classLabels#['void' , 'building' , 'grass' , 'tree' , 'cow' , 'sheep' , 'sky' , 'aeroplane' , 'water' , 'face' , 'car' , 'bicycle' , 'flower' , 'sign' , 'bird' , 'book' , 'chair' , 'road' , 'cat' , 'dog' , 'body' , 'boat' ]
 
 
 def msrc_convertRGBToLabels( imgRGB ):
@@ -134,7 +134,7 @@ class msrc_Image:
 # dataSetPath is the base directory for the data set (subdirs are under this)
 # Returns a list of msrc_image objects.  subset should be a list of 
 # filenames of the original image, relative to dataSetPath.
-def msrc_loadImages( dataSetPath, subset=None ):
+def msrc_loadImages( dataSetPath, subset=None, vbs=False ):
     res = []
     if subset == None:
         subset = glob.glob( dataSetPath + '/Images/*.bmp' ) + glob.glob( dataSetPath + '/Images/*.png' )
@@ -146,7 +146,7 @@ def msrc_loadImages( dataSetPath, subset=None ):
         gtfn = fn.replace('Images/', 'GroundTruth/').replace('.','_GT.')
         hqfn = fn.replace('Images/', 'SegmentationsGTHighQuality/').replace('.','_HQGT.')
         # create an image object, stuff in list
-        res.append( msrc_Image( fn, gtfn, hqfn, verbose=True ) )
+        res.append( msrc_Image( fn, gtfn, hqfn, verbose=vbs ) )
         #break
     assert len(res) > 0, 'zarro images loaded.  subset = %s' % subset
     return res

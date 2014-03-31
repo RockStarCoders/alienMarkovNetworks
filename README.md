@@ -1,16 +1,55 @@
 *Alien Markov Networks*: experiments in MRFs for image segmentation
 ------------------------------------------------------------------
 
-Currently the aim is to get some decent results on the MSRC data set.  The
-target platform is Ubuntu 13.04.  By far the easiest way to use the software is
-on a VM using vagrant.  If you're running Ubuntu 13.04, you could try running
+*Please report errors in these instructions*
+
+This library contains a set of python tools for performing image segmentation
+using Markov Random Fields (MRFS) and/or Conditional Random Fields (CRFs).
+
+The first aim is to get some standard results on the MSRC data set.  The target
+platform is Ubuntu 13.04.  By far the easiest way to use the software is on a VM
+using vagrant.  If you're running Ubuntu 13.04, you could try running parts of
 the provisioning script in the vagrant directory (bootstrap.sh) to install the
 necessary dependencies.
 
 [MSRC data is available here] (http://research.microsoft.com/en-us/downloads/b94de342-60dc-45d0-830b-9f6eff91b301/default.aspx)
 
 
-## VM
+## To Install on Machine
+
+Clone the repo.
+
+Install some needed dependencies:
+```
+apt-get update
+apt-get install -y emacs git-core cython python-pip python-dev \
+    python-numpy python-matplotlib python-scipy python-pandas \
+    libboost-dev
+pip install scikit-learn scikit-image
+```
+
+Get a local installation of the _slic_ python library:
+```
+cd mylibdir
+git clone https://github.com/amueller/slic-python.git
+cd slic-python
+make
+```
+
+Build the cython components:
+```
+cd alienMarkovNetworks/maxflow
+python setup.py build_ext --inplace
+```
+
+Add these libraries to your python path, possibly in your .bashrc or the like:
+```
+echo 'export PYTHONPATH="$PYTHONPATH":mylibdir/slic-python:mycodedir/alienMarkovNetworks/maxflow' \
+    >> ~/.bashrc
+```
+
+
+## To Install on VM
 
 *NOTE:* vagrant uses virtualbox by default.  For me this required switching
 virtualisation on in the bios.
@@ -41,39 +80,25 @@ On the host machine, you can provide the MSRC data to the VM as follows:
 
 ## RUN
 
-Inside the VM, first create features from the data.  For each of the training,
-validation and test sets of images, features can be created for a range of
-oversegmentation parameter settings as follows:
+These instructions will allow you to reproduce a result on the MSRC data set.
 
-```  
-  mkdir /vagrant/features
-  cd /vagrant/alienMarkovNetworks/
-  ./createMSRCFeatures.sh /vagrant/msrcData/training   /vagrant/features/msrcTraining
-  ./createMSRCFeatures.sh /vagrant/msrcData/validation /vagrant/features/msrcValidation
-  ./createMSRCFeatures.sh /vagrant/msrcData/test       /vagrant/features/msrcTest
+1. Download the [MSRC data] (http://research.microsoft.com/en-us/downloads/b94de342-60dc-45d0-830b-9f6eff91b301/default.aspx).  Let's call that path _DATAPATH_.
+2. Copy it to partitioned sub-directories:
 ```
-
-Each feature set consists of 3 files: features, labels and super-pixel adjacency statistics.
-Train a classifier with default parameters on each of these training sets, and test on
-the corresponding validation set:
-
+  mkdir DATAPATH/msrcPartitioned
+  cd alienMarkovNetworks
+  ./createMSRCPartition.sh -c  DATAPATH/MSRC_ObjCategImageDatabase_v2 \
+      MSRC_dataSplit_Shotton/Train.txt \
+      MSRC_dataSplit_Shotton/Validation.txt \
+      MSRC_dataSplit_Shotton/Test.txt  \
+      DATAPATH/msrcPartitioned
 ```
-  ./evaluateMSRCOverseg.sh /vagrant/features/msrc
+3. Run the following script:
 ```
-
-Of the parameters considered, the best values are ??.  Use this data set to
-perform a grid search for parameters of the random forest classifier.  Uses
-cross-validation on the training set.  In this context, the validation set can
-be a hold-out test set to check the generalisation.
-
+mkdir OUTPUTDIR
+./reproduceMSRC.sh DATAPATH/msrcPartitioned OUTPUTDIR 8
 ```
-    nohup time ./trainClassifier.py \
-     --outfile /vagrant/classifier_msrc_rf_400-10_grid.pkl \
-      --type=randyforest --paramSearchFolds=5 \
-       --ftrsTest=/vagrant/features/msrcValidation_slic-400-010.00_ftrs.pkl \
-        --labsTest=/vagrant/features/msrcValidation_slic-400-010.00_labs.pkl \
-        /vagrant/features/msrcTraining_slic-400-010.00_ftrs.pkl \
-        /vagrant/features/msrcTraining_slic-400-010.00_labs.pkl \
-         --nbJobs=2 &
-```
+The number 8 above is the number of cores to use.  Limiting factor is RAM. I
+have 32 GB RAM and 8 is good for me.  In OUTPUTDIR this produces labelled 
+images, as well as accuracy metrics to standard out.
 

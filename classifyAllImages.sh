@@ -14,13 +14,16 @@
 
 function Usage() {
     echo "Usage:"
-    echo "   ./classifyAllImages.sh <classifierFilename> <outDir> <nbSuperPix> <superPixCompact> file1 file2 .... fileN"
+    echo "   ./classifyAllImages.sh <classifierFilename> <outDir> <nbSuperPix> <superPixCompact> <nbCores> file1 file2 .... fileN"
 }
 
 clfrName="$1"; shift
 outDir="$1"; shift
 nbSuperPixels="$1"; shift
 superPixelCompactness="$1"; shift
+typeset -i nbCores="$1"; shift
+
+echo "Using $nbCores cores"
 
 if [ ! -d "$outDir" ]; then
     echo "Error: output directory $outDir does not exist."
@@ -36,10 +39,11 @@ fi
 
 # as we go, create a csv from labelled image to GT image
 csvFn="$outDir"/evalpairs.csv
-echo "" > "$csvFn"
+rm -f "$csvFn"
 
 logFn="$outDir"/log.txt
 echo "" > "$logFn"
+typeset -i ctr=0
 
 for file in $*; do 
     echo "Processing input image $file..."
@@ -53,11 +57,18 @@ for file in $*; do
     ofn="$outDir"/"$ifn"
     ./testClassifier.py "$clfrName" "$file" --outfile "$ofn" \
 	--nbSuperPixels $nbSuperPixels \
-	--superPixelCompactness $superPixelCompact \
-	--outprobsfile "${ofn%.$extn}.pkl" >> "$logFn" 2>&1
+	--superPixelCompactness $superPixelCompactness \
+	--outprobsfile "${ofn%.$extn}.pkl" >> "$logFn" 2>&1 &
 
     # append to csv
     echo "${ofn},${ifnBase}_GT.$extn" >> "$csvFn"
+
+    ctr=$(($ctr+1))
+
+    if [ $(($ctr % $nbCores)) = 0 ]; then
+	wait
+    fi
 done
 
+wait
 echo "All done"
