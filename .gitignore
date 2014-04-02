@@ -3,3 +3,7 @@ results
 vagrant/msrcData
 vagrant/features
 vagrant/overhead
+*.pyc
+*.o
+*.pkl
+maxflow/cython_uflow.cpp
