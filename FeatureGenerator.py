@@ -1,3 +1,7 @@
+"""
+First cut at super-pixel feature generation.
+"""
+
 # collection of fucntions to produce feature vectors from an input sourceImage
 # Plan to generate:
 #    * Histogram of oriented gradient (HOG) features using scikit-sourceImage

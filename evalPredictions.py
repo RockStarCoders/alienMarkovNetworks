@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+"""
+Evaluation of labelling results.  They could come from the classifier or the MRF.
+"""
+
 # evaluation of classifier performance
 # assumptions
 # calculate performance at pixel level - no superpixel refs

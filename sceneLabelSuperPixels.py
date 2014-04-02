@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+"""
+Command-line utility to do N-class super-pixel MRF segmentation.
+"""
+
 # Example:
 #
 #     ./sceneLabelSuperPixels.py randForestClassifierSP.pkl /home/jamie/data/MSRC_ObjCategImageDatabase_v2/Images/7_3_s.bmp
@@ -41,7 +45,6 @@ import scipy.ndimage.filters
 import cython_uflow as uflow
 import sklearn
 import sklearn.ensemble
-import bonzaClass
 import amntools
 import pomio
 import FeatureGenerator
@@ -55,7 +58,7 @@ import skimage
 def getAdjProbs(name):
     if name != None and len(name)>0:
         print 'Loading adjacency probs...'
-        adjProbs = bonzaClass.loadObject(name)
+        adjProbs = pomio.unpickleObject(name)
         # This is actually a bunch of counts.  Some will be zero, which is probably
         # a sampling error, so let's offset with some default number of counts.
         adjProbs += 10.0
@@ -113,14 +116,14 @@ else:
     print 'Loading classifier...'
     assert args.clfrFn != None, 'No classifier filename specified!'
         
-    clfr = bonzaClass.loadObject(args.clfrFn)
+    clfr = pomio.unpickleObject(args.clfrFn)
 
     print 'Computing superpixel features...'
     ftrs = FeatureGenerator.generateSuperPixelFeatures( imgRGB, spix.m_labels, [] )
 
 
     print 'Computing class probabilities...'
-    classProbs = bonzaClass.classProbsOfFeatures(ftrs,clfr,\
+    classProbs = amntools.classProbsOfFeatures(ftrs,clfr,\
                                                      requireAllClasses=False)
 
     if args.verbose:

@@ -4,6 +4,10 @@ import scipy
 from scipy.misc import imread
 import maxflow
 
+"""
+Example program using maxflow library.
+"""
+
 img = imread("a2.png")
 
 # Create the graph.

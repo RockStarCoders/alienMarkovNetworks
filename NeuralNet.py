@@ -1,5 +1,9 @@
 import numpy as np
 
+"""
+Neural Network Classifier
+"""
+
 #from amb.seg import pomio, FeatureGenerator
 import pomio
 import FeatureGenerator

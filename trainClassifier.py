@@ -1,4 +1,9 @@
 #!/usr/bin/env python
+
+"""
+Command-line tool for training classifiers on pixel or super-pixel features.
+"""
+
 import argparse
 parser = argparse.ArgumentParser(description='Train a classifier for MRF project.')
 

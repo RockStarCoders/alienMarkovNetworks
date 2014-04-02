@@ -10,7 +10,7 @@ import argparse
 #  ./createFeatures.py ~/data/sceneLabelling/overhead/MSRC-like overhead --type pkl --scaleFrac 1.0 --splitRatio 1 0 0
 #
 
-parser = argparse.ArgumentParser(description='Create super-pixel features for MRF project.')
+parser = argparse.ArgumentParser(description='Create pixel or super-pixel features for MRF project.')
 
 # options
 parser.add_argument('--type', type=str, action='store', default='pkl', \

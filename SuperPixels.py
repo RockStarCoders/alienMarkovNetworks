@@ -9,6 +9,10 @@ import slic
 import matplotlib.pyplot as plt
 import pomio
 
+"""
+Functions and Classes for generating and dealing with super-pixels
+"""
+
 # Module wraps skimage segementation functions
 
 def displayImage(image, imgTitle, orientation):

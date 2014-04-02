@@ -4,6 +4,10 @@ import skimage.io
 import numpy as np
 import matplotlib.pyplot as plt
 import pomio
+"""
+A one-off tool for converting class label colors from mine to MSRC or vice-versa.
+Could be generalised to be quite useful.
+"""
 
 # usage:
 #

@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+"""
+Command-line utility to do N-class pixel-wise MRF segmentation.
+"""
+
 # SUMMARY: this is an N-class foreground/background labelling example:
 #
 # Usage:  ./sceneLabelN.py <classifierPkl> <imageName> 

@@ -19,7 +19,11 @@ import FeatureGenerator
 
 import pdb
 
-import bonzaClass
+import amntools
+
+"""
+The main set of functions to do super-pixel feature generation and classification.
+"""
 
 # Create a random forest classifier for superpixel class given observed image features
 # 1) Get labelled training data
@@ -218,7 +222,7 @@ def predictSuperPixelLabels(classifier, image,numberSuperPixels,  \
     superPixelLabels = classifier.predict( superPixelFeatures )
     
     if makeProbabilities:
-        outProbs = bonzaClass.classProbsOfFeatures(
+        outProbs = amntools.classProbsOfFeatures(
             superPixelFeatures, classifier, requireAllClasses=False
         )
     return (superPixelLabels, spgraph, outProbs)

@@ -12,6 +12,10 @@ import matplotlib
 import NeuralNet
 import sklearn.ensemble
 
+"""
+Logistic Regression classifier
+"""
+
 def trainLogisticRegressionModel(
     featureData, labels, Cvalue, outputClassifierFile, scaleData=True, requireAllClasses=True
     ):

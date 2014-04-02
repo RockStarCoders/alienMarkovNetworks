@@ -4,6 +4,10 @@ from scipy.misc import factorial as factorial
 
 import pomio
 
+"""
+Utility functions to deal with statistics of class labels and super-pixels
+"""
+
 
 def imageCountPerClass(msrcDataLocation):
     

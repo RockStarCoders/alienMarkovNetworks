@@ -10,6 +10,10 @@ import skimage.io
 
 import PossumStats
 
+"""
+Various I/O related functions, and an interface to the MSRC data set.
+"""
+
 # MSRC Image Segmentation database V2:
 #
 #   http://research.microsoft.com/en-us/projects/ObjectClassRecognition/
@@ -414,22 +418,17 @@ def readMatFromCSV( infile ):
     return res
 
 def pickleObject(obj, fullFilename):
-    if fullFilename.endswith(".pkl"):
-        f = open( fullFilename , "w")
-        pickle.dump(obj, f , True)
-        f.close()
-    else:
-        print "Input filename did not end in .pkl - adding .pkl to filename."
-        fullFilename= str(fullFilename)+".pkl"
-        f = open( fullFilename , "w")
-        pickle.dump(obj, f , True)
-        f.close()
+  assert fullFilename.endswith(".pkl")
+  f = open( fullFilename , "w")
+  pickle.dump(obj, f , True)
+  f.close()
         
 def unpickleObject(fullFilename):
-    f = open(fullFilename, "r")
-    object = pickle.load(f)
-    f.close()
-    return object
+  assert fullFilename.endswith(".pkl")
+  f = open(fullFilename, "r")
+  object = pickle.load(f)
+  f.close()
+  return object
 
 
 def readEvaluationListFromCsv(evalListFile):

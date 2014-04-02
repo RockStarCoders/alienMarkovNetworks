@@ -1,4 +1,7 @@
 # Visualisation functions
+""" 
+Various image and feature plotting tools.
+"""
 
 import matplotlib.pyplot as plt
 from matplotlib import cm
