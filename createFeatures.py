@@ -4,6 +4,9 @@ import pomio
 import numpy as np
 import argparse
 
+"""
+Command-line tool for creating pixel and super-pixel feature sets from images
+"""
 
 # Overhead example:
 #

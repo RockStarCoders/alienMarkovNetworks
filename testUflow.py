@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import numpy as np
 import cython_uflow as uflow
-import SuperPixels as sp
+import superPixels as sp
 
 # Test functions in cython_uflow.pyx
 

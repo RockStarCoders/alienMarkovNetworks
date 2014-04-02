@@ -19,7 +19,7 @@ from skimage import color, feature, io
 
 import pomio
 
-import SuperPixels
+import superPixels
 
 from DataVisualisation import *
 
@@ -844,7 +844,7 @@ def test_FilterbankResponse():
 #if __name__ == "__main__":
 def test_superPixel_pixelFeatures():
     sourceImage = readImageFileRGB("ship-at-sea.jpg")
-    superPixelMask = SuperPixels.getSuperPixels_SLIC(sourceImage, 400, 10)
+    superPixelMask = superPixels.getSuperPixels_SLIC(sourceImage, 400, 10)
     
     superPixelRegionFeatures = getSuperPixelFeatures_pixel(sourceImage, superPixelMask)
     
@@ -854,7 +854,7 @@ def test_superPixel_pixelFeatures():
 
 def test_superPixelFeatures():
     sourceImage = readImageFileRGB("ship-at-sea.jpg")
-    superPixelMask = SuperPixels.getSuperPixels_SLIC(sourceImage, 400, 10)
+    superPixelMask = superPixels.getSuperPixels_SLIC(sourceImage, 400, 10)
     
     spFeatures = generateSuperPixelFeatures(sourceImage, superPixelMask, [])
     

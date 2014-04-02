@@ -49,7 +49,7 @@ import amntools
 import pomio
 import FeatureGenerator
 import slic
-import SuperPixels
+import superPixels
 import skimage
 
 
@@ -111,7 +111,7 @@ else:
     imgRGB = imread( args.infile )
 
     # Turn image into superpixels.
-    spix = SuperPixels.computeSuperPixelGraph( imgRGB, 'slic', [numberSuperPixels,superPixelCompactness] )
+    spix = superPixels.computeSuperPixelGraph( imgRGB, 'slic', [numberSuperPixels,superPixelCompactness] )
 
     print 'Loading classifier...'
     assert args.clfrFn != None, 'No classifier filename specified!'

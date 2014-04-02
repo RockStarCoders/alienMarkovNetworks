@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+"""
+Command-line utility to do 2-class pixel-wise MRF segmentation.
+"""
+
 # SUMMARY: this is a 2-class foreground/background labelling example, really
 # using a hidden MRF (obs not used in nbr potentials).  Fixed training
 # rectangles are used to construct histograms, used for probability a pixel is

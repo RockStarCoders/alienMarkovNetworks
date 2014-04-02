@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import matplotlib
 
 import pomio
-import SuperPixels
+import superPixels
 import FeatureGenerator
 
 import pdb
@@ -67,7 +67,7 @@ def getSuperPixelData(msrcImages,numberSuperPixels, superPixelCompactness):
         imgPixelLabels = msrcImages[imgIdx].m_gt
         
         # create superpixel map and graph for image
-        spgraph = SuperPixels.computeSuperPixelGraph( img, 'slic', [numberSuperPixels, superPixelCompactness] )
+        spgraph = superPixels.computeSuperPixelGraph( img, 'slic', [numberSuperPixels, superPixelCompactness] )
         imgSuperPixelMask = spgraph.m_labels
         imgSuperPixels = spgraph.m_nodes
         numberImgSuperPixels = spgraph.getNumSuperPixels()
@@ -209,7 +209,7 @@ def predictSuperPixelLabels(classifier, image,numberSuperPixels,  \
     outProbs = None
 
     # Get superpixels
-    spgraph = SuperPixels.computeSuperPixelGraph(image,'slic',[numberSuperPixels, superPixelCompactness])
+    spgraph = superPixels.computeSuperPixelGraph(image,'slic',[numberSuperPixels, superPixelCompactness])
     imgSuperPixelsMask = spgraph.m_labels
     imgSuperPixels = spgraph.m_nodes
     numberImgSuperPixels = len(imgSuperPixels)

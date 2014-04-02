@@ -31,7 +31,7 @@ args = parser.parse_args()
 
 from skimage import io
 import sys
-import pomio, PossumStats, FeatureGenerator, SuperPixels, SuperPixelClassifier
+import pomio, PossumStats, FeatureGenerator, superPixels, SuperPixelClassifier
 import numpy as np
 import pandas    
 
@@ -200,7 +200,7 @@ def test():
     car = pomio.msrc_loadImages(msrcData , [ "Images/" + carFile ] )[0]
     groundTruth = car.m_gt
     
-    mask = SuperPixels.getSuperPixels_SLIC(car.m_img, 400, 10)
+    mask = superPixels.getSuperPixels_SLIC(car.m_img, 400, 10)
     
     spLabels = SuperPixelClassifier.predictSuperPixelLabels(classifier, car.m_img,400,10,True)[0]
     
