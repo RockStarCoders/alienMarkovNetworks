@@ -21,7 +21,7 @@ import pomio
 
 import superPixels
 
-from DataVisualisation import *
+#from DataVisualisation import *
 
 
 # Global variables to ensure consistency in classier training and prediction
@@ -38,6 +38,19 @@ def setNumberHistogramBins(numBins):
 #
 # Image and label array reshape utils
 #
+
+def createKernalWindowRanges(windowX, windowY, inc):
+    windowX = int(windowX)
+    windowY = int(windowY)
+    
+    xRange = np.arange(0, windowX, inc)
+    xRange = xRange - (np.floor(np.max(xRange) / 2.0).astype('uint8'))
+
+    yRange = np.arange(0, windowY, inc)
+    yRange = yRange - (np.floor(np.max(yRange) / 2.0).astype('uint8'))
+    
+    X,Y = np.meshgrid(xRange, yRange)
+    return X, Y
 
 def reshapeImageLabels(msrcImage):
     groundTruth = msrcImage.m_gt
@@ -125,6 +138,7 @@ def generateLabeledImageFeatures(msrcImage, ignoreVoid=False):
     
     if ignoreVoid == False:
         # Just process all pixels, whether void or not
+        # todo: replace with features.computePixelFeatures JRS
         allPixelFeatures = generatePixelFeaturesForImage(msrcImage.m_img)
         allPixelLabels = reshapeImageLabels(msrcImage)
         
@@ -138,6 +152,7 @@ def generateLabeledImageFeatures(msrcImage, ignoreVoid=False):
         nonVoidFeatures = None
         nonVoidLabels = None
         
+        # todo: replace with features.computePixelFeatures JRS
         allPixelFeatures = generatePixelFeaturesForImage(msrcImage.m_img)
         allPixelLabels = reshapeImageLabels(msrcImage)
         
@@ -625,6 +640,7 @@ def getSuperPixelFeatures_pixel(image, mask):
     """This function returns an np array containing pixel-level features for each superpixel region"""
     
     # Generate the pixel-level features for the image
+    # todo: replace with features.computePixelFeatures JRS
     imagePixelFeatures = generatePixelFeaturesForImage(image)
     numFeaturesPerPixel = np.shape(imagePixelFeatures)[1]
     numColumns = np.shape(image)[1]

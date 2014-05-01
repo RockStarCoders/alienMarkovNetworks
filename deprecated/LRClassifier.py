@@ -140,6 +140,7 @@ def generateImagePredictionClassDist(rgbImage, classifier, requireAllClasses=Tru
     # Take image, generate features, use classifier to predict labels, ensure normalised dist and shape to (i,j,N) np.array
     
     # generate predictions for the image
+        # todo: replace with features.computePixelFeatures JRS
     imagePixelFeatures = FeatureGenerator.generatePixelFeaturesForImage(rgbImage)
     #print imagePixelFeatures
     predictedPixelLabels = classifier.predict(imagePixelFeatures)
@@ -264,24 +265,6 @@ def pickleObject(obj, filename):
         pickle.dump(obj, f , True)
         f.close()
     
-    
-def loadObject(filename):
-    filetype = '.pkl'
-    if filename.endswith(filetype):
-        f = open(filename, 'rb')
-        obj = pickle.load(f)
-        f.close()
-        return obj
-    else:
-        print "Input filename did not end in .pkl - trying filename with type appended...."
-        f = open( ( str(filename)+".pkl" ), "rb")
-        obj = pickle.load(f)
-        f.close()
-        return obj
-
-def loadClassifier(fullFilename):
-    return loadObject(fullFilename)
-
 def scaleInputData(inputFeatureData):
     # Assumes numeric numpy array [[ data....] , [data....] ... ]
     return preprocessing.scale(inputFeatureData.astype('float'))
@@ -503,6 +486,7 @@ if __name__ == "__main__":
     plt.figure()
     for img in msrcImages:
         print "\nRead in image %s from the MSRC dataset::" % img.m_imgFn
+        # todo: replace with features.computePixelFeatures JRS
         imageFeatures = FeatureGenerator.generatePixelFeaturesForImage(img.m_img)
         predLabs = classifier.predict(imageFeatures)
         print "\nGenerating prediction of shape ", predLabs.shape, "::" , predLabs

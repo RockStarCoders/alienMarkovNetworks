@@ -31,7 +31,7 @@ args = parser.parse_args()
 
 from skimage import io
 import sys
-import pomio, PossumStats, FeatureGenerator, superPixels, SuperPixelClassifier
+import pomio, superPixels
 import numpy as np
 import pandas    
 
@@ -88,11 +88,11 @@ def evaluateFromFile(evalFile, sourceData, predictDir):
     print "  Average accuracy per class: ", perClass.mean()
     print "  Accuracy per class: "
     print pandas.DataFrame( perClass.reshape((1,len(perClass))), \
-                              columns=pomio.getClasses()[1:] ).to_string()
+                              columns=pomio.getClasses()[:-1] ).to_string()
     print ""
     print "  Confusion matrix (row=gt, col=predicted): "
-    print pandas.DataFrame( confMat, columns=pomio.getClasses()[1:], \
-                              index=pomio.getClasses()[1:] ).to_string()
+    print pandas.DataFrame( confMat, columns=pomio.getClasses()[:-1], \
+                              index=pomio.getClasses()[:-1] ).to_string()
     print "Processing complete."
 
 
@@ -142,11 +142,10 @@ def evaluateConfusionMatrix(predictedImg, gtImg):
     confusionMatrix = np.zeros([numClasses , numClasses] , int)
     # rows are actual, cols are predicted
     for cl in range(numClasses):
-      # The plus 1 is because of void!
-      clMask = (gtImg == cl+1)
+      clMask = (gtImg == cl)
       # It's easy, just histogram those values
-      vals = predictedImg[clMask] - 1
-      assert np.all( np.logical_and( 0 <= vals, vals < numClasses+1 ) ), vals.max()
+      vals = predictedImg[clMask]
+      assert np.all( np.logical_and( 0 <= vals, vals < numClasses ) ), vals.max()
       confusionMatrix[cl,:] = np.histogram( vals, range(numClasses+1) )[0]
     
     assert confusionMatrix.sum() == np.count_nonzero( gtImg != pomio.getVoidIdx() ) 

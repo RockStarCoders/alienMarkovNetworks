@@ -2,8 +2,7 @@
 
 # Usage:
 #
-#    labelAllImagesGivenProbs.sh <adjacencyStatsFilename> K 
-#                         <outDir> file1 file2 .... fileN
+#    labelAllImagesGivenProbs.sh K <outDir> file1 file2 .... fileN
 #
 # Like labelAllImages.sh, but assumes classifier has already been applied.
 # So it works  with the probs not the image, doesn't need classifier or 
@@ -11,7 +10,6 @@
 #
 # Example:
 #    ./labelAllImagesGivenProbs \
-#           /vagrant/features/msrcTraining_slic-400-010.00_adj.pkl \
 #           0.1 \
 #           /vagrant/results/imagesLabelled/training  \
 #           /vagrant/results/imagesClassified/training/*.pkl
@@ -19,10 +17,9 @@
 
 function Usage() {
     echo "Usage:"
-    echo "   ./labelAllImages.sh <adjacencyStatsFilename> K <outDir> <nbCores> file1.pkl file2 .... fileN"
+    echo "   ./labelAllImagesGivenProbs.sh K <outDir> <nbCores> file1.pkl file2 .... fileN"
 }
 
-adjName="$1"; shift
 K="$1"; shift
 outDir="$1"; shift
 typeset -i nbCores="$1"; shift
@@ -57,7 +54,6 @@ for file in $*; do
     ofn="$outDir"/"$ifnBase".bmp
 
     ./sceneLabelSuperPixels.py "$file" \
-	--adjFn="$adjName" \
 	--nbrPotentialMethod=degreeSensitive  \
 	--K=$K \
 	--outfile="$ofn" >> "$logFn" 2>&1 &

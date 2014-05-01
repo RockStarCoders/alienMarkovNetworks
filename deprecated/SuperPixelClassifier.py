@@ -19,7 +19,7 @@ import FeatureGenerator
 
 import pdb
 
-import amntools
+import classification
 
 """
 The main set of functions to do super-pixel feature generation and classification.
@@ -101,6 +101,7 @@ def getSuperPixelData(msrcImages,numberSuperPixels, superPixelCompactness):
         adjVoidCountsTotal += adjVoidCount
 
         # Now we have the superpixel labels, and an ignore list of void superpixels - time to get the features!
+        # todo: replace with features.computeSuperPixelFeatures JRS
         imgSuperPixelFeatures = FeatureGenerator.generateSuperPixelFeatures(img, imgSuperPixelMask, excludeSuperPixelList=superPixelIgnoreList)
         
         if superPixelFeatures == None:        
@@ -121,86 +122,6 @@ def getSuperPixelData(msrcImages,numberSuperPixels, superPixelCompactness):
 
 
 
-# use this function to generate features and labels for default training dataset split
-def getSuperPixelTrainingData(msrcDataDirectory, nbSuperPixels,superPixelCompactness, scale, trainSplit=0.6, validationSplit=0.2, testSplit=0.2):
-    
-    # Should probably make this a call to pomio in case the ordering changes in the future...
-    voidClassLabel = pomio.getVoidIdx()
-    
-    # These could be user-specified
-    if scale == None:
-        scale = 0.05 # default to 10% of data
-        
-    msrcData = pomio.msrc_loadImages(msrcDataDirectory, None)
-
-    print "Now generating superpixel classifier for MSRC data"
-    
-#    splitData = pomio.splitInputDataset_msrcData(msrcData, datasetScale=scale, keepClassDistForTraining=True, trainSplit, validationSplit, testSplit )
-    splitData = pomio.splitInputDataset_msrcData(msrcData, scale, True, trainSplit, validationSplit, testSplit )
-    
-    # prepare superpixel training data
-    trainingMsrcImages = splitData[0]
-    
-    # Just use the above function to get superpixel features and labels for training data
-    return SuperPixelClassifier.getSuperPixelData(trainingMsrcImages,nbSuperPixels,superPixelCompactness)
-    
-    
-
-
-# Could use other params e.g. training dataset size
-def createSuperPixelRandomForestClassifier(msrcDataDirectory, classifierDirectory,nbSuperPixels,superPixelCompactness, scale):
-    
-    # Get training data
-    superPixelTrainData = getSuperPixelTrainingData(msrcDataDirectory,nbSuperPixels,superPixelCompactness, scale)
-    superPixelTrainFeatures = superPixelTrainData[0]
-    superPixelTrainLabels = superPixelTrainData[1]
-    
-    # now train random forest classifier on labelled superpixel data
-    print '\n\n**Training a random forest on %d examples...' % len(superPixelTrainLabels)
-    print "Training feature data shape=" , np.shape(superPixelTrainFeatures) , "type:", type(superPixelTrainFeatures)
-    print "Training labels shape=" , np.shape(superPixelTrainLabels), "type:" , type(superPixelTrainLabels)
-
-    numEstimators = 100
-    
-    classifier = sklearn.ensemble.RandomForestClassifier(n_estimators=numEstimators)
-    classifier = classifier.fit( superPixelTrainData, superPixelTrainLabels)
-    
-    # Now serialise the classifier to file
-    classifierFilename = classifierDirectory + "/" + "randForest_superPixel_nEst" + str(numEstimators) + ".pkl"
-    
-    pomio.pickleObject(classifier, classifierFilename)
-    
-    print "Rand forest classifier saved @ " + str(classifierFilename)
-
-
-
-def createSuperPixelLogisticRegressionClassifier(msrcDataDirectory, classifierDirectory, scale):
-    
-    # Get training data
-    superPixelTrainData = getSuperPixelTrainingData(msrcDataDirectory,nbSuperPixels,superPixelCompactness, scale)
-    superPixelTrainFeatures = superPixelTrainData[0]
-    superPixelTrainLabels = superPixelTrainData[1]
-    
-    # now train random forest classifier on labelled superpixel data
-    print '\n\n**Training a LR classifier on %d examples...' % len(superPixelTrainLabels)
-    print "Training feature data shape=" , np.shape(superPixelTrainFeatures) , "type:", type(superPixelTrainFeatures)
-    print "Training labels shape=" , np.shape(superPixelTrainLabels), "type:" , type(superPixelTrainLabels)
-
-    Cvalue = 0.5
-    # sklearn.linear_model.LogisticRegression(penalty='l2', dual=False, tol=0.0001, C=1.0, fit_intercept=True, intercept_scaling=1, class_weight=None, random_state=None)
-    classifier = LogisticRegression(penalty='l1' , dual=False, tol=0.0001, C=Cvalue, fit_intercept=True, intercept_scaling=1)
-    classifier.fit(superPixelTrainFeatures, superPixelTrainLabels)
-    
-    
-    # Now serialise the classifier to file
-    classifierFilename = classifierDirectory + "/" + "LR_superPixel_C" + str(Cvalue) + ".pkl"
-    
-    pomio.pickleObject(classifier, classifierFilename)
-    
-    print "LR classifier saved @ " + str(classifierFilename)
-
-
-
 # If makeProbabilities is true, the third output arg is the prob
 # matrix. Otherwise, None.
 def predictSuperPixelLabels(classifier, image,numberSuperPixels,  \
@@ -216,13 +137,14 @@ def predictSuperPixelLabels(classifier, image,numberSuperPixels,  \
     print "**Image contains", numberImgSuperPixels, "superpixels"
     
     # Get superpixel features
+    # todo: replace with features.computeSuperPixelFeatures JRS
     superPixelFeatures = FeatureGenerator.generateSuperPixelFeatures(image, imgSuperPixelsMask, None)
     assert np.shape(superPixelFeatures)[0] == numberImgSuperPixels, "Number of superpixels in feature array != number super pixels in image!:: " + str(np.shape(superPixelFeatures)[0]) + " vs. " + str(numberImgSuperPixels)
 
     superPixelLabels = classifier.predict( superPixelFeatures )
     
     if makeProbabilities:
-        outProbs = amntools.classProbsOfFeatures(
+        outProbs = classification.classProbsOfFeatures(
             superPixelFeatures, classifier, requireAllClasses=False
         )
     return (superPixelLabels, spgraph, outProbs)

@@ -78,7 +78,7 @@ echo "  done"
 
 echo "*** Label test images..."
 mkdir "$olabDir"
-./labelAllImagesGivenProbs.sh "${ftrsBase}_adj.pkl" $K "$olabDir" $nbCores \
+./labelAllImagesGivenProbs.sh $K "$olabDir" $nbCores \
     "$oclDir"/*.pkl
 echo "  done"
 

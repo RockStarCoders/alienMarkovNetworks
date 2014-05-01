@@ -1,4 +1,5 @@
 # Module for image and data i/o
+import pomio
 import glob
 import pylab
 import numpy as np
@@ -8,7 +9,6 @@ import pickle
 
 import skimage.io
 
-import PossumStats
 
 """
 Various I/O related functions, and an interface to the MSRC data set.
@@ -25,37 +25,37 @@ Various I/O related functions, and an interface to the MSRC data set.
 #       chair, road, cat, dog, body, and boat.
 
 msrc_classToRGB = [\
-('void'     , (0     ,0       ,0     )), # 0 \
-('building' , (128   ,0       ,0     )), # 1 \
-('grass'    , (0     ,128     ,0     )), # 2 \
-('tree'     , (128   ,128     ,0     )), # 3 \
-('cow'      , (0     ,0       ,128   )), # 4 \
-#('horse'    , (128   ,0       ,128   )), # 5 \
-('sheep'    , (0     ,128     ,128   )), # 6 \
-('sky'      , (128   ,128     ,128   )), # 7 \
-#('mountain' , (64    ,0       ,0     )), # 8 \
-('aeroplane', (192   ,0       ,0     )), # 9 \
-('water'    , (64    ,128     ,0     )), # 10 \
-('face'     , (192   ,128     ,0     )), # 11 \
-('car'      , (64    ,0       ,128   )), # 12 \
-('bicycle'  , (192   ,0       ,128   )), # 13 \
-('flower'   , (64    ,128     ,128   )), # 14 \
-('sign'     , (192   ,128     ,128   )), # 15 \
-('bird'     , (0     ,64      ,0     )), # 16 \
-('book'     , (128   ,64      ,0     )), # 17 \
-('chair'    , (0     ,192     ,0     )), # 18 \
-('road'     , (128   ,64      ,128   )), # 19 \
-('cat'      , (0     ,192     ,128   )), # 20 \
-('dog'      , (128   ,192     ,128   )), # 21 \
-('body'     , (64    ,64      ,0     )), # 22 \
-('boat'     , (192   ,64      ,0     ))  # 23 \
+('building' , (128   ,0       ,0     )),    # 0 \ 
+('grass'    , (0     ,128     ,0     )),    # 1 \ 
+('tree'     , (128   ,128     ,0     )),    # 2 \ 
+('cow'      , (0     ,0       ,128   )),    # 3 \ 
+#('horse'    , (128   ,0       ,128   )),   #   \ 
+('sheep'    , (0     ,128     ,128   )),    # 4 \ 
+('sky'      , (128   ,128     ,128   )),    # 5 \ 
+#('mountain' , (64    ,0       ,0     )),   #   \ 
+('aeroplane', (192   ,0       ,0     )),    # 6 \
+('water'    , (64    ,128     ,0     )),    # 7 \ 
+('face'     , (192   ,128     ,0     )),    # 8  \
+('car'      , (64    ,0       ,128   )),    # 9  \
+('bicycle'  , (192   ,0       ,128   )),    # 10 \
+('flower'   , (64    ,128     ,128   )),    # 11 \
+('sign'     , (192   ,128     ,128   )),    # 12 \
+('bird'     , (0     ,64      ,0     )),    # 13 \
+('book'     , (128   ,64      ,0     )),    # 14 \
+('chair'    , (0     ,192     ,0     )),    # 15 \
+('road'     , (128   ,64      ,128   )),    # 16 \
+('cat'      , (0     ,192     ,128   )),    # 17 \
+('dog'      , (128   ,192     ,128   )),    # 18 \
+('body'     , (64    ,64      ,0     )),    # 19 \
+('boat'     , (192   ,64      ,0     )),    # 20 \
+('void'     , (0     ,0       ,0     )),    # 21 \
 ]
 
 msrc_classLabels = [z[0] for z in msrc_classToRGB]
 
 
 def getVoidIdx():
-    return 0
+    return 21
 
 def getNumLabels():
     # includes void for display purposes
@@ -66,10 +66,9 @@ def getNumClasses():
     return len(msrc_classLabels)-1
 
 def getClasses():
-    return msrc_classLabels#['void' , 'building' , 'grass' , 'tree' , 'cow' , 'sheep' , 'sky' , 'aeroplane' , 'water' , 'face' , 'car' , 'bicycle' , 'flower' , 'sign' , 'bird' , 'book' , 'chair' , 'road' , 'cat' , 'dog' , 'body' , 'boat' ]
+    return msrc_classLabels
 
-
-def msrc_convertRGBToLabels( imgRGB ):
+def msrc_convertRGBToLabels( imgRGB, fn='' ):
     imgL = 255 * np.ones( imgRGB.shape[0:2], dtype='uint8' )
     # For each label, find matching RGB and set that value
     for l,ctuple in enumerate(msrc_classToRGB):
@@ -85,8 +84,9 @@ def msrc_convertRGBToLabels( imgRGB ):
     #plt.show()
     dodgyMsk = (imgL==255)
     if np.any( dodgyMsk ):
-        print '  WARNING: there are %d pixels with invalid colours.  Setting these to void.' % dodgyMsk.sum()
-        imgL[ dodgyMsk ] = 0
+        s = '' if fn=='' else ' in image '+fn
+        print '  WARNING: there are %d pixels with invalid colours%s.  Setting these to void. (might be the deleted classes?)' % (dodgyMsk.sum(), s)
+        imgL[ dodgyMsk ] = getVoidIdx()
     return imgL
 
 def msrc_convertLabelsToRGB( imgL ):
@@ -102,7 +102,7 @@ def msrc_convertLabelsToRGB( imgL ):
             x[msk] = clr[i]
     return imgRGB
 
-class msrc_Image:
+class LabelledImage:
     'Structure containing image and ground truth from MSRC v2 data set'
     m_img = None
     m_gt  = None
@@ -118,7 +118,7 @@ class msrc_Image:
         self.m_img = skimage.io.imread( fn ) #pylab.imread( fn )
         if verbose:
             print 'Loading gt image ', gtfn
-        self.m_gt  = msrc_convertRGBToLabels( skimage.io.imread( gtfn ) )
+        self.m_gt  = msrc_convertRGBToLabels( skimage.io.imread( gtfn ), gtfn )
         # not necessarily hq
         try:
             #self.m_hq  = msrc_convertRGBToLabels( pylab.imread( hqfn ) )
@@ -150,7 +150,7 @@ def msrc_loadImages( dataSetPath, subset=None, vbs=False ):
         gtfn = fn.replace('Images/', 'GroundTruth/').replace('.','_GT.')
         hqfn = fn.replace('Images/', 'SegmentationsGTHighQuality/').replace('.','_HQGT.')
         # create an image object, stuff in list
-        res.append( msrc_Image( fn, gtfn, hqfn, verbose=vbs ) )
+        res.append( LabelledImage( fn, gtfn, hqfn, verbose=vbs ) )
         #break
     assert len(res) > 0, 'zarro images loaded.  subset = %s' % subset
     return res
@@ -196,7 +196,7 @@ def splitInputDataset_msrcData( msrcImages,
         for idx in range(0, len(trainData)):
             trainClasses.update( trainData[idx].m_gt.flatten() )
         # Take void out of the set
-        trainClasses.remove(0)
+        trainClasses.remove( getVoidIdx() )
 
         numClasses = getNumClasses()
         # Note here we don't filter out void - do that at the pixel level when generating features
@@ -209,7 +209,7 @@ def splitInputDataset_msrcData( msrcImages,
         
     elif keepClassDistForTraining == True:
         # Get class frequency count from image set
-        classPixelCounts = PossumStats.totalPixelCountPerClass(msrcImages, printTotals=False)[1]
+        classPixelCounts = pomio.totalPixelCountPerClass(msrcImages, printTotals=False)[1]
         
         # normalise the frequency values to give ratios for each class
         sumClassCount = np.sum(classPixelCounts)
@@ -445,3 +445,57 @@ def readEvaluationListFromCsv(evalListFile):
     
     return data
 
+#
+# This was in PossumStats
+#
+
+
+def totalPixelCountPerClass(msrcImages, printTotals=True):
+    classes = pomio.msrc_classLabels
+    totalClasses = np.size(classes)
+    
+    classPixelCount = np.arange(0,totalClasses)
+    
+    print "\t*Imported MSRC image data using pomio.py::" , np.shape(msrcImages)
+    
+    totalPixels = 0
+    
+    for classIdx in range(0,totalClasses):
+        
+        classValue = classes[classIdx]
+        
+        pixelCountForClass = 0;
+        
+        for imageIdx in range(0,np.size(msrcImages)):
+            
+            # can we use a matrix operator to get a count of values in a np.ndarray?
+            # a[(25 < a) & (a < 100)].size
+            image = msrcImages[imageIdx]
+            imageGroundTruth = image.m_gt
+            
+            pixelCountForClass = pixelCountForClass + imageGroundTruth[(imageGroundTruth == classIdx)].size
+            
+        # add total count to the class count result
+        if printTotals == True:
+            print "Class = " + str(classValue), ", pixel count=" + str(pixelCountForClass)
+        
+        classPixelCount[classIdx] = float(pixelCountForClass)
+    
+    result = [classes, classPixelCount]
+    
+    # count up all the pixels
+    for imageIdx in range(0,np.size(msrcImages)):
+        totalPixels = totalPixels + msrcImages[imageIdx].m_gt.size
+    
+    if printTotals == True:
+        print "\nTotal pixels in dataset=" + str(totalPixels)
+        print "Sum of class pixel counts=" + str(np.sum(result[1].astype('uint')))
+        print "\nPixel count per class::\n" , result
+        print "\nPixel count difference = " + str(totalPixels - np.sum(result[1].astype('uint'))) 
+    
+    return result
+
+
+#
+# end Possum
+#

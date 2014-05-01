@@ -119,11 +119,11 @@ else:
     clfr = pomio.unpickleObject(args.clfrFn)
 
     print 'Computing superpixel features...'
-    ftrs = FeatureGenerator.generateSuperPixelFeatures( imgRGB, spix.m_labels, [] )
+    ftrs = features.computeSuperPixelFeatures( imgRGB, spix, ftype='classic', aggType='classic' )
 
 
     print 'Computing class probabilities...'
-    classProbs = amntools.classProbsOfFeatures(ftrs,clfr,\
+    classProbs = classification.classProbsOfFeatures(ftrs,clfr,\
                                                      requireAllClasses=False)
 
     if args.verbose:
@@ -148,9 +148,7 @@ else:
         classLabs = np.argmax( classProbs, 1 )
         # these are labs per region. turn into an image of labels.
         plt.figure()
-        # +1 adds void class
-        # todo: tidy this shemozzle up!
-        pomio.showLabels( spix.imageFromSuperPixelData( classLabs + 1 ) )
+        pomio.showLabels( spix.imageFromSuperPixelData( classLabs ) )
         plt.title('Raw Classifier Labelling')
         plt.figure()
         pomio.showClassColours()
@@ -165,7 +163,8 @@ else:
 #
 
 # Get adjacency probs
-adjProbs = getAdjProbs(args.adjFn)
+if args.adjFn != None:
+  adjProbs = getAdjProbs(args.adjFn)
     
     
 print 'Performing CRF inference...'
@@ -180,8 +179,6 @@ segResult = uflow.inferenceSuperPixel( \
     args.nbrPotentialMethod,\
     K )#, np.ascontiguousarray(nbrPotentialParams) )
 
-# turn from label classes to msrc labels
-segResult += 1
 print '   done.'
 
 if args.outfile and len(args.outfile)>0:

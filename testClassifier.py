@@ -32,13 +32,16 @@ import pomio
 import sklearn.ensemble
 import numpy as np
 import matplotlib.pyplot as plt
-import SuperPixelClassifier
+import superPixels
 import skimage
+import classification
 
 clfrFn = args.clfrFn
 clfr = pomio.unpickleObject( clfrFn )
 
 makeProbs = ( args.outprobsfile and len(args.outprobsfile)>0 )
+ftype = 'classic'
+aggtype = 'classic'
 
 #infile = args.infile
 #outfile = args.outfile
@@ -54,7 +57,8 @@ if args.verbose:
 
 print 'Classifying file ', args.infile
 image = skimage.io.imread(args.infile)
-[spClassPreds, spGraph, spClassProbs] = SuperPixelClassifier.predictSuperPixelLabels(clfr, image,numberSuperPixels, superPixelCompactness, makeProbs)
+spGraph = superPixels.computeSuperPixelGraph(image,'slic',[numberSuperPixels, superPixelCompactness])
+[spClassPreds, spClassProbs] = classification.classifyImageSuperPixels( image, clfr, spGraph, ftype, aggtype, makeProbs)
 spClassPredsImage = spGraph.imageFromSuperPixelData( spClassPreds.reshape( (len(spClassPreds),1) ) )
 
 if args.verbose:

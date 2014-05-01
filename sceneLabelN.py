@@ -25,7 +25,6 @@ import amntools
 import sklearn
 import sklearn.ensemble
 import pomio
-import FeatureGenerator
 
 # parse args
 clfrFn = sys.argv[1]
@@ -40,10 +39,11 @@ dbgMode = 0
 #
 imgRGB = imread( imgFn )
 print 'Loading classifier...'
-clfr = LRClassifier.loadClassifier(clfrFn)
+clfr = pomio.unpickleObject(clfrFn)
 
 print 'Computing class probabilities...'
-classProbs = LRClassifier.generateImagePredictionClassDist(imgRGB, clfr,requireAllClasses=False)
+ftype = 'classic'
+classLabs, classProbs = classification.classifyImagePixels(imgRGB, clfr, ftype, True)
 print 'done.  result size = ', classProbs.shape
 
 plt.interactive(1)

@@ -81,10 +81,12 @@ else:
     labs = pomio.readMatFromCSV( infileLabs ).astype(np.int32)
 
 n = len(labs)
-assert n == ftrs.shape[0], 'Error: there are %d labels and %d features' \
+assert n == ftrs.shape[0], 'Error: there are %d labels and %d training examples' \
     % ( n, ftrs.shape[0] )
 
 assert np.all( np.isfinite( ftrs ) )
+
+print 'There are %d unique labels in range [%d,%d]' % ( len(np.unique(labs)), np.min(labs), np.max(labs) )
 
 if args.verbose:
     print 'There are %d training examples' % len(labs)

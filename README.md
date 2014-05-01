@@ -6,6 +6,9 @@
 This library contains a set of python tools for performing image segmentation
 using Markov Random Fields (MRFS) and/or Conditional Random Fields (CRFs).
 
+The default matrix orientation is numberExamples x numberDimensions, which is 
+in line with scikit learn and matlab.
+
 The first aim is to get some standard results on the MSRC data set.  The target
 platform is Ubuntu 13.04.  By far the easiest way to use the software is on a VM
 using vagrant.  If you're running Ubuntu 13.04, you could try running parts of
