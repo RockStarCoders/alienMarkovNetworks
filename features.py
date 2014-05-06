@@ -72,11 +72,11 @@ def computeSuperPixelFeatures( rgbImage, superPixelsObj, ftype, aggtype ):
   return spFeatures
 
 def computeSuperPixelFeaturesMulti(
-  images, superPixelObjs, ftype, aggtype, asMatrix, doMultiThreaded=True
+  images, superPixelObjs, ftype, aggtype, asMatrix, nbCores=1
   ):
   assert len(images) == len(superPixelObjs)
-  if doMultiThreaded:
-    job_server = mp.Pool()
+  if nbCores>1:
+    job_server = mp.Pool(nbCores)
     jres = [ job_server.apply_async( computeSuperPixelFeatures, \
                                        ( img, spo, ftype, aggtype ) ) \
                for img,spo in zip(images, superPixelObjs) ]

@@ -53,7 +53,7 @@ olabDir="$outDir"/labelled
 echo "*** Creating training features..."
 ./createFeatures.py --type=pkl \
     --nbSuperPixels=$slicN --superPixelCompactness=$slicC \
-    "$dataPath/trainingPlusValidation" "$ftrsBase"
+    "$dataPath/trainingPlusValidation" "$ftrsBase" --nbCores $nbCores
 echo "  done"
 
 
@@ -85,7 +85,7 @@ echo "  done"
 
 echo "*** Evaluating results..."
 echo "  * Classifier only: "
-./evalPredictions.py "$oclDir"/evalpairs.csv "$dataPath/test" `pwd`
+./evalPredictions.py "$oclDir"/evalpairs.csv "$dataPath/test" ''
 echo "  * Classifier+MRF:  "
-./evalPredictions.py "$olabDir"/evalpairs.csv "$dataPath/test" `pwd`
+./evalPredictions.py "$olabDir"/evalpairs.csv "$dataPath/test" ''
 echo "      done"

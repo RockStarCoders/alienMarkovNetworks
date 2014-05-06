@@ -165,9 +165,9 @@ def computeSuperPixelGraph( imgRGB, method, params ):
         raise Exception('invalid superpixel method %s' % method)
     return SuperPixelGraph(labels,nodes,edges)
 
-def computeSuperPixelGraphMulti( imgRGBArray, method, params, doMultiThreaded=True ):
-  if doMultiThreaded:
-    job_server = mp.Pool()
+def computeSuperPixelGraphMulti( imgRGBArray, method, params, nbCores=1 ):
+  if nbCores>1:
+    job_server = mp.Pool(nbCores)
     jres = [ job_server.apply_async( computeSuperPixelGraph, ( img, method, params ) ) \
                for img in imgRGBArray ]
     tOutSecs = 10*60 # 10 mins

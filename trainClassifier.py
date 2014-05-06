@@ -74,6 +74,8 @@ if infileFtrs.endswith('.pkl'):
     ftrs = pomio.unpickleObject( infileFtrs )
 else:
     ftrs = pomio.readMatFromCSV( infileFtrs )
+D = ftrs.shape[1]
+print 'Feature dimensionality = ', D
 
 if infileLabs.endswith('.pkl'):
     labs = pomio.unpickleObject( infileLabs )
@@ -174,7 +176,7 @@ else:
         rfParams['min_samples_leaf'] = args.rf_min_samples_leaf
         rfParams['n_estimators']     = args.rf_n_estimators
         rfParams['max_depth']        = args.rf_max_depth
-        rfParams['max_features']     = args.rf_max_features
+        rfParams['max_features']     = min( args.rf_max_features, D )
         rfParams['min_samples_split']= args.rf_min_samples_split
 
         # some of these might be int

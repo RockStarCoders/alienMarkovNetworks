@@ -35,6 +35,8 @@ parser.add_argument('--ftype', type=str, default='classic', choices=['classic'],
 parser.add_argument('--aggtype', type=str, default='classic', \
                       choices=['classic'],\
                       help = 'Super-pixel feature aggregation type.' )
+parser.add_argument('--nbCores', type=int, default=1, \
+                        help='Number of cores to use in processing')
 parser.add_argument('--v', action   = 'store_true')
 
 # arguments
@@ -47,6 +49,8 @@ args = parser.parse_args()
 
 numberSuperPixels = args.nbSuperPixels
 superPixelCompactness = args.superPixelCompactness
+
+print 'Using %d cores' % args.nbCores
 
 # Function to take msrc data, create features and labels for superpixels and then save to disk
 def createAndSaveFeatureLabelData(
@@ -80,11 +84,11 @@ def createAndSaveFeatureLabelData(
     allSuperPixels = superPixels.computeSuperPixelGraphMulti( \
       [ z.m_img for z in msrcData ],
       'slic',
-      [nbSuperPixels, superPixelCompactness] )
+      [nbSuperPixels, superPixelCompactness], nbCores=args.nbCores )
     if verbose:
       print '  - computing features'
     superPixelFeatures = features.computeSuperPixelFeaturesMulti(
-      [z.m_img for z in msrcData], allSuperPixels, ftype, aggtype, asMatrix=True
+      [z.m_img for z in msrcData], allSuperPixels, ftype, aggtype, asMatrix=True, nbCores=args.nbCores
       )
     if verbose:
       print '  - extracting labels'
@@ -102,7 +106,8 @@ def createAndSaveFeatureLabelData(
       superPixelFeatures = superPixelFeatures[good,:]
 
     if verbose:
-      print '  - writing output files'
+      print '  - writing %d feature vectors of dimension %d to output files' % \
+          (superPixelFeatures.shape[0], superPixelFeatures.shape[1])
 
     # Output
     if outfileType == 'pkl':
