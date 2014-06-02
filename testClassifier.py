@@ -35,6 +35,7 @@ import matplotlib.pyplot as plt
 import superPixels
 import skimage
 import classification
+import amntools
 
 clfrFn = args.clfrFn
 clfr = pomio.unpickleObject( clfrFn )
@@ -56,7 +57,7 @@ if args.verbose:
     plt.figure()
 
 print 'Classifying file ', args.infile
-image = skimage.io.imread(args.infile)
+image = amntools.readImage(args.infile)
 spGraph = superPixels.computeSuperPixelGraph(image,'slic',[numberSuperPixels, superPixelCompactness])
 [spClassPreds, spClassProbs] = classification.classifyImageSuperPixels( image, clfr, spGraph, ftype, aggtype, makeProbs)
 spClassPredsImage = spGraph.imageFromSuperPixelData( spClassPreds.reshape( (len(spClassPreds),1) ) )

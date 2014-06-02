@@ -32,7 +32,6 @@ import cv2
 import maxflow
 import numpy as np
 import scipy
-from scipy.misc import imread
 from matplotlib import pyplot as ppl
 import scipy.ndimage.filters
 import cython_uflow as uflow
@@ -61,7 +60,7 @@ def feq(a,b,tol):
 #
 # MAIN
 #
-imgRGB = cv2.imread("ship-at-sea.jpg")
+imgRGB = amntools.readImage("ship-at-sea.jpg")
 dimg = imgRGB.copy()
 cvimg = imgRGB.copy()
 

@@ -16,7 +16,6 @@ import pickle as pkl
 import sys
 import numpy as np
 import scipy
-from scipy.misc import imread
 from matplotlib import pyplot as plt
 import scipy.ndimage.filters
 import cython_uflow as uflow
@@ -37,7 +36,7 @@ dbgMode = 0
 #
 # MAIN
 #
-imgRGB = imread( imgFn )
+imgRGB = amntools.readImage( imgFn )
 print 'Loading classifier...'
 clfr = pomio.unpickleObject(clfrFn)
 

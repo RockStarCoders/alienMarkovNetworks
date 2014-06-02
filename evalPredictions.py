@@ -29,7 +29,7 @@ parser.add_argument('predictData', type=str, action='store', \
 args = parser.parse_args()
 
 
-from skimage import io
+import amntools
 import sys
 import pomio, superPixels
 import numpy as np
@@ -172,7 +172,7 @@ def loadReferenceGroundTruthLabels(sourceData, imgName):
 
 def loadPredictionImageLabels(predictImgLabelsFile):
     # assume an image file, use pomio to convert
-    predictLabels = pomio.msrc_convertRGBToLabels( io.imread(predictImgLabelsFile) )
+    predictLabels = pomio.msrc_convertRGBToLabels( amntools.readImage(predictImgLabelsFile) )
     
     return predictLabels
     

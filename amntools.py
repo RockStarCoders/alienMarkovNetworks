@@ -1,12 +1,24 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import colorsys
-import pickle
 import pomio
+import cv2
 
 """
 Miscellaneous Tools
 """
+
+def readImage( fn ):
+  img = cv2.imread(fn,-1)
+  if img == None:
+    raise IOError( "Image " + fn + " not found" )
+  if img.ndim == 3:
+    # opencv does BGR
+    img = img[:,:,::-1]
+  return img
+
+def writeImage( fn, img ):
+  cv2.imwrite(fn,img)
 
 def _get_colors(num_colors):
     colors=[]
@@ -50,8 +62,12 @@ def estimateNeighbourRMSPixelDiff(imgRGB, nhoodSz):
 def gplotmatrix( X, labels, msize=5, classColours=None, featureNames=None ):
   assert X.ndim == 2
   D = X.shape[1]
+  if labels == None:
+    labels = np.zeros( (X.shape[0]), dtype=int )
+
   assert type(labels)==list or labels.ndim == 1
   assert( len(labels) == X.shape[0] )
+  ULAB = np.unique(labels)
   # assume labels are contiguous
   lmin = np.min(labels)
   lmax = np.max(labels)
@@ -70,7 +86,7 @@ def gplotmatrix( X, labels, msize=5, classColours=None, featureNames=None ):
           # histogram
           plt.hist( x1 )
       else:
-          for l in np.unique(labels):
+          for l in ULAB:
               plt.plot( x2[labels==l], x1[labels==l], '.', \
                             color=classColours[l],\
                             markersize=msize)

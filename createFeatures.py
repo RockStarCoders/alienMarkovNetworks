@@ -1,10 +1,5 @@
 #!/usr/bin/env python
 import argparse
-import pomio
-import numpy as np
-import superPixels
-import features
-import classification
 
 """
 Command-line tool for creating pixel and super-pixel feature sets from images
@@ -51,6 +46,12 @@ numberSuperPixels = args.nbSuperPixels
 superPixelCompactness = args.superPixelCompactness
 
 print 'Using %d cores' % args.nbCores
+
+import pomio
+import numpy as np
+import superPixels
+import features
+import classification
 
 # Function to take msrc data, create features and labels for superpixels and then save to disk
 def createAndSaveFeatureLabelData(

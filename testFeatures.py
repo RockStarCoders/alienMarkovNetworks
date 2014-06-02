@@ -4,7 +4,6 @@ import pomio
 import amntools
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.misc import imread
 import FeatureGenerator
 import matplotlib
 

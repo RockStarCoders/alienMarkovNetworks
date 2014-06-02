@@ -1,5 +1,5 @@
 # Module for image and data i/o
-import pomio
+import amntools
 import glob
 import pylab
 import numpy as np
@@ -115,16 +115,16 @@ class LabelledImage:
         # load the image (as numpy nd array, 8bit)
         if verbose:
             print 'Loading image ', fn
-        self.m_img = skimage.io.imread( fn ) #pylab.imread( fn )
+        self.m_img = amntools.readImage( fn )
         if verbose:
             print 'Loading gt image ', gtfn
-        self.m_gt  = msrc_convertRGBToLabels( skimage.io.imread( gtfn ), gtfn )
+        self.m_gt  = msrc_convertRGBToLabels( amntools.readImage( gtfn ), gtfn )
         # not necessarily hq
         try:
             #self.m_hq  = msrc_convertRGBToLabels( pylab.imread( hqfn ) )
             if verbose:
                 print 'Looking for high quality gt image ', hqfn
-            self.m_hq  = msrc_convertRGBToLabels( skimage.io.imread( hqfn ) )
+            self.m_hq  = msrc_convertRGBToLabels( amntools.readImage( hqfn ) )
             if verbose:
                 print '   - found'
         except IOError:

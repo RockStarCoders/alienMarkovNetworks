@@ -27,7 +27,7 @@ Install some needed dependencies:
 apt-get update
 apt-get install -y emacs git-core python-pip python-dev \
     python-numpy python-matplotlib python-scipy python-pandas \
-    libboost-dev
+    libboost-dev python-opencv
 pip install cython scikit-learn scikit-image --upgrade
 ```
 

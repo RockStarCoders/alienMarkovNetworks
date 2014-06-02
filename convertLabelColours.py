@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import sys
-import skimage.io
+import amntools
 import numpy as np
 import matplotlib.pyplot as plt
 import pomio
@@ -28,7 +28,7 @@ cmap = [\
 infile = sys.argv[1]
 outfile= sys.argv[2]
 
-image = skimage.io.imread(infile)
+image = amntools.readImage(infile)
 
 plt.interactive(1)
 plt.figure()
@@ -63,7 +63,7 @@ for cpair in cmap:
         plane[msk] = clrTo[c]
 
 # write the output image
-skimage.io.imsave(outfile,newimg)
+amntools.saveImage(outfile,newimg)
 
 plt.figure()
 plt.imshow(newimg)

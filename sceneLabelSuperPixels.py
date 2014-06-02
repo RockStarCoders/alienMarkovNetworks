@@ -38,7 +38,6 @@ import pickle as pkl
 import sys
 import numpy as np
 import scipy
-from scipy.misc import imread
 from matplotlib import pyplot as plt
 from matplotlib import cm
 import scipy.ndimage.filters
@@ -108,7 +107,7 @@ else:
     superPixelCompactness = args.superPixelCompactness
 
 
-    imgRGB = imread( args.infile )
+    imgRGB = amntools.readImage( args.infile )
 
     # Turn image into superpixels.
     spix = superPixels.computeSuperPixelGraph( imgRGB, 'slic', [numberSuperPixels,superPixelCompactness] )

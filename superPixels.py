@@ -8,6 +8,7 @@ from skimage.segmentation import slic, felzenszwalb, quickshift, mark_boundaries
 import slic
 import matplotlib.pyplot as plt
 import pomio
+import amntools
 import multiprocessing as mp
 
 """
@@ -238,7 +239,7 @@ if __name__ == "__main__":
     nbSuperPixels = int(sys.argv[2])
     superPixelCompactness = float(sys.argv[3])
 
-    image = skimage.io.imread(infile)
+    image = amntools.readImage(infile)
 
     print "Oversegmentation examples will be displayed."
     
