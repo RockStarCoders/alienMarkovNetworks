@@ -24,9 +24,6 @@ fi
 
 set -e
 
-# Create output directory.  It must not already exist.
-mkdir "$outDir"
-
 # Steps are:
 #   - extract features from images
 #   - train classifier
@@ -50,12 +47,26 @@ clfrFn="$outDir"/classifier.pkl
 oclDir="$outDir"/classified
 olabDir="$outDir"/labelled
 
+if true; then 
+
+# Create output directory.  It must not already exist.
+mkdir "$outDir"
+
 echo "*** Creating training features..."
 ./createFeatures.py --type=pkl \
     --nbSuperPixels=$slicN --superPixelCompactness=$slicC \
     "$dataPath/trainingPlusValidation" "$ftrsBase" --nbCores $nbCores
 echo "  done"
 
+if true; then
+    # make special training only, validation only sets
+    ./createFeatures.py --type=pkl \
+	--nbSuperPixels=$slicN --superPixelCompactness=$slicC \
+	"$dataPath/training" "${ftrsBase}-train" --nbCores $nbCores
+    ./createFeatures.py --type=pkl \
+	--nbSuperPixels=$slicN --superPixelCompactness=$slicC \
+	"$dataPath/validation" "${ftrsBase}-validation" --nbCores $nbCores
+fi
 
 echo "*** Training classifier..."
 ./trainClassifier.py --type=randyforest \
@@ -83,9 +94,37 @@ mkdir "$olabDir"
 echo "  done"
 
 
+
 echo "*** Evaluating results..."
 echo "  * Classifier only: "
 ./evalPredictions.py "$oclDir"/evalpairs.csv "$dataPath/test" ''
 echo "  * Classifier+MRF:  "
 ./evalPredictions.py "$olabDir"/evalpairs.csv "$dataPath/test" ''
 echo "      done"
+
+fi
+
+#
+# ... and Training
+#
+
+echo "*** Classify training images..."
+mkdir "$oclDir"/training
+./classifyAllImages.sh "$clfrFn" "$oclDir"/training $slicN $slicC $nbCores \
+    "$dataPath"/training/Images/*.bmp
+echo "*** Evaluating results..."
+./evalPredictions.py "$oclDir"/training/evalpairs.csv "$dataPath/training" ''
+echo "  done"
+
+#
+# Validation too
+#
+
+echo "*** Classify validation images..."
+mkdir "$oclDir"/validation
+./classifyAllImages.sh "$clfrFn" "$oclDir"/validation $slicN $slicC $nbCores \
+    "$dataPath"/validation/Images/*.bmp
+echo "*** Evaluating results..."
+./evalPredictions.py "$oclDir"/validation/evalpairs.csv "$dataPath/validation" ''
+echo "  done"
+
