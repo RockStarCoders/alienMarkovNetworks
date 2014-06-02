@@ -14,8 +14,11 @@ from numpy import exp
 import Image as pil
 import matplotlib.pyplot as plt
 from scipy import signal, stats
+import myhog
+import amntools
 
-from skimage import color, feature, io
+from skimage import color, feature, filter
+import skimage.exposure
 
 import pomio
 
@@ -183,9 +186,21 @@ def generatePixelFeaturesForImage(rgbSourceImage):
     numHistBins is used in the colour histogram feature generation (RGB & HSV)"""
     totalImagePixels = np.size(rgbSourceImage[:,:,0])
     
+    dohsv     = True
+    dofilters = True
+    dohog     = False
+    dolbp     = False
+    F = []
+
+    if dohog:
+      # HOG features
+      hogFeatures =  createHistogramOfOrientedGradientFeatures(rgbSourceImage, numGradientBins, (8,8))
+      assert (np.shape(hogFeatures)[0] == totalImagePixels) , ("Number of HOG features not equal to total pixels:: " + str(np.shape(hogFeatures)[0]) + ", " + str(totalImagePixels))
+      F.append( hogFeatures )
+
     # RGB features
     
-    rgbColourValuesFeature =  createRGBColourValues(rgbSourceImage)
+    #rgbColourValuesFeature =  createRGBColourValues(rgbSourceImage)
         
 #     rgbColour1DHistogramFeatures, range =  create1dRGBColourHistogram(rgbSourceImage)
 #     rgbColour1DHistogramFeatures = np.resize(rgbColour1DHistogramFeatures, (totalImagePixels, np.size(rgbColour1DHistogramFeatures[1]) ) )
@@ -195,56 +210,42 @@ def generatePixelFeaturesForImage(rgbSourceImage):
     range = None
         
     # HSV features
+    if dohsv:
+      hsvColourValueFeature =  createHSVColourValues(rgbSourceImage)
+      assert (np.shape(hsvColourValueFeature)[0] == totalImagePixels) , ("Number of HSV value feature rows not equal to total pixels:: " + str(np.shape(hsvColourValueFeature)[0]) + ", " + str(totalImagePixels))
+      F.append(hsvColourValueFeature)
     
-    hsvColourValueFeature =  createHSVColourValues(rgbSourceImage)
-    
-    hsvSourceImage = color.rgb2hsv(rgbSourceImage)
+    #hsvSourceImage = color.rgb2hsv(rgbSourceImage)
         
 #     hsvColour1DHistogramFeatures, range =  create1dHSVColourHistogram(hsvSourceImage) 
 #     hsvColour1DHistogramFeatures = np.resize(hsvColour1DHistogramFeatures, (totalImagePixels, np.size(hsvColour1DHistogramFeatures[1]) ) )
         
-    hsvColour3DHistogramFeatures, range =  create3dHSVColourHistogramFeature(hsvSourceImage)
-    hsvColour3DHistogramFeatures = np.resize(hsvColour3DHistogramFeatures, (totalImagePixels, np.size(hsvColour3DHistogramFeatures[1]) ) )
+    #hsvColour3DHistogramFeatures, range =  create3dHSVColourHistogramFeature(hsvSourceImage)
+    #hsvColour3DHistogramFeatures = np.resize(hsvColour3DHistogramFeatures, (totalImagePixels, np.size(hsvColour3DHistogramFeatures[1]) ) )
     range = None
     
-    # HOG features
-    hogFeatureImage =  createHistogramOfOrientedGradientFeatures(rgbSourceImage, numGradientBins, (9,9), (3,3), True, True)
-    # this is RxCxNbOrients
-    hogFeatures = np.reshape( hogFeatureImage, ( rgbSourceImage[:,:,0].size, numGradientBins ) )
-    #hog1Darray = None
-    #hogFeatures = np.reshape(hogFeatures, (totalImagePixels , np.size(hogFeatures) / totalImagePixels) )
-    
-    # Local binary pattern features
-    lbpFeatures =  createLocalBinaryPatternFeatures(rgbSourceImage, 4, 2, "default")
-    lbpFeatures = np.reshape(lbpFeatures, (totalImagePixels , np.size(lbpFeatures) / totalImagePixels) )
-   
-    # Testure filter response features
-    filterResponseFeatures =  createFilterbankResponse(rgbSourceImage, 15)
-    filterResponseFeatures = np.reshape(filterResponseFeatures, ( totalImagePixels , np.size(filterResponseFeatures) / totalImagePixels) )
-    
+    if dolbp:
+      # Local binary pattern features
+      lbpFeatures =  createLocalBinaryPatternFeatures(rgbSourceImage, 6, 4, "default")
+      assert (np.shape(lbpFeatures)[0] == totalImagePixels) , ("Number of LBP features not equal to total pixels:: " + str(np.shape(lbpFeatures)[0]) + ", " + str(totalImagePixels))
+      F.append( lbpFeatures )
+
+    if dofilters:
+      # Testure filter response features
+      filterResponseFeatures =  createFilterbankResponse(rgbSourceImage, 15)
+      filterResponseFeatures = np.reshape(filterResponseFeatures, ( totalImagePixels , filterResponseFeatures.shape[2] ) )
+      assert (np.shape(filterResponseFeatures)[0] == totalImagePixels) , ("Number of filter response features not equal to total pixels:: " + str(np.shape(filterResponseFeatures)[0]) + ", " + str(totalImagePixels) )
+      F.append( filterResponseFeatures )
+
     # Test shapes of resized features
-    assert (np.shape(rgbColourValuesFeature)[0] == totalImagePixels) , ("Number of RGB value feature rows not equal to total pixels:: " +str(np.shape(rgbColourValuesFeature)[0]) + ", " + str(totalImagePixels))
+#    assert (np.shape(rgbColourValuesFeature)[0] == totalImagePixels) , ("Number of RGB value feature rows not equal to total pixels:: " +str(np.shape(rgbColourValuesFeature)[0]) + ", " + str(totalImagePixels))
 #     assert (np.shape(rgbColour1DHistogramFeatures)[0] == totalImagePixels) , ("Number of of RGB 1D histogram features:: " + str(np.shape(rgbColour1DHistogramFeatures)[0]) + ", " + str(totalImagePixels))
 #     assert (np.shape(rgbColour3DHistogramFeatures)[0] == totalImagePixels) , ("Number of RGB 3D histogram feature rows not equal to total pixels:: " , np.shape(rgbColour3DHistogramFeatures)[0] + ", " + str(totalImagePixels))
-    assert (np.shape(hsvColourValueFeature)[0] == totalImagePixels) , ("Number of HSV value feature rows not equal to total pixels:: " + str(np.shape(hsvColourValueFeature)[0]) + ", " + str(totalImagePixels))
 #     assert (np.shape(hsvColour1DHistogramFeatures)[0] == totalImagePixels) , ("Number of HSV 1D histogram feature rows not equal to total pixels:: " + str(np.shape(hsvColour1DHistogramFeatures)[0]) + ", " + str(totalImagePixels))
-    assert (np.shape(hsvColour3DHistogramFeatures)[0] == totalImagePixels) , ("Number of HSC 3D histogram feature rows not equal to total pixels:: " + str(np.shape(hsvColour3DHistogramFeatures)[0]) + ", " + str(totalImagePixels))
-    assert (np.shape(hogFeatures)[0] == totalImagePixels) , ("Number of HOG features not equal to total pixels:: " + str(np.shape(hogFeatures)[0]) + ", " + str(totalImagePixels))
-    assert (np.shape(lbpFeatures)[0] == totalImagePixels) , ("Number of LBP features not equal to total pixels:: " + str(np.shape(lbpFeatures)[0]) + ", " + str(totalImagePixels))
-    assert (np.shape(filterResponseFeatures)[0] == totalImagePixels) , ("Number of filter response features not equal to total pixels:: " + str(np.shape(filterResponseFeatures)[0]) + ", " + str(totalImagePixels) )
+#    assert (np.shape(hsvColour3DHistogramFeatures)[0] == totalImagePixels) , ("Number of HSC 3D histogram feature rows not equal to total pixels:: " + str(np.shape(hsvColour3DHistogramFeatures)[0]) + ", " + str(totalImagePixels))
     
     # Consolidate all features for image, per pixel - skip colors and 1d hists for sake of filesize!
-    imageFeatures = np.hstack( [ \
-                                rgbColourValuesFeature, \
-#                                 rgbColour1DHistogramFeatures, \
-#                                 rgbColour3DHistogramFeatures, \
-#                                 hsvColourValueFeature, \
-#                                 hsvColour1DHistogramFeatures, \
-# prob not needed due to crf smoothing      hsvColour3DHistogramFeatures,  \
-                                hogFeatures, \
-                                lbpFeatures, \
-                                filterResponseFeatures \
-                                ] )
+    imageFeatures = np.hstack( F )
     
     assert (np.shape(imageFeatures)[0] == totalImagePixels) , ("Number of ImageFeatures rows not equal to total pixels:: " + str(np.shape(imageFeatures)[0]) + ", " + str(totalImagePixels))
     
@@ -329,7 +330,9 @@ def createHSVColourValues(imageRGB):
     totalPixels = np.shape(imageRGB)[0] * np.shape(imageRGB)[1]
     
     hsvSourceImage = color.rgb2hsv(imageRGB)
-    
+    # Rather than just taking the pixel value, which might be noisy, average locally.
+    hsvSourceImage = filter.gaussian_filter( hsvSourceImage, sigma=1.0, multichannel=True )
+
     allHuePixels = np.reshape(hsvSourceImage[:,:,0] , (totalPixels, 1) )
     allSaturationPixels = np.reshape(hsvSourceImage[:,:,1] , (totalPixels, 1) )
     allValueBrightPixels = np.reshape(hsvSourceImage[:,:,2] , (totalPixels, 1) ) 
@@ -405,23 +408,37 @@ def createCIEDLab3DHistogram():
     print "Finish me!"
 
 
-def createHistogramOfOrientedGradientFeatures(sourceImage, numOrientations, cellForm, cellsPerBlock, visualise, smoothImage):
-    # Assume given sourceImage is RGB numpy n-array.
-    # wraps scikit-sourceImage HOG function.  We convert an input sourceImage to 8-bit grayscale
-    #  RETURNS: R x C x Orients array
-    sourceImage = color.rgb2gray(sourceImage)
+def createHistogramOfOrientedGradientFeatures(sourceImage, numOrientations, pixelsPerCell):
+    # Returns an nxd matrix, n pixels and d the HOG vector length.
     
-    hogVec = feature.hog(sourceImage, numOrientations, (8,8), (1,1), visualise=False, normalise=smoothImage)#cellForm, cellsPerBlock, visualise=visualise, normalise=smoothImage)
-    hogBlocks = np.reshape( hogVec, (sourceImage.shape[0]/8, sourceImage.shape[1]/8, numOrientations) )
-    assert hogBlocks.max() <= 1.0
-    # resize 
-    hogImg = np.zeros( ( sourceImage.shape[0], sourceImage.shape[1], numOrientations ) )
+    # H is a matrix NBLOCKS_Y x NBLOCKS_X x CPB_Y x CPB_X x ORIENTATIONS
+    # Here CPB == 1
+    if 0:
+      H,Himg = myhog.hog( sourceImage, numOrientations, pixelsPerCell, cells_per_block=(1,1), flatten=False, visualise=True )
+      hog_image_rescaled = skimage.exposure.rescale_intensity( Himg )#, in_range=(0, 0.2))
+      print 'SHOWING HOG FEATURES!!!'
+      plt.interactive(True)
+      plt.figure()
+      plt.subplot(1,2,1)
+      plt.imshow(sourceImage)
+      plt.subplot(1,2,2)
+      plt.imshow( hog_image_rescaled, cmap=plt.cm.gray )
+      plt.title('HOG')
+      plt.waitforbuttonpress()
+    else:
+      H = myhog.hog( sourceImage, numOrientations, pixelsPerCell, cells_per_block=(1,1), flatten=False, visualise=False )
+
+    # Reduce to non-singleton dimensions, BY x BX x ORIENT
+    H = H.squeeze()
+    assert H.ndim == 3
+    assert H.max() <= 1.0
+    # resize to image pixels rather than grid blocks
+    hogImg = np.zeros( ( sourceImage.shape[0], sourceImage.shape[1], numOrientations ), dtype=float )
     for o in range(numOrientations):
-        hogPerOrient = (255*hogBlocks[:,:,o]).astype('uint8')
-        hpoAsPil = pil.fromarray( hogPerOrient, mode='L' )
-        hogImg[:,:,o] = np.array( hpoAsPil.resize( \
-                [z for z in reversed(sourceImage.shape)], pil.NEAREST ) )
-    return hogImg
+        hogPerOrient = H[:,:,o].astype(np.float32)
+        hpoAsPil = pil.fromarray( hogPerOrient, mode='F' )
+        hogImg[:,:,o] = np.array( hpoAsPil.resize( (sourceImage.shape[1], sourceImage.shape[0]), pil.NEAREST ) )
+    return hogImg.reshape( ( sourceImage.shape[0]*sourceImage.shape[1], numOrientations ) )
 
 def createLocalBinaryPatternFeatures(imageRGB, orientationBins, neighbourhoodRadius, inputMethod):
     """Returns (i, j) array of Local Binary Pattern values for (i, j) input sourceImage, using scikit-sourceImage.feature.local_binary_pattern."""
@@ -434,9 +451,16 @@ def createLocalBinaryPatternFeatures(imageRGB, orientationBins, neighbourhoodRad
     
     lbpImage = feature.local_binary_pattern(grayImage, orientationBins, neighbourhoodRadius, method=inputMethod) #(sourceImage, P, R, method='default')
     
-    return lbpImage
-
-
+    lbpVec = lbpImage.reshape( [grayImage.size, 1] ).astype(int)
+    if 0:
+      # encode lbp as a set of binary values
+      res = []
+      for b in range(orientationBins):
+        res.append( lbpVec & (1<<b) )
+      return np.hstack( res ).astype(float)
+    else:
+      return lbpVec.astype(float)
+    
 
 def createImageTextons():
     # see http://webdocs.cs.ualberta.ca/~vis/readingMedIm/papers/CRF_TextonBoost_ECCV2006.pdf
@@ -624,7 +648,7 @@ def gaussianFirstDerivative(data, mu, sigma):
 def readImageFileRGB(imageFileLocation):    
     """This returns a (i, j, 3) RGB ndarray"""
     
-    sourceImage = io.imread(imageFileLocation)
+    sourceImage = amntools.readImage(imageFileLocation)
     
     return sourceImage
 
@@ -844,7 +868,7 @@ def test_LBP():
     sourceImage = readImageFileRGB("ship-at-sea.jpg")
     grayImage = color.rgb2gray(sourceImage)
     
-    lbpImage = createLocalBinaryPatternFeatures(sourceImage, 6, 4, "default")
+    lbpImage = createLocalBinaryPatternFeatures(sourceImage, 6, 8, "default")
     print "Local Binary Pattern result::", lbpImage
     plotImageComparison(grayImage, lbpImage)
 
