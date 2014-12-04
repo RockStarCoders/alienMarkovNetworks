@@ -19,7 +19,7 @@ import scipy
 from matplotlib import pyplot as plt
 import scipy.ndimage.filters
 import cython_uflow as uflow
-import LRClassifier
+#import LRClassifier
 import amntools
 import sklearn
 import sklearn.ensemble

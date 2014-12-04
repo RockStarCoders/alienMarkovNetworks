@@ -38,6 +38,7 @@ import pickle as pkl
 import sys
 import numpy as np
 import scipy
+import scipy.io
 from matplotlib import pyplot as plt
 from matplotlib import cm
 import scipy.ndimage.filters
@@ -88,17 +89,36 @@ spix = None
 classProbs = None
 adjProbs = None
 
-precomputedMode = args.infile.endswith('.pkl')
+precomputedMode = args.infile.endswith('.pkl') or args.infile.endswith('.mat')
 
 if precomputedMode == True:
     # If the input file is a pkl (not image) assume we've run necessary superpixel classifier, and input is class label probabilities
     # Input is assumed to be a tuple [superpixels, classProbs]
 
     print "Using pre-computed superpixels and class label probabilities"
-    superPixelInput = pomio.unpickleObject(args.infile)
-    spix = superPixelInput[0]
-    classProbs = superPixelInput[1]
-
+    if args.infile.endswith('.pkl'):
+      superPixelInput = pomio.unpickleObject(args.infile)
+      spix = superPixelInput[0]
+      classProbs = superPixelInput[1]
+    else:
+      # a mat file, from paul S.
+      matdata = scipy.io.loadmat( args.infile )['superpix']
+      matlabels = matdata['label'][0,0] # labels start at 1 here
+      matprobs  = matdata['prob'][0,0]
+      # the labels are out of order for probabilities.  Paul has: impervious, bldg, car, low veg, tree, clutter
+      matprobs = matprobs[:, np.array([1,2,4,5,3,6])-1]
+      # currently my code relies on consecutive superpixels starting at 0
+      ulabs = np.unique( matlabels )
+      # replace matlabels values with renumbered labels.
+      labelMap = np.zeros( (ulabs.max()+1,), dtype=int )
+      for i,l in enumerate(ulabs):
+        labelMap[l] = i
+      matlabels = labelMap[ matlabels ]
+      nodes, edges = superPixels.make_graph(matlabels) 
+      spix = superPixels.SuperPixelGraph(matlabels,nodes,edges)
+      # todo: I think I probably need to reduce these probs to correspond to the
+      # ordinal labels in the superpixel graph.
+      classProbs = matprobs[ ulabs-1, : ]
 else:
     # Assume input image needs processing and classifying
     print "Superpixel generation mode"
@@ -180,15 +200,24 @@ segResult = uflow.inferenceSuperPixel( \
 
 print '   done.'
 
+colourMap = [\
+    ('Impervious surfaces' , (255, 255, 255)),
+    ('Building' ,            (0, 0, 255)),
+    ('Low vegetation' ,      (0, 255, 255)),
+    ('Tree' ,                (0, 255, 0)),
+    ('Car' ,                 (255, 255, 0)),
+    ('Clutter/background' ,  (255, 0, 0))\
+]
+
 if args.outfile and len(args.outfile)>0:
     print 'Writing output label file %s' % args.outfile
-    outimg = pomio.msrc_convertLabelsToRGB( segResult )
+    outimg = pomio.msrc_convertLabelsToRGB( segResult, colourMap )
     skimage.io.imsave(args.outfile, outimg)
     print '   done.'
 
 # Show the result.
 if args.verbose:
-    pomio.showLabels(segResult)
+    pomio.showLabels(segResult, colourMap)
     plt.title( 'Segmentation CRF result with K=%f' % K )
     plt.draw()
     print "labelling result, K = ", K 

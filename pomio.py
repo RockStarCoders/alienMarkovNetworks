@@ -89,11 +89,11 @@ def msrc_convertRGBToLabels( imgRGB, fn='' ):
         imgL[ dodgyMsk ] = getVoidIdx()
     return imgL
 
-def msrc_convertLabelsToRGB( imgL ):
+def msrc_convertLabelsToRGB( imgL, colourMap = msrc_classToRGB ):
     assert imgL.ndim == 2 
     imgRGB = np.zeros( imgL.shape + (3,), dtype='uint8' )
     # For each label, find matching RGB and set that value
-    for l,ctuple in enumerate(msrc_classToRGB):
+    for l,ctuple in enumerate(colourMap):
         # Get a mask of matching pixels
         msk = (imgL==l)
         clr = ctuple[1]
@@ -388,8 +388,10 @@ def selectRandomSetFromList(data, numberSamples, includeAllClassLabels):
     return result, data
 
 
-def showLabels( labimg ):
-    clrs = [[z/255.0 for z in c[1]] for c in msrc_classToRGB]
+def showLabels( labimg, colourMap=None ):
+    if colourMap == None:
+      colourMap = msrc_classToRGB
+    clrs = [[z/255.0 for z in c[1]] for c in colourMap]
     plt.imshow( labimg,\
                 cmap=matplotlib.colors.ListedColormap(clrs),\
                 vmin=0,\

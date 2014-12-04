@@ -107,8 +107,11 @@ def show_graph(grid, vertices, edges):
 
 class SuperPixelGraph:
     def __init__(self,labels,nodes,edges):
+        # labels is a HxW matrix of super-pixel labels.
         self.m_labels = labels
+        # nodes is a vector of super-pixel label/index.
         self.m_nodes = nodes
+        # edges is a list of 2-tuples (ei,ej) where the edge connects super-pixels ei and ej (integer index/label).
         self.m_edges = edges
         # for now all our code relies on the superpixels being consecutive.
         assert np.all(self.m_nodes == np.arange(len(self.m_nodes)))

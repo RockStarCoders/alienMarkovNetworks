@@ -14,7 +14,6 @@ from numpy import exp
 import Image as pil
 import matplotlib.pyplot as plt
 from scipy import signal, stats
-import myhog
 import amntools
 
 from skimage import color, feature, filter
@@ -413,20 +412,16 @@ def createHistogramOfOrientedGradientFeatures(sourceImage, numOrientations, pixe
     
     # H is a matrix NBLOCKS_Y x NBLOCKS_X x CPB_Y x CPB_X x ORIENTATIONS
     # Here CPB == 1
-    if 0:
-      H,Himg = myhog.hog( sourceImage, numOrientations, pixelsPerCell, cells_per_block=(1,1), flatten=False, visualise=True )
-      hog_image_rescaled = skimage.exposure.rescale_intensity( Himg )#, in_range=(0, 0.2))
-      print 'SHOWING HOG FEATURES!!!'
-      plt.interactive(True)
-      plt.figure()
-      plt.subplot(1,2,1)
-      plt.imshow(sourceImage)
-      plt.subplot(1,2,2)
-      plt.imshow( hog_image_rescaled, cmap=plt.cm.gray )
-      plt.title('HOG')
-      plt.waitforbuttonpress()
-    else:
-      H = myhog.hog( sourceImage, numOrientations, pixelsPerCell, cells_per_block=(1,1), flatten=False, visualise=False )
+    H,Himg = myhog.hog( sourceImage, numOrientations, pixelsPerCell, cells_per_block=(1,1), flatten=False, visualise=True )
+    hog_image_rescaled = skimage.exposure.rescale_intensity( Himg )#, in_range=(0, 0.2))
+    plt.interactive(True)
+    plt.figure()
+    plt.subplot(1,2,1)
+    plt.imshow(sourceImage)
+    plt.subplot(1,2,2)
+    plt.imshow( hog_image_rescaled, cmap=plt.cm.gray )
+    plt.title('HOG')
+    plt.waitforbuttonpress()
 
     # Reduce to non-singleton dimensions, BY x BX x ORIENT
     H = H.squeeze()
