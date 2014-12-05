@@ -1,6 +1,7 @@
 #!/bin/bash
 
-Kvals="0.01 0.05 0.1 0.5 1.0 10.0"
+#Kvals="0.01 0.05 0.1 0.5 1.0 1.5 2.0"
+Kvals="0.1 0.2 0.3 0.4 0.5"
 
 # assume you have called classifyAllImages on validation set to make image
 # probabilities as pkl files.
@@ -17,7 +18,7 @@ function Usage() {
 }
 
 inDir="$1"; shift
-outDir="$1"; shift
+outDirBase="$1"; shift
 msrcPath="$1"; shift
 adjFile="$1"; shift
 
@@ -26,8 +27,8 @@ if [ ! -d "$inDir" ]; then
     Usage
     exit 1
 fi
-if [ ! -d "$outDir" ]; then
-    echo "Error: output directory $outDir DNE."
+if [ ! -d "$outDirBase" ]; then
+    echo "Error: output directory $outDirBase DNE."
     Usage
     exit 1
 fi
@@ -44,41 +45,21 @@ fi
 
 set -e
 
-# as we go, create a csv from labelled image to GT image
-csvFn="$outDir"/evalpairs.csv
-rm -f "$csvFn"
-
-logFn="$outDir"/log.txt
-rm -f "$logFn"
-
-
 for K in $Kvals; do
     echo "Evaluting MRF for K = $K"
+
+    outDir="$outDirBase/Kis${K}"
+    mkdir "$outDir"
+
     #for each MSRC class probabilities image in validation set:
-    for probsfile in "$inDir"/*.pkl; do
-       #smooth labels with MRF given K
-       #output labelling
-	ifn=$(basename "$probsfile")
-	ifnBase="${ifn%.*}"
-	ofn="$outDir/${ifnBase}.png"
-	#echo "  * Processing file $probsfile --> $ofn"
+    ./labelAllImagesGivenProbs.sh "$adjFile" "$K" "$outDir" "$inDir"/*.pkl \
+	>/dev/null 2>/dev/null
 
-        # append to csv
-	echo "${ofn},${ifnBase}_GT.bmp" >> "$csvFn"
-
-	./sceneLabelSuperPixels.py \
-	    --adjFn "$adjFile" \
-	    --K $K \
-	    --nbrPotentialMethod adjacencyAndDegreeSensitive \
-	    "$probsfile" \
-	    --outfile "$ofn" >> "$logFn" 2>&1
-
-
-    done
     # evaluate output labellings against GT
-    acc=$(./evalPredictions.py "$outDir"/evalpairs.csv "$msrcPath" "" | grep "**Avg prediction accuracy" | \
-	cut -d '=' -f 2)
+    #echo ./evalPredictions.py "$outDir"/evalpairs.csv "$msrcPath" ''
+    acc=$( ( ./evalPredictions.py "$outDir"/evalpairs.csv "$msrcPath" '' 2>/dev/null ) | grep 'Avg prediction' | cut -d '=' -f 2 )
 
+    echo $acc
     # report accuracy for this K
     echo "  K = $K, average accuracy = $acc"
 done

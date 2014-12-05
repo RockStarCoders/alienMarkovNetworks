@@ -3,7 +3,7 @@
 # Install packages
 apt-get update
 apt-get install -y emacs git-core cython python-pip python-dev \
-    python-numpy python-matplotlib python-scipy \
+    python-numpy python-matplotlib python-scipy python-pandas \
     libboost-dev
 pip install scikit-learn scikit-image
 

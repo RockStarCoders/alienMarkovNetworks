@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+"""
+Command-line utility to do N-class pixel-wise MRF segmentation.
+"""
+
 # SUMMARY: this is an N-class foreground/background labelling example:
 #
 # Usage:  ./sceneLabelN.py <classifierPkl> <imageName> 
@@ -12,16 +16,14 @@ import pickle as pkl
 import sys
 import numpy as np
 import scipy
-from scipy.misc import imread
 from matplotlib import pyplot as plt
 import scipy.ndimage.filters
 import cython_uflow as uflow
-import LRClassifier
+#import LRClassifier
 import amntools
 import sklearn
 import sklearn.ensemble
 import pomio
-import FeatureGenerator
 
 # parse args
 clfrFn = sys.argv[1]
@@ -34,12 +36,13 @@ dbgMode = 0
 #
 # MAIN
 #
-imgRGB = imread( imgFn )
+imgRGB = amntools.readImage( imgFn )
 print 'Loading classifier...'
-clfr = LRClassifier.loadClassifier(clfrFn)
+clfr = pomio.unpickleObject(clfrFn)
 
 print 'Computing class probabilities...'
-classProbs = LRClassifier.generateImagePredictionClassDist(imgRGB, clfr,requireAllClasses=False)
+ftype = 'classic'
+classLabs, classProbs = classification.classifyImagePixels(imgRGB, clfr, ftype, True)
 print 'done.  result size = ', classProbs.shape
 
 plt.interactive(1)

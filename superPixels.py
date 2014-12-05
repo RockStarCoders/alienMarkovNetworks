@@ -8,6 +8,12 @@ from skimage.segmentation import slic, felzenszwalb, quickshift, mark_boundaries
 import slic
 import matplotlib.pyplot as plt
 import pomio
+import amntools
+import multiprocessing as mp
+
+"""
+Functions and Classes for generating and dealing with super-pixels
+"""
 
 # Module wraps skimage segementation functions
 
@@ -97,6 +103,83 @@ def show_graph(grid, vertices, edges):
     
 
 
+
+
+class SuperPixelGraph:
+    def __init__(self,labels,nodes,edges):
+        # labels is a HxW matrix of super-pixel labels.
+        self.m_labels = labels
+        # nodes is a vector of super-pixel label/index.
+        self.m_nodes = nodes
+        # edges is a list of 2-tuples (ei,ej) where the edge connects super-pixels ei and ej (integer index/label).
+        self.m_edges = edges
+        # for now all our code relies on the superpixels being consecutive.
+        assert np.all(self.m_nodes == np.arange(len(self.m_nodes)))
+
+    def draw(self):
+        show_graph(self.m_labels, self.m_nodes, self.m_edges)
+
+    def imageFromSuperPixelData( self, data ):
+        # data is an nxD matrix, where n is the number of superpixels.
+        if type(data) == list or data.ndim==1:
+            data = np.array( [ data ] ).transpose()
+            #print data
+        assert data.ndim == 2 and data.shape[0] == self.getNumSuperPixels(), \
+            'dodgy data shape = %s' % data.shape
+        D = data.shape[1]
+        H,W = self.m_labels.shape
+        # for a given region, make the data same for all pixels in that region
+        res = data[ self.m_labels.ravel(), : ]
+        res = res.reshape( (H,W,D) )
+        if res.shape[2] == 1:
+            # essentially 2D in this case
+            res = res.squeeze()
+        return res
+
+    # Returns: (adjMatrix,nbAdjInvolvingVoid,nbAdj)
+    def countClassAdjacencies( self, nbClasses, allSPClassLabels ):
+        counts = np.zeros( ( nbClasses, nbClasses ) )
+        voidLabel = pomio.getVoidIdx()
+        adjVoidCount = 0
+        adjCount = len(self.m_edges)
+
+        for (ei, ej) in self.m_edges:
+            ci = allSPClassLabels[ ei ]
+            cj = allSPClassLabels[ ej ]
+            # Not doing stats for void
+            if ci != voidLabel and cj != voidLabel:
+                counts[ ci, cj ] += 1
+                counts[ cj, ci ] += 1
+            else:
+                adjVoidCount += 1
+        return (counts, adjVoidCount, adjCount)
+
+    def getNumSuperPixels( self ):
+        return len(self.m_nodes)
+
+    def getLabelImage( self ):
+        return self.m_labels
+
+def computeSuperPixelGraph( imgRGB, method, params ):
+    if method == 'slic':
+        nbSegments, compactness = params[0], params[1]
+        labels = getSuperPixels_SLIC(imgRGB, nbSegments, compactness)
+        nodes, edges = make_graph(labels) 
+    else:
+        raise Exception('invalid superpixel method %s' % method)
+    return SuperPixelGraph(labels,nodes,edges)
+
+def computeSuperPixelGraphMulti( imgRGBArray, method, params, nbCores=1 ):
+  if nbCores>1:
+    job_server = mp.Pool(nbCores)
+    jres = [ job_server.apply_async( computeSuperPixelGraph, ( img, method, params ) ) \
+               for img in imgRGBArray ]
+    tOutSecs = 10*60 # 10 mins
+    res = [ jr.get(timeout=tOutSecs) for jr in jres ]
+  else:
+    res = [ computeSuperPixelGraph( img, method, params ) for img in imgRGBArray ]
+  return res
+
 ###################################
 # tests
 ###################################
@@ -150,65 +233,6 @@ def testQuickshift_broomBroomRGB(carImg):
 
 
 
-
-class SuperPixelGraph:
-    def __init__(self,labels,nodes,edges):
-        self.m_labels = labels
-        self.m_nodes = nodes
-        self.m_edges = edges
-        # for now all our code relies on the superpixels being consecutive.
-        assert np.all(self.m_nodes == np.arange(len(self.m_nodes)))
-
-    def draw(self):
-        show_graph(self.m_labels, self.m_nodes, self.m_edges)
-
-    def imageFromSuperPixelData( self, data ):
-        # data is an nxD matrix, where n is the number of superpixels.
-        if type(data) == list or data.ndim==1:
-            data = np.array( [ data ] ).transpose()
-            #print data
-        assert data.ndim == 2 and data.shape[0] == self.getNumSuperPixels(), \
-            'dodgy data shape = %s' % data.shape
-        D = data.shape[1]
-        H,W = self.m_labels.shape
-        # for a given region, make the data same for all pixels in that region
-        res = data[ self.m_labels.ravel(), : ]
-        res = res.reshape( (H,W,D) )
-        if res.shape[2] == 1:
-            # essentially 2D in this case
-            res = res.squeeze()
-        return res
-
-    # Returns: (adjMatrix,nbAdjInvolvingVoid,nbAdj)
-    def countClassAdjacencies( self, nbClasses, allSPClassLabels ):
-        counts = np.zeros( ( nbClasses, nbClasses ) )
-        voidLabel = pomio.getVoidIdx()
-        adjVoidCount = 0
-        adjCount = len(self.m_edges)
-
-        for (ei, ej) in self.m_edges:
-            ci = allSPClassLabels[ ei ]
-            cj = allSPClassLabels[ ej ]
-            # Not doing stats for void
-            if ci != voidLabel and cj != voidLabel:
-                counts[ ci-1, cj-1 ] += 1
-                counts[ cj-1, ci-1 ] += 1
-            else:
-                adjVoidCount += 1
-        return (counts, adjVoidCount, adjCount)
-
-    def getNumSuperPixels( self ):
-        return len(self.m_nodes)
-
-def computeSuperPixelGraph( imgRGB, method, params ):
-    if method == 'slic':
-        nbSegments, compactness = params[0], params[1]
-        labels = getSuperPixels_SLIC(imgRGB, nbSegments, compactness)
-        nodes, edges = make_graph(labels) 
-    else:
-        raise Exception('invalid superpixel method %s' % method)
-    return SuperPixelGraph(labels,nodes,edges)
-
 ################################################################################
 # MAIN
 ################################################################################
@@ -218,7 +242,7 @@ if __name__ == "__main__":
     nbSuperPixels = int(sys.argv[2])
     superPixelCompactness = float(sys.argv[3])
 
-    image = skimage.io.imread(infile)
+    image = amntools.readImage(infile)
 
     print "Oversegmentation examples will be displayed."
     

@@ -112,4 +112,9 @@ for (( i=0; i<3; ++i )) {
     echo ""
 }
 
+# Finally construct the trainingPlusValidation directory.
+echo "*** Creating trainingPlusValidation directory..."
+cp -r "$destPath"/training "$destPath"/trainingPlusValidation
+cp -r "$destPath"/validation "$destPath"/trainingPlusValidation
+
 echo "Finito"

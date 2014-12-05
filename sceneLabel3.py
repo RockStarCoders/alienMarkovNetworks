@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+"""
+Command-line utility to do 3-class pixel-wise MRF segmentation.
+"""
+
 # SUMMARY: this is a 2-class foreground/background labelling example, really
 # using a hidden MRF (obs not used in nbr potentials).  Fixed training
 # rectangles are used to construct histograms, used for probability a pixel is
@@ -28,7 +32,6 @@
 from matplotlib import pyplot as ppl
 from maxflow import fastmin
 from numpy.ma.core import exp
-from scipy.misc import imread
 import cv2
 import maxflow
 import numpy as np
@@ -36,6 +39,7 @@ import scipy
 import scipy.ndimage.filters
 import sys
 import random
+import amntools
 
 def extractHist( img, channels, ranges ):
     nc = img.shape[2]
@@ -60,7 +64,7 @@ def feq(a,b,tol):
 #
 # MAIN
 #
-cvimg = cv2.imread("ship-at-sea.jpg")
+cvimg = amntools.readImage("ship-at-sea.jpg")
 dimg = cvimg.copy()
 
 dohsv = True

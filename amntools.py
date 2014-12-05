@@ -1,6 +1,24 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import colorsys
+import pomio
+import cv2
+
+"""
+Miscellaneous Tools
+"""
+
+def readImage( fn ):
+  img = cv2.imread(fn,-1)
+  if img == None:
+    raise IOError( "Image " + fn + " not found" )
+  if img.ndim == 3:
+    # opencv does BGR
+    img = img[:,:,::-1]
+  return img
+
+def writeImage( fn, img ):
+  cv2.imwrite(fn,img)
 
 def _get_colors(num_colors):
     colors=[]
@@ -41,43 +59,49 @@ def estimateNeighbourRMSPixelDiff(imgRGB, nhoodSz):
     return np.sqrt(sigsq)
 
 
-def gplotmatrix( X, labels, msize=5, classColours=None ):
-    assert X.ndim == 2
-    D = X.shape[1]
-    print labels
-    assert type(labels)==list or labels.ndim == 1
-    assert( len(labels) == X.shape[0] )
-    # assume labels are contiguous
-    lmin = np.min(labels)
-    lmax = np.max(labels)
-    plt.clf()
-    if classColours == None:
-        classColours = _get_colors(lmax+1)
+def gplotmatrix( X, labels, msize=5, classColours=None, featureNames=None ):
+  assert X.ndim == 2
+  D = X.shape[1]
+  if labels == None:
+    labels = np.zeros( (X.shape[0]), dtype=int )
 
-    idx = 1
-    for r in range(D):
-        for c in range(D):
-            plt.subplot(D,D,idx)
-            idx += 1
-            x1 = X[:,r]
-            x2 = X[:,c]
-            if r==c:
-                # histogram
-                plt.hist( x1 )
-            else:
-                for l in np.unique(labels):#range(lmin,lmax+1):
-                    #print labels==l
-                    plt.plot( x2[labels==l], x1[labels==l], '.', \
-                                  color=classColours[l],\
-                                  markersize=msize)
-                    #print 'foo'
-                    #plt.waitforbuttonpress()
-                    plt.hold(1)
-                plt.hold(0)
-            plt.grid(1)
-            if c==0:
-                plt.ylabel( str(r) )
-            if r==D-1:
-                plt.xlabel( str(c) )
+  assert type(labels)==list or labels.ndim == 1
+  assert( len(labels) == X.shape[0] )
+  ULAB = np.unique(labels)
+  # assume labels are contiguous
+  lmin = np.min(labels)
+  lmax = np.max(labels)
+  plt.clf()
+  if classColours == None:
+    classColours = _get_colors(lmax+1)
 
-    
+  idx = 1
+  for r in range(D):
+    for c in range(D):
+      plt.subplot(D,D,idx)
+      idx += 1
+      x1 = X[:,r]
+      x2 = X[:,c]
+      if r==c:
+          # histogram
+          plt.hist( x1 )
+      else:
+          for l in ULAB:
+              plt.plot( x2[labels==l], x1[labels==l], '.', \
+                            color=classColours[l],\
+                            markersize=msize)
+              plt.hold(1)
+          plt.hold(0)
+      plt.grid(1)
+      if c==0:
+        sl = str(r)
+        if featureNames != None:
+          sl += ': ' + featureNames[r]
+        plt.ylabel( sl )
+      if r==D-1:
+        sl = str(c)
+        if featureNames != None:
+          sl += ': ' + featureNames[c]
+        plt.xlabel( sl )
+
+

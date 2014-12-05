@@ -1,8 +1,10 @@
 #!/usr/bin/env python
-import argparse
-import matplotlib.pyplot as plt
-import pomio
 
+"""
+Command-line tool for training classifiers on pixel or super-pixel features.
+"""
+
+import argparse
 parser = argparse.ArgumentParser(description='Train a classifier for MRF project.')
 
 parser.add_argument('ftrs', type=str, action='store', \
@@ -20,8 +22,8 @@ parser.add_argument('--paramSearchFolds', type=int, action='store', default=0, \
 # rf options
 parser.add_argument('--rf_n_estimators', type=int, default=50,  help='nb trees in forest')
 parser.add_argument('--rf_max_depth',    type=str, default='None',  help='max depth of trees')
-parser.add_argument('--rf_max_features', type=str, default='auto',  help='max features used in a split')
-parser.add_argument('--rf_min_samples_leaf', type=str, default='10',  help='min samples in a tree leaf')
+parser.add_argument('--rf_max_features', type=str, default='auto',  help='max features used in a split.  Can be int, auto, or None')
+parser.add_argument('--rf_min_samples_leaf', type=int, default=10,  help='min samples in a tree leaf')
 parser.add_argument('--rf_min_samples_split', type=int, default=100,  help='min nb samples to split a node')
 parser.add_argument('--ftrsTest', type=str, help='optional test set features for generalisation evaluation')
 parser.add_argument('--labsTest', type=str, help='optional test set labels for generalisation evaluation')
@@ -30,6 +32,15 @@ parser.add_argument('--nbJobs', type=int, default=-1, \
                         help='Number of parallel jobs during RF training.  -1 to use all available cores.')
 
 args = parser.parse_args()
+if args.rf_max_features == 'None':
+  args.rf_max_features = None
+elif args.rf_max_features != 'auto':
+  args.rf_max_features = int( args.rf_max_features )
+
+if args.rf_max_depth == 'None':
+  args.rf_max_depth = None
+else:
+  args.rf_max_depth = int( args.rf_max_depth )
 
 # This is here because something is using gst, which uses arse parser, and that parser is sucking up the -h
 import sys
@@ -38,6 +49,37 @@ import sklearn.ensemble
 import sklearn.linear_model
 from sklearn import grid_search, cross_validation
 import numpy as np
+import matplotlib.pyplot as plt
+
+def accuracyPerClass( labsGT, labsPred ):
+  n = pomio.getNumClasses()
+  correct = (labsGT == labsPred)
+  res = np.zeros( (n,), dtype=float )
+  for i in range(n):
+    msk = labsGT == i
+    if np.any(msk):
+      res[i] = np.mean( correct[ labsGT == i ] )
+  return res
+
+def reportAccuracy( exptName, labs, predlabs ):
+  print exptName, ' accuracy (frac correct) = ', np.mean(predlabs==labs)
+  apc = accuracyPerClass( labs, predlabs )
+  print '   - average accuracy per class = ', apc.mean()
+  for i in range(pomio.getNumClasses()):
+    print '      %s: %f' %( pomio.getClasses()[i], apc[i] )
+  clp, clnum = classProportions( labs )
+  print '   - class proportions in %s:' % exptName
+  for i in range(pomio.getNumClasses()):
+    print '      %15s: %.6f (%6d examples)' %( pomio.getClasses()[i], clp[i], clnum[i] )
+
+def classProportions( labs ):
+  res = np.histogram( labs, bins=range(pomio.getNumClasses()+1) )[0].astype(float)
+  s = res.sum()
+  if s>0:
+    prop = res / s
+  else:
+    prop = np.zeros( (pomio.getNumClasses(),), dtype=float )
+  return prop, res
 
 infileFtrs = args.ftrs
 infileLabs = args.labs
@@ -70,6 +112,8 @@ if infileFtrs.endswith('.pkl'):
     ftrs = pomio.unpickleObject( infileFtrs )
 else:
     ftrs = pomio.readMatFromCSV( infileFtrs )
+D = ftrs.shape[1]
+print 'Feature dimensionality = ', D
 
 if infileLabs.endswith('.pkl'):
     labs = pomio.unpickleObject( infileLabs )
@@ -77,10 +121,12 @@ else:
     labs = pomio.readMatFromCSV( infileLabs ).astype(np.int32)
 
 n = len(labs)
-assert n == ftrs.shape[0], 'Error: there are %d labels and %d features' \
+assert n == ftrs.shape[0], 'Error: there are %d labels and %d training examples' \
     % ( n, ftrs.shape[0] )
 
 assert np.all( np.isfinite( ftrs ) )
+
+print 'There are %d unique labels in range [%d,%d]' % ( len(np.unique(labs)), np.min(labs), np.max(labs) )
 
 if args.verbose:
     print 'There are %d training examples' % len(labs)
@@ -132,13 +178,16 @@ if paramSearch:
             
     elif clfrType == 'randyforest':
         # create a set of parameters
-        params['min_samples_leaf'] = [5, 20,100]
-        params['n_estimators']     = [50,150,500]
-        params['max_depth']        = [15,50]
+        params['min_samples_leaf'] = [2, 5, 20,100]
+        # Not much point searching for n_estimators, bigger is always better,
+        # though diminishing returns.
+        params['n_estimators']     = [100]
+        params['max_depth']        = [15,30,60]
         params['max_depth'].append( None )
-        params['max_features']        = [5,75]
+        params['max_features']        = [ z for z in [5,15,75] if z<=D ]
         params['max_features'].append( 'auto' )
-        params['min_samples_split'] = [10,100]
+        params['max_features'].append( None )
+        params['min_samples_split'] = [5,10,100]
 
         print "\nRandyforest parameter search grid:\n" , params
         
@@ -168,17 +217,13 @@ else:
         rfParams['min_samples_leaf'] = args.rf_min_samples_leaf
         rfParams['n_estimators']     = args.rf_n_estimators
         rfParams['max_depth']        = args.rf_max_depth
-        rfParams['max_features']     = args.rf_max_features
+        rfParams['max_features']     = args.rf_max_features if isinstance(args.rf_max_features,str) \
+            else min( args.rf_max_features, D )
         rfParams['min_samples_split']= args.rf_min_samples_split
 
         # some of these might be int
         for k,v in rfParams.items():
-            if type(v)==str:
-                if v=='None':
-                    rfParams[k] = None
-                elif v.isdigit():
-                    rfParams[k] = int(v)
-            print 'param = ', v, ', type = ', type(rfParams[k])
+          print 'param ', k, ' = ', v, ', type = ', type(rfParams[k])
     elif clfrType == 'logreg':
         print " Give it up for Reggie Log!"
         clfr = sklearn.linear_model.LogisticRegression(penalty='l1' , dual=False, tol=0.0001, C=0.5, fit_intercept=True, intercept_scaling=1)
@@ -205,6 +250,7 @@ if clfrType == 'randyforest':
             verbose=0)
 
     clfr = clfr.fit( ftrs, labs )
+    print 'OOB training set score = ', clfr.oob_score_
 elif clfrType == 'logreg':
     print " Give it up for Reggie Log!"
     clfr = sklearn.linear_model.LogisticRegression(penalty='l1' , dual=False, tol=0.0001, C=0.5, fit_intercept=True, intercept_scaling=1)
@@ -216,7 +262,46 @@ else:
 
 print '   done.'
 
-print 'Training set accuracy (frac correct) = ', clfr.score( ftrs, labs )
+
+def getlabs( clfr, ftrs ):
+  if 1:
+    predlabs = clfr.predict(ftrs)
+  else:
+    # This was a quick hack to see if normalising by class prior probability could improve the random forest result.
+    # Get probabilities
+    probs = clfr.predict_proba( ftrs ) # n x C
+    # Normalise by class distn
+    priors =np.array([
+            0.113521,
+            0.189500,
+            0.075202,
+            0.032654,
+            0.022880,
+            0.099562,
+            0.017276,
+            0.086172,
+            0.019368,
+            0.035853,
+            0.026916,
+            0.024704,
+            0.020982,
+            0.013674,
+            0.052411,
+            0.018023,
+            0.092882,
+            0.016335,
+            0.014287,
+            0.020579,
+            0.007218,])
+    probs /= priors
+    # Turn to labs
+    predlabs = probs.argmax( axis=1 )
+
+  assert predlabs.ndim==1 and predlabs.shape[0] == ftrs.shape[0]
+  return predlabs
+
+predlabs = getlabs(clfr,ftrs)
+reportAccuracy( 'Training set', labs, predlabs )
 
 # optionally test classifier on hold-out test set
 if infileFtrsTest != None and infileLabsTest != None:
@@ -237,7 +322,8 @@ if infileFtrsTest != None and infileLabsTest != None:
     
     assert np.all( np.isfinite( ftrsTest ) )
 
-    print 'Test set accuracy (frac correct)     = ', clfr.score( ftrsTest, labsTest )
+    predlabs = getlabs(clfr,ftrsTest)
+    reportAccuracy( 'Test set', labsTest, predlabs )
 
 # Write the classifier
 if clfr != None and outfile != None:

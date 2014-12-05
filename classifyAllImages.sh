@@ -14,11 +14,16 @@
 
 function Usage() {
     echo "Usage:"
-    echo "   ./classifyAllImages.sh <classifierFilename> <outDir> file1 file2 .... fileN"
+    echo "   ./classifyAllImages.sh <classifierFilename> <outDir> <nbSuperPix> <superPixCompact> <nbCores> file1 file2 .... fileN"
 }
 
 clfrName="$1"; shift
 outDir="$1"; shift
+nbSuperPixels="$1"; shift
+superPixelCompactness="$1"; shift
+typeset -i nbCores="$1"; shift
+
+echo "Using $nbCores cores"
 
 if [ ! -d "$outDir" ]; then
     echo "Error: output directory $outDir does not exist."
@@ -38,6 +43,8 @@ rm -f "$csvFn"
 
 logFn="$outDir"/log.txt
 rm -f "$logFn"
+echo "" > "$logFn"
+typeset -i ctr=0
 
 for file in $*; do 
     echo "Processing input image $file..."
@@ -50,10 +57,19 @@ for file in $*; do
     ifnBase="${ifn%.*}"
     ofn="$outDir"/"$ifn"
     ./testClassifier.py "$clfrName" "$file" --outfile "$ofn" \
-	--outprobsfile "${ofn%.$extn}.pkl" >> "$logFn" 2>&1
+	--nbSuperPixels $nbSuperPixels \
+	--superPixelCompactness $superPixelCompactness \
+	--outprobsfile "${ofn%.$extn}.pkl" >> "$logFn" 2>&1 &
 
     # append to csv
     echo "${ofn},${ifnBase}_GT.$extn" >> "$csvFn"
+
+    ctr=$(($ctr+1))
+
+    if [ $(($ctr % $nbCores)) = 0 ]; then
+	wait
+    fi
 done
 
+wait
 echo "All done"

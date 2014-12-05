@@ -1,5 +1,9 @@
 import numpy as np
 
+"""
+Neural Network Classifier
+"""
+
 #from amb.seg import pomio, FeatureGenerator
 import pomio
 import FeatureGenerator
@@ -116,6 +120,7 @@ if __name__ == "__main__":
     predictImage = pomio.msrc_loadImages(msrcData)[1]
     
     print "\n*Read in an image from the MSRC dataset::" , np.shape(predictImage.m_img)
+    # todo: replace with features.computePixelFeatures JRS
     imageFeatures = FeatureGenerator.generatePixelFeaturesForImage(predictImage.m_img)
     
     print "\n*Using neural net to predict class label::"

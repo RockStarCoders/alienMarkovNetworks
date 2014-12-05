@@ -1,11 +1,4 @@
 #!/usr/bin/env python
-import sys
-import pomio
-import sklearn.ensemble
-import numpy as np
-import matplotlib.pyplot as plt
-import SuperPixelClassifier
-import skimage
 import argparse
 
 # Usage:
@@ -34,10 +27,22 @@ parser.add_argument('--superPixelCompactness', type=float, default=10.0, \
                         help='Super pixel compactness parameter for SLIC')
 args = parser.parse_args()
 
+import sys
+import pomio
+import sklearn.ensemble
+import numpy as np
+import matplotlib.pyplot as plt
+import superPixels
+import skimage
+import classification
+import amntools
+
 clfrFn = args.clfrFn
 clfr = pomio.unpickleObject( clfrFn )
 
 makeProbs = ( args.outprobsfile and len(args.outprobsfile)>0 )
+ftype = 'classic'
+aggtype = 'classic'
 
 #infile = args.infile
 #outfile = args.outfile
@@ -52,8 +57,9 @@ if args.verbose:
     plt.figure()
 
 print 'Classifying file ', args.infile
-image = skimage.io.imread(args.infile)
-[spClassPreds, spGraph, spClassProbs] = SuperPixelClassifier.predictSuperPixelLabels(clfr, image,numberSuperPixels, superPixelCompactness, makeProbs)
+image = amntools.readImage(args.infile)
+spGraph = superPixels.computeSuperPixelGraph(image,'slic',[numberSuperPixels, superPixelCompactness])
+[spClassPreds, spClassProbs] = classification.classifyImageSuperPixels( image, clfr, spGraph, ftype, aggtype, makeProbs)
 spClassPredsImage = spGraph.imageFromSuperPixelData( spClassPreds.reshape( (len(spClassPreds),1) ) )
 
 if args.verbose:

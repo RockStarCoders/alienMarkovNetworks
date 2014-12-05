@@ -1,16 +1,16 @@
 #!/usr/bin/env python
-import SuperPixelClassifier
-import pomio
-import numpy as np
 import argparse
 
+"""
+Command-line tool for creating pixel and super-pixel feature sets from images
+"""
 
 # Overhead example:
 #
 #  ./createFeatures.py ~/data/sceneLabelling/overhead/MSRC-like overhead --type pkl --scaleFrac 1.0 --splitRatio 1 0 0
 #
 
-parser = argparse.ArgumentParser(description='Create super-pixel features for MRF project.')
+parser = argparse.ArgumentParser(description='Create pixel or super-pixel features for MRF project.')
 
 # options
 parser.add_argument('--type', type=str, action='store', default='pkl', \
@@ -25,62 +25,102 @@ parser.add_argument('--nbSuperPixels', type=int, default=400, \
                         help='Desired number of super pixels in SLIC over-segmentation')
 parser.add_argument('--superPixelCompactness', type=float, default=10.0, \
                         help='Super pixel compactness parameter for SLIC')
+parser.add_argument('--ftype', type=str, default='classic', choices=['classic'],\
+                      help = 'Feature type.' )
+parser.add_argument('--aggtype', type=str, default='classic', \
+                      choices=['classic'],\
+                      help = 'Super-pixel feature aggregation type.' )
+parser.add_argument('--nbCores', type=int, default=1, \
+                        help='Number of cores to use in processing')
+parser.add_argument('--v', action   = 'store_true')
 
 # arguments
 parser.add_argument('MSRCPath', type=str, action='store', \
                         help='file path of MSRC data (should have Images and GroundTruth below this dir)')
 parser.add_argument('outfileBase', type=str, action='store', \
-                        help='filename base for output files.  An output file will be created for each of training and test features, labels and adjacency probabilities.')
+                        help='filename base for output files.  An output file will be created for each of training and test features and labels.')
 
 args = parser.parse_args()
 
 numberSuperPixels = args.nbSuperPixels
 superPixelCompactness = args.superPixelCompactness
 
+print 'Using %d cores' % args.nbCores
+
+import pomio
+import numpy as np
+import superPixels
+import features
+import classification
+
 # Function to take msrc data, create features and labels for superpixels and then save to disk
 def createAndSaveFeatureLabelData(
-      msrcData, outfileBase, dataType, outfileType, nbSuperPixels, superPixelCompactness
-    ):
+  msrcData,
+  outfileBase,
+  dataType,
+  outfileType,
+  nbSuperPixels,
+  superPixelCompactness,
+  ftype, aggtype, verbose
+  ):
+
+    if verbose:
+      print 'Creating feature set ', outfileBase
 
     if dataType == None or dataType == "":
         outfileFtrs = '%s_ftrs.%s' % ( outfileBase, outfileType )
         outfileLabs = '%s_labs.%s' % ( outfileBase, outfileType )
-        outfileAdj  = '%s_adj.%s'  % ( outfileBase, outfileType )
     else:
         outfileFtrs = '%s_%s_ftrs.%s' % ( outfileBase, dataType, outfileType )
         outfileLabs = '%s_%s_labs.%s' % ( outfileBase, dataType, outfileType )
-        outfileAdj  = '%s_%s_adj.%s'  % ( outfileBase, dataType, outfileType )
 
     # Check can write these files.
     f=open(outfileFtrs,'w')
     f.close()
     f=open(outfileLabs,'w')
     f.close()
-    
-    # Edited getSuperPixelTrainingData to allow user-defined data split ratios
-    superPixelData     = SuperPixelClassifier.getSuperPixelData(msrcData,nbSuperPixels,superPixelCompactness)
-    
-    superPixelFeatures = superPixelData[0]
-    superPixelLabels   = superPixelData[1].astype(np.int32)
-    superPixelClassAdj = superPixelData[2]
+
+    if verbose:
+      print '  - computing superpixels'
+    allSuperPixels = superPixels.computeSuperPixelGraphMulti( \
+      [ z.m_img for z in msrcData ],
+      'slic',
+      [nbSuperPixels, superPixelCompactness], nbCores=args.nbCores )
+    if verbose:
+      print '  - computing features'
+    superPixelFeatures = features.computeSuperPixelFeaturesMulti(
+      [z.m_img for z in msrcData], allSuperPixels, ftype, aggtype, asMatrix=True, nbCores=args.nbCores
+      )
+    if verbose:
+      print '  - extracting labels'
+    superPixelLabels = classification.computeSuperPixelLabelsMulti( \
+      [z.m_gt for z in msrcData], allSuperPixels )
 
     assert np.all( np.isfinite( superPixelFeatures ) )
 
-    #print superPixelClassAdj
+    # Don't save features with void labels.
+    good = ( superPixelLabels != pomio.getVoidIdx() )
+    if not np.all(good):
+      if verbose:
+        print '   - discarding %d superpixels with void labels' % np.count_nonzero( np.logical_not( good ) )
+      superPixelLabels = superPixelLabels[good]
+      superPixelFeatures = superPixelFeatures[good,:]
+
+    if verbose:
+      print '  - writing %d feature vectors of dimension %d to output files' % \
+          (superPixelFeatures.shape[0], superPixelFeatures.shape[1])
 
     # Output
     if outfileType == 'pkl':
         pomio.pickleObject( superPixelFeatures, outfileFtrs )
         pomio.pickleObject( superPixelLabels,   outfileLabs )
-        pomio.pickleObject( superPixelClassAdj, outfileAdj )
     elif outfileType == 'csv':
         pomio.writeMatToCSV( superPixelFeatures, outfileFtrs )
         pomio.writeMatToCSV( superPixelLabels,   outfileLabs )
-        pomio.writeMatToCSV( superPixelClassAdj, outfileAdj )
     else:
         assert False, 'unknown output file format ' + outfileType
 
-    print 'Output written to file ', outfileFtrs, ' and ', outfileLabs, ' and ', outfileAdj
+    print 'Output written to file ', outfileFtrs, ' and ', outfileLabs
 
 
 msrcDataDirectory = args.MSRCPath
@@ -110,6 +150,9 @@ else:
     writeDataType = True
 
 # Do the expected thing if we have a non-default split
+if args.v:
+  print 'Loading data'
+
 if writeDataType == True:
     # Get train, test and cv datasets
     print "\nSplitting data into sets: train =" , trainSplit , "test =" , testSplit , "cvSplit =" , cvSplit
@@ -133,7 +176,8 @@ if writeDataType == True:
                                    "train",
                                    outfileType,
                                    numberSuperPixels,
-                                   superPixelCompactness )
+                                   superPixelCompactness,
+                                   args.ftype, args.aggtype, args.v )
 
     if testData != None and len(testData)>0:
         print "Create & save test feature and label superpixel data"
@@ -142,15 +186,17 @@ if writeDataType == True:
                                        "test",
                                        outfileType,
                                        numberSuperPixels,
-                                       superPixelCompactness )
-    if(cvData != None and len(cvData) > 0):
+                                       superPixelCompactness,
+                                       args.ftype, args.aggtype, args.v )
+    if cvData != None and len(cvData) > 0:
         print "Create & save validation feature and label superpixel data"
         createAndSaveFeatureLabelData( cvData,
                                        outfileBase,
                                        "crossValid",
                                        outfileType,
                                        numberSuperPixels,
-                                       superPixelCompactness )
+                                       superPixelCompactness,
+                                       args.ftype, args.aggtype, args.v )
 
 # Otherwise, just process all the data as a single data set, and write data to file without type in the filename
 else:
@@ -165,7 +211,8 @@ else:
                                    "",
                                    outfileType,
                                    numberSuperPixels,
-                                   superPixelCompactness )
+                                   superPixelCompactness,
+                                   args.ftype, args.aggtype, args.v )
 
 
 

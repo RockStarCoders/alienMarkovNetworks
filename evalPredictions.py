@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+"""
+Evaluation of labelling results.  They could come from the classifier or the MRF.
+"""
+
 # evaluation of classifier performance
 # assumptions
 # calculate performance at pixel level - no superpixel refs
@@ -7,16 +11,29 @@
 # images are the same size :)
 # assume that the indexes align i.e. idx=1 refers to the same class
 
-import sys
-
-import pomio, FeatureGenerator, SuperPixels, SuperPixelClassifier
-
-import numpy as np
+#
+# NOTE: we are in a land where void==0 and really is not used.  Usually convert back to starting at 0
+#
 
 import argparse
 
-from skimage import io
-    
+parser = argparse.ArgumentParser(description='Evaluate predicted class labels against ground truth image labels')
+
+parser.add_argument('evalFile', type=str, action='store', \
+                        help='CSV file listing predictions+ground truth pairs')
+parser.add_argument('sourceData', type=str, action='store', \
+                        help='Path to source data directory for reference data (assumed to be same structure as MSRC data)')
+parser.add_argument('predictData', type=str, action='store', \
+                        help='Parent path for relative filenames for predictions')
+
+args = parser.parse_args()
+
+
+import amntools
+import sys
+import pomio, superPixels
+import numpy as np
+import pandas    
 
 #logFile = open('/home/amb/dev/mrf/zeroAccuracyStatslog.txt' , 'w')
 #zeroListFile = open('/home/dev/mrf/zeroAccuracyFileList.txt' , 'w');
@@ -37,10 +54,11 @@ def evaluateFromFile(evalFile, sourceData, predictDir):
     if predictDir.endswith("/") == False:
         predictDir = predictDir + "/"
 
+    # Tells us what the elements of the results are
     headers = [ "numCorrectPixels" , "numberValidGroundTruthPixels" , "numberVoidGroundTruthPixels" , "numberPixelsInImage" ]
     
-    results = []
-    results.append(headers)
+    results = None
+    confMat = None
 
     # for each eval pair (prediction labels and ground truth labels) do pixel count
     
@@ -50,40 +68,43 @@ def evaluateFromFile(evalFile, sourceData, predictDir):
         gtFile = evalData[idx][1]
         
         gt = loadReferenceGroundTruthLabels(sourceData, gtFile)
-        
         predict = loadPredictionImageLabels(predictDir + predictFile)
         
         result = evaluatePrediction(predict, gt, gtFile)
-        results.append(result)
+        cmat = evaluateConfusionMatrix(predict, gt)
+
+        if idx == 0:
+          results = result
+          confMat = cmat
+        else:
+          results += result
+          confMat += cmat
 
     # Aggregate results
-    print "Processed total of ", len(results) , "predictions"
-    
-    sumAccuracy = 0.0
-    sumValid = 0.0
-    
-    # The first entry is headers, so iterate from 1 index
-    for idx in range(1, len(results)):
-        sumAccuracy = sumAccuracy + results[idx][0]
-        sumValid = sumValid + results[idx][1]
+    perClass = evaluateClassPerformance( confMat )
 
-    avgAccuracy = (sumAccuracy / sumValid) * 100.0
-    
-    #logFile.close()
-    print  avgAccuracyPhrase + str(avgAccuracy)
-    print "Over" , len(results) , "predictions"
-    
+    print "Processed total of ", len(evalData) , "predictions:"
+    print "  Average accuracy per pixel: ", 100.0 * results[0] / float( results[1] )
+    print "  Average accuracy per class: ", perClass.mean()
+    print "  Accuracy per class: "
+    print pandas.DataFrame( perClass.reshape((1,len(perClass))), \
+                              columns=pomio.getClasses()[:-1] ).to_string()
+    print ""
+    print "  Confusion matrix (row=gt, col=predicted): "
+    print pandas.DataFrame( confMat, columns=pomio.getClasses()[:-1], \
+                              index=pomio.getClasses()[:-1] ).to_string()
     print "Processing complete."
 
 
-def evaluatePrediction(predictLabels, gtLabels, imageName):
+def evaluatePrediction(predictLabels, gtLabels, gtimageName, dbg=False):
     
     assert np.shape(predictLabels) == np.shape(gtLabels) , "Predict image and ground truth image are not the same size..."
 
     rows = np.shape(predictLabels)[1]
     cols = np.shape(gtLabels)[0]
     
-    print "Evaluating image of size = [" , rows, " ," , cols, " ]"
+    if dbg:
+      print "Evaluating image of size = [" , rows, " ," , cols, " ]"
     voidLabel = pomio.getVoidIdx()
     
     allPixels = 0
@@ -92,47 +113,52 @@ def evaluatePrediction(predictLabels, gtLabels, imageName):
     incorrectPixels = 0
 
     # for each pixel, do a comparision of index    
-    for r in range(0,rows):
-        
-        for c in range(cols):
-        
-            allPixels = allPixels + 1
-            
-            gtLabel = gtLabels[c][r]
-            predictLabel = predictLabels[c][r]
-                
-            if gtLabel == voidLabel:
-                voidGtPixels = voidGtPixels + 1
-            else:
-                # only compare if GT isnt void
-                if (predictLabel != voidLabel) and (predictLabels[c][r] == gtLabels[c][r]):
-                    correctPixels = correctPixels + 1
-                else:
-                    incorrectPixels = incorrectPixels + 1
+    allPixels = rows * cols
+    voidGtPixels    = np.count_nonzero( gtLabels == voidLabel )
+    correctPixels   = np.count_nonzero( np.logical_and( gtLabels != voidLabel, predictLabels == gtLabels ) )
+    validGtPixels = allPixels - voidGtPixels
+    incorrectPixels = validGtPixels - correctPixels
 
     assert allPixels == (rows * cols) , "Total iterated pixels != (rows * cols) num pixels!"
-    
     assert allPixels == (voidGtPixels + correctPixels + incorrectPixels) , "Some mismatch on pixel counts:: all" + str(allPixels) + " void=" + str(voidGtPixels) + " correct=" + str(correctPixels) + " incorrect=" + str(incorrectPixels)
-    
-    validGtPixels = allPixels - voidGtPixels
-    
+        
     percentage = float(correctPixels) / float(validGtPixels) * 100.0
     
     if percentage == 0 or percentage == 0.0:
-        print "WARNING:: " + str(imageName) + " accuracy is 0%"
+        print "WARNING:: " + str(gtimageName) + " accuracy is 0%"
         
-        data = "ImageName = " + str(imageName) + "\n\tTotal pixels =" + str(allPixels) + "\n\tVOID pixels  = " + str(voidGtPixels) + "\n\tCorrect pixels = " + str(correctPixels) + "\n\tIncorrect pixels=" + str(incorrectPixels) + "\n"
-        
-        #logFile.write(data)
-        #zeroListFile.write(imageName + "\n")
-        
-    print "Pecentage accuracy = " + str( float(correctPixels) / float(validGtPixels) * 100.0 ) + str("%")
-    return [int(correctPixels), int(validGtPixels), int(voidGtPixels), int(allPixels)]
+    if dbg:
+      print "Pecentage accuracy = " + str( float(correctPixels) / float(validGtPixels) * 100.0 ) + str("%")
+    return np.array( [correctPixels, validGtPixels, voidGtPixels, allPixels], dtype=int )
 
-def evaluateClassPerformance(predictedImg, gtImg):
-    # need to write something that accumulates stats on a class basis
-    print "Finish me!"
+
+
+def evaluateConfusionMatrix(predictedImg, gtImg):
     
+    assert np.shape(predictedImg) == np.shape(gtImg) , "Predict image and ground truth image are not the same size..."
+    
+    numClasses = pomio.getNumClasses()
+    
+    confusionMatrix = np.zeros([numClasses , numClasses] , int)
+    # rows are actual, cols are predicted
+    for cl in range(numClasses):
+      clMask = (gtImg == cl)
+      # It's easy, just histogram those values
+      vals = predictedImg[clMask]
+      assert np.all( np.logical_and( 0 <= vals, vals < numClasses ) ), vals.max()
+      confusionMatrix[cl,:] = np.histogram( vals, range(numClasses+1) )[0]
+    
+    assert confusionMatrix.sum() == np.count_nonzero( gtImg != pomio.getVoidIdx() ) 
+
+    return confusionMatrix;
+    
+
+def evaluateClassPerformance( confusionMatrix ):
+    # Returns a vector of percentage accuracies, one per class.
+    denom = confusionMatrix.sum(axis=1).astype('float')
+    denom[ denom == 0 ] = 1
+    return 100.0 * np.diag( confusionMatrix ).astype('float') / denom
+
 
 def loadReferenceGroundTruthLabels(sourceData, imgName):
     gtFile = str(sourceData) + "/GroundTruth/" + str(imgName)
@@ -146,23 +172,12 @@ def loadReferenceGroundTruthLabels(sourceData, imgName):
 
 def loadPredictionImageLabels(predictImgLabelsFile):
     # assume an image file, use pomio to convert
-    predictLabels = pomio.msrc_convertRGBToLabels( io.imread(predictImgLabelsFile) )
+    predictLabels = pomio.msrc_convertRGBToLabels( amntools.readImage(predictImgLabelsFile) )
     
     return predictLabels
     
 
 if __name__ == "__main__":
-
-    parser = argparse.ArgumentParser(description='Evaluate predicted class labels against ground truth image labels')
-    
-    parser.add_argument('evalFile', type=str, action='store', \
-                            help='CSV file listing predictions+ground truth pairs')
-    parser.add_argument('sourceData', type=str, action='store', \
-                            help='Path to source data directory for reference data (assumed to be same structure as MSRC data)')
-    parser.add_argument('predictData', type=str, action='store', \
-                            help='Parent path for relative filenames for predictions')
-                            
-    args = parser.parse_args()
 
     evalFile = args.evalFile
     sourceData = args.sourceData
@@ -174,27 +189,33 @@ if __name__ == "__main__":
 
 
 def test():
-    # TODO use reference classifier
-    classifierName = "/home/amb/dev/mrf/classifiers/randomForest/superpixel/randyForest_superPixel_maxDepth15_0.6Data.pkl"
-    classifier = pomio.unpickleObject(classifierName)
+
+    classifierLocation = "/home/amb/dev/mrf/classifiers/logisticRegression/superpixel/logReg_miniMSRC.pkl"
+
+    classifier = pomio.unpickleObject(classifierLocation)
     carFile = "7_3_s.bmp"
     msrcData = "/home/amb/dev/mrf/data/MSRC_ObjCategImageDatabase_v2"
 
     car = pomio.msrc_loadImages(msrcData , [ "Images/" + carFile ] )[0]
     groundTruth = car.m_gt
     
-    mask = SuperPixels.getSuperPixels_SLIC(car.m_img, 400, 10)
+    mask = superPixels.getSuperPixels_SLIC(car.m_img, 400, 10)
     
-    spLabels = SuperPixelClassifier.predictSuperPixelLabels(classifier, car.m_img,400,10)[0]
+    spLabels = SuperPixelClassifier.predictSuperPixelLabels(classifier, car.m_img,400,10,True)[0]
     
     prediction = SuperPixelClassifier.getSuperPixelLabelledImage(car.m_img, mask, spLabels)
     
     # save prediction to file
-    pomio.writeMatToCSV(prediction, "/home/amb/dev/eval/test/predict/testPrediction1.labels")
+    pomio.writeMatToCSV(prediction, "/home/amb/dev/mrf/eval/testPrediction1.labels")
     
-    results = evaluatePrediction(prediction, groundTruth)
-    
+    results = evaluatePrediction(prediction, groundTruth , carFile)
     print "\nINFO: Car test eval results::\n\t" , results
+    
+    classResults = evaluateClassPerformance(prediction, groundTruth)
+    print "\nINFO: Car test eval class results::\n\t" , classResults
+    
+    confusionResults = evaluateConfusionMatrix(prediction, groundTruth)
+    print "\nINFO: Car test eval confusion matrix results::\n\t" , "Just sum up entries... ",  np.sum(confusionResults)
     
     #print "\tNow do a check of ground truth vs ground truth::" , evaluatePrediction(groundTruth, groundTruth)
     #print "\tNow do a check of prediction vs prediction::" , evaluatePrediction(prediction, prediction)

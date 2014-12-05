@@ -9,7 +9,7 @@ Vagrant::Config.run do |config|
   # Every Vagrant virtual environment requires a box to build off of.
   config.vm.box = "raring64"
 
-  config.vm.customize ["modifyvm", :id, "--memory", 4096, "--cpus", "4", "--ioapic", "on"]
+  config.vm.customize ["modifyvm", :id, "--memory", 8192, "--cpus", "4", "--ioapic", "on"]
   config.vm.provision :shell, :path => "bootstrap.sh"
 
   # The url from where the 'config.vm.box' box will be fetched if it

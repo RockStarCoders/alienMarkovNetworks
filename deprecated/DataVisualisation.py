@@ -1,4 +1,7 @@
 # Visualisation functions
+""" 
+Various image and feature plotting tools.
+"""
 
 import matplotlib.pyplot as plt
 from matplotlib import cm
@@ -147,15 +150,3 @@ def plotKernel(xRange, yRange, kernel, label):
     plt.show()
 
 
-def createKernalWindowRanges(windowX, windowY, inc):
-    windowX = int(windowX)
-    windowY = int(windowY)
-    
-    xRange = np.arange(0, windowX, inc)
-    xRange = xRange - (np.floor(np.max(xRange) / 2.0).astype('uint8'))
-
-    yRange = np.arange(0, windowY, inc)
-    yRange = yRange - (np.floor(np.max(yRange) / 2.0).astype('uint8'))
-    
-    X,Y = meshgrid(xRange, yRange)
-    return X, Y
