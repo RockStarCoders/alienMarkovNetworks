@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import sys
 import pomio
 import amntools
 import matplotlib.pyplot as plt
@@ -10,8 +11,8 @@ import matplotlib
 
 # Load all data
 print 'Loading all data...'
-data = pomio.msrc_loadImages('/home/jamie/data/MSRC_ObjCategImageDatabase_v2', \
-                                 ['Images/7_3_s.bmp'])
+# first arg should be msrc data path
+data = pomio.msrc_loadImages( sys.argv[1], ['Images/7_3_s.bmp'])
 # get particular image we like
 ex = data[0]
 
@@ -35,7 +36,7 @@ for i in range(imagePixelFeatures.shape[1]):
         % (i, len(np.unique( imagePixelFeatures[:,i])) )
 
 # Plot a selection of features
-sel = np.arange(12,29,2)
+sel = np.arange(26,30)
 # sel = range(80,86)
 
 # colours have to be on range 0-1

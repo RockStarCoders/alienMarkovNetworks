@@ -34,10 +34,10 @@ fi
 
 # as we go, create a csv from labelled image to GT image
 csvFn="$outDir"/evalpairs.csv
-echo "" > "$csvFn"
+rm -f "$csvFn"
 
 logFn="$outDir"/log.txt
-echo "" > "$logFn"
+rm -f "$logFn"
 
 for file in $*; do 
     echo "Processing input image $file..."

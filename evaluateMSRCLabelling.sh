@@ -1,6 +1,6 @@
 #!/bin/bash
 
-Kvals="0.01 0.1 1.0 10.0"
+Kvals="0.01 0.05 0.1 0.5 1.0 10.0"
 
 # assume you have called classifyAllImages on validation set to make image
 # probabilities as pkl files.
@@ -13,6 +13,7 @@ function Usage() {
     echo "   ./evaluateMSRCLabelling.sh <indir> <outdir> <MSRCPath> <adjFile>"
     echo "indir is where the input probability pkl files are."
     echo "MSRCPath is where the ground truth data is."
+    echo "WARNING: USE ABSOLUTE PATHS!"
 }
 
 inDir="$1"; shift
@@ -45,10 +46,10 @@ set -e
 
 # as we go, create a csv from labelled image to GT image
 csvFn="$outDir"/evalpairs.csv
-echo "" > "$csvFn"
+rm -f "$csvFn"
 
 logFn="$outDir"/log.txt
-echo "" > "$logFn"
+rm -f "$logFn"
 
 
 for K in $Kvals; do
@@ -60,22 +61,24 @@ for K in $Kvals; do
 	ifn=$(basename "$probsfile")
 	ifnBase="${ifn%.*}"
 	ofn="$outDir/${ifnBase}.png"
-	echo "  * Processing file $probsfile --> $ofn"
+	#echo "  * Processing file $probsfile --> $ofn"
 
         # append to csv
 	echo "${ofn},${ifnBase}_GT.bmp" >> "$csvFn"
 
-	continue
 	./sceneLabelSuperPixels.py \
 	    --adjFn "$adjFile" \
 	    --K $K \
 	    --nbrPotentialMethod adjacencyAndDegreeSensitive \
 	    "$probsfile" \
-	    --outfile "$ofn" 
+	    --outfile "$ofn" >> "$logFn" 2>&1
 
 
     done
     # evaluate output labellings against GT
+    acc=$(./evalPredictions.py "$outDir"/evalpairs.csv "$msrcPath" "" | grep "**Avg prediction accuracy" | \
+	cut -d '=' -f 2)
+
     # report accuracy for this K
     echo "  K = $K, average accuracy = $acc"
 done
