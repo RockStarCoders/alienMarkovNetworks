@@ -43,7 +43,6 @@ rm -f "$csvFn"
 
 logFn="$outDir"/log.txt
 rm -f "$logFn"
-echo "" > "$logFn"
 typeset -i ctr=0
 
 for file in $*; do 
