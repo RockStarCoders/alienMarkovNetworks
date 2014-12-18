@@ -31,3 +31,5 @@ colourMap = [\
     ('Car' ,                 (255, 255, 0)),
     ('Clutter/background' ,  (255, 0, 0))\
 ]
+
+classLabels = [z[0] for z in colourMap]

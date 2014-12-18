@@ -398,10 +398,10 @@ def showLabels( labimg, colourMap=None ):
                 vmax=len(clrs)-1,\
                 interpolation = 'none' )
 
-def showClassColours():
+def showClassColours(classLabels = msrc_classLabels,  colourMap=msrc_classToRGB):
     plt.clf()
-    showLabels( np.array( [ np.arange(len(msrc_classLabels)) ] ).transpose() )
-    plt.yticks( np.arange( len(msrc_classLabels) ), msrc_classLabels )
+    showLabels( np.array( [ np.arange(len(classLabels)) ] ).transpose(), colourMap )
+    plt.yticks( np.arange( len(classLabels) ), classLabels )
 
 
 def writeMatToCSV(obj, outfile):

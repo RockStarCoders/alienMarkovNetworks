@@ -52,7 +52,7 @@ import slic
 import superPixels
 import skimage
 import isprs
-
+import features
 
 def getAdjProbs(name):
     if name != None and len(name)>0:
@@ -123,7 +123,7 @@ else:
     clfr = pomio.unpickleObject(args.clfrFn)
 
     print 'Computing superpixel features...'
-    ftrs = features.computeSuperPixelFeatures( imgRGB, spix, ftype='classic', aggType='classic' )
+    ftrs = features.computeSuperPixelFeatures( imgRGB, spix, ftype='classic', aggtype='classic' )
 
 
     print 'Computing class probabilities...'
