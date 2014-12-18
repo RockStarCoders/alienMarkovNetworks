@@ -11,5 +11,5 @@ setup(
                              sources=["cython_uflow.pyx", "uflow.cpp", "graph.cpp", "maxflow.cpp"],
                              include_dirs=[numpy.get_include()],
                              language = "c++", 
-                             extra_compile_args=['-w'])],
+                             extra_compile_args=['-w', '-O3'])],
 )
