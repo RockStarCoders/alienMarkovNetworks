@@ -18,6 +18,9 @@ def readImage( fn ):
   return img
 
 def writeImage( fn, img ):
+  if img.ndim == 3:
+    # opencv does BGR
+    img = img.copy()[:,:,::-1]
   cv2.imwrite(fn,img)
 
 def _get_colors(num_colors):
