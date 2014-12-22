@@ -41,6 +41,7 @@ assert args.nhoodSz == 4 or args.nhoodSz == 8
 import pickle as pkl
 import sys
 import numpy as np
+import Image
 import scipy
 from matplotlib import pyplot as plt
 import scipy.ndimage.filters
@@ -74,15 +75,24 @@ if args.verbose:
   plt.figure()
 
 if precomputedMode == True:
-  spix, classProbsLUT = isprs.loadISPRSResultFromMatlab( args.matFn )
-  classLabs = spix.m_labels
-  # map the labels to HxWxC class probabilities matrix
-  classProbs = np.zeros( classLabs.shape + (classProbsLUT.shape[1],) )
-  for c in range( classProbsLUT.shape[1] ):
-    # Get a mask of matching pixels
-    classProbs[ :,:, c ] = classProbsLUT[ classLabs, c ]
+  x = scipy.io.loadmat( args.matFn )
+  if x.has_key('singlepix_conf'):
+    # these are the per-pixel probs
+    classLabels= x['singlepix_label']
+    classProbs = x['singlepix_conf']
+    # the labels are out of order for probabilities.  Paul has: impervious, bldg, car, low veg, tree, clutter
+    classProbs = classProbs[:,:, np.array([1,2,5,3,4])-1]
+  else:
+    # super-pixel probs
+    spix, classProbsLUT = isprs.loadISPRSResultFromMatlab( args.matFn )
+    classLabs = spix.m_labels
+    # map the labels to HxWxC class probabilities matrix
+    classProbs = np.zeros( classLabs.shape + (classProbsLUT.shape[1],) )
+    for c in range( classProbsLUT.shape[1] ):
+      # Get a mask of matching pixels
+      classProbs[ :,:, c ] = classProbsLUT[ classLabs, c ]
+    classLabels = isprs.classLabels
   colourMap = isprs.colourMap
-  classLabels = isprs.classLabels
 else:
   print 'Computing class probabilities...'
   print 'Loading classifier...'
@@ -169,6 +179,8 @@ segResult = uflow.inferenceN( \
     nhoodSz, \
     nbrPotentialMethod, np.ascontiguousarray(nbrPotentialParams) )
 
+print 'size of reg result = ', segResult.shape
+
 # Show the result.
 pomio.showLabels(segResult, colourMap)
 if args.verbose:
@@ -180,7 +192,10 @@ print "labelling result, K = ", args.K
 if args.outfile and len(args.outfile)>0:
     print 'Writing output label file %s' % args.outfile
     outimg = pomio.msrc_convertLabelsToRGB( segResult, colourMap )
-    amntools.writeImage(args.outfile, outimg)
+    print 'size of outimg = ', outimg.shape
+    #plt.imsave(args.outfile, outimg)
+    y=Image.fromarray( outimg )
+    y.save( args.outfile )
     print '   done.'
 
 

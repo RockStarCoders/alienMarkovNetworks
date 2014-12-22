@@ -2,6 +2,7 @@ import scipy.io
 import superPixels
 import numpy as np
 
+# This is a superpixel result
 def loadISPRSResultFromMatlab( fn ):
   # a mat file, from paul S.
   matdata = scipy.io.loadmat( fn )['superpix']
