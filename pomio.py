@@ -388,7 +388,7 @@ def selectRandomSetFromList(data, numberSamples, includeAllClassLabels):
     return result, data
 
 
-def showLabels( labimg, colourMap=None ):
+def showLabels( labimg, colourMap=None, alphaVal=1.0 ):
     if colourMap == None:
       colourMap = msrc_classToRGB
     clrs = [[z/255.0 for z in c[1]] for c in colourMap]
@@ -396,7 +396,8 @@ def showLabels( labimg, colourMap=None ):
                 cmap=matplotlib.colors.ListedColormap(clrs),\
                 vmin=0,\
                 vmax=len(clrs)-1,\
-                interpolation = 'none' )
+                interpolation = 'none', \
+                alpha = alphaVal )
 
 def showClassColours(classLabels = msrc_classLabels,  colourMap=msrc_classToRGB):
     plt.clf()

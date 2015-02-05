@@ -9,7 +9,7 @@ def loadISPRSResultFromMatlab( fn ):
   matlabels = matdata['label'][0,0] # labels start at 1 here
   matprobs  = matdata['prob'][0,0]
   # the labels are out of order for probabilities.  Paul has: impervious, bldg, car, low veg, tree, clutter
-  matprobs = matprobs[:, np.array([1,2,4,5,3,6])-1]
+  #matprobs = matprobs[:, np.array([1,2,4,5,3,6])-1]
   # currently my code relies on consecutive superpixels starting at 0
   ulabs = np.unique( matlabels )
   # replace matlabels values with renumbered labels.

@@ -26,6 +26,8 @@ parser.add_argument('--outfile', type=str, action='store', \
                         help='filename of output image with MRF inferred labels')
 parser.add_argument('--verbose', action='store_true')
 parser.add_argument('--interactive', action='store_true')
+parser.add_argument('--K0', type=float, action='store', default=0.0, \
+                        help='Offset for pairwise potential term in MRF.  Discourages isolated pixels.')
 parser.add_argument('--K', type=float, action='store', default=0.1, \
                         help='Weighting for pairwise potential term in MRF.')
 parser.add_argument('--nhoodSz', type=int, action='store', default=4, \
@@ -78,10 +80,10 @@ if precomputedMode == True:
   x = scipy.io.loadmat( args.matFn )
   if x.has_key('singlepix_conf'):
     # these are the per-pixel probs
-    classLabels= x['singlepix_label']
+    classLabs = x['singlepix_label']
     classProbs = x['singlepix_conf']
     # the labels are out of order for probabilities.  Paul has: impervious, bldg, car, low veg, tree, clutter
-    classProbs = classProbs[:,:, np.array([1,2,5,3,4])-1]
+    #classProbs = classProbs[:,:, np.array([1,2,5,3,4])-1]
   else:
     # super-pixel probs
     spix, classProbsLUT = isprs.loadISPRSResultFromMatlab( args.matFn )
@@ -91,7 +93,7 @@ if precomputedMode == True:
     for c in range( classProbsLUT.shape[1] ):
       # Get a mask of matching pixels
       classProbs[ :,:, c ] = classProbsLUT[ classLabs, c ]
-    classLabels = isprs.classLabels
+  classNames = isprs.classLabels
   colourMap = isprs.colourMap
 else:
   print 'Computing class probabilities...'
@@ -120,29 +122,27 @@ pomio.showLabels(maxLabel, colourMap)
 if args.verbose:
   plt.title('raw clfr labels')
   plt.figure()
-  pomio.showClassColours( classLabels, colourMap )
+  pomio.showClassColours( classNames, colourMap )
 
   plt.draw()
-  if args.interactive:
+  if 0 and args.interactive:
     plt.waitforbuttonpress()
 
 #print classProbs
 
-if dbgMode or args.verbose:
+if dbgMode and args.verbose:
     for i in range( classProbs.shape[2] ):
         plt.imshow( classProbs[:,:,i] )
-        plt.title( 'class %d: %s' % (i,classLabels[i]) )
+        plt.title( 'class %d: %s' % (i,classNames[i]) )
         plt.waitforbuttonpress()
 
 nhoodSz = args.nhoodSz
 sigsq = amntools.estimateNeighbourRMSPixelDiff(imgRGB,nhoodSz) ** 2
 print "Estimated neighbour RMS pixel diff = ", np.sqrt(sigsq)
 
-print "Performing maxflow for various smoothness K..."
-
 # In Shotton, K0 and K in the edge potentials are selected manually from
 # validation data results.
-K0 = 0#0.5
+#K0 = 0#0.5
 
 if args.verbose:
   plt.figure()
@@ -168,9 +168,9 @@ if args.verbose:
 #     nbrCallback )
 
 nbrPotentialMethod = 'contrastSensitive'
-nbrPotentialParams = [K0,args.K,sigsq]
+nbrPotentialParams = [args.K0,args.K,sigsq]
 
-print 'size of class probs = ', classProbs.shape
+#print 'size of class probs = ', classProbs.shape
 
 segResult = uflow.inferenceN( \
     imgRGB.astype(float),\
@@ -179,12 +179,20 @@ segResult = uflow.inferenceN( \
     nhoodSz, \
     nbrPotentialMethod, np.ascontiguousarray(nbrPotentialParams) )
 
-print 'size of reg result = ', segResult.shape
+#print 'size of reg result = ', segResult.shape
 
 # Show the result.
-pomio.showLabels(segResult, colourMap)
+dooverlay = False
+
+if dooverlay:
+  plt.imshow(imgRGB)
+  alphaValue = 0.5
+else:
+  alphaValue = 1.0
+
+pomio.showLabels(segResult, colourMap, alphaVal=alphaValue)
 if args.verbose:
-  plt.title( 'Segmentation with K=%f' % args.K )
+  plt.title( 'Segmentation with K=%f, K0=%f' % ( args.K, args.K0 ) )
   plt.draw()
 print "labelling result, K = ", args.K 
 

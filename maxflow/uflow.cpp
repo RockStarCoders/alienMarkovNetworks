@@ -80,6 +80,10 @@ class NbrPotentialFunctorContrastSensitive {
     {
       const double idiffsq = sqr( R1-R2 ) + sqr( G1-G2 ) + sqr( B1-B2 );
       const double res = std::exp( -idiffsq / (2*m_sigmaSq) );
+
+      // // an edge at a class boundary bears no penalty
+      // const double res = ( R1>1E-10 || R2>1E-10 );
+
       return m_K0 + res*m_K;
     }
 
@@ -578,9 +582,9 @@ static void inferenceNABSwap(
   const int maxIterations = 100;
   const int npix = rows*cols;
 
-  std::cout << "I think image ul pix = " << cMatInputImage[0]
-            << ", " << cMatInputImage[1] << ", "
-            << cMatInputImage[2] << "\n";
+  // std::cout << "I think image ul pix = " << cMatInputImage[0]
+  //           << ", " << cMatInputImage[1] << ", "
+  //           << cMatInputImage[2] << "\n";
 
   // start with arbitrary labelling.  Note our current labelling is called "x"
   // in the alg (chaper 3 of the MRF book), here x == cMatOut.
