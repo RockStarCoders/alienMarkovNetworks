@@ -49,7 +49,11 @@ class NbrPotentialFunctorCallback {
 
     inline double operator()( 
       double R1, double G1, double B1, 
-      double R2, double G2, double B2 
+      double R2, double G2, double B2,
+      int    row1,
+      int    col1,
+      int    rowNbr,
+      int    colNbr
     ) const
     {
       // Params were never being used...
@@ -75,15 +79,15 @@ class NbrPotentialFunctorContrastSensitive {
 
     inline double operator()( 
       double R1, double G1, double B1, 
-      double R2, double G2, double B2 
+      double R2, double G2, double B2,
+      int    row1,
+      int    col1,
+      int    rowNbr,
+      int    colNbr
     ) const
     {
       const double idiffsq = sqr( R1-R2 ) + sqr( G1-G2 ) + sqr( B1-B2 );
-      const double res = std::exp( -idiffsq / (2*m_sigmaSq) );
-
-      // // an edge at a class boundary bears no penalty
-      // const double res = ( R1>1E-10 || R2>1E-10 );
-
+      const double res = (1 || R1>R2+1E-5) ? std::exp( -idiffsq / (2*m_sigmaSq) ) : 0;
       return m_K0 + res*m_K;
     }
 
@@ -91,6 +95,45 @@ class NbrPotentialFunctorContrastSensitive {
     const double m_K0;
     const double m_K;
     const double m_sigmaSq;
+};
+
+/////////////////////////////////////////////
+class NbrPotentialFunctorEdge {
+  public:
+    NbrPotentialFunctorEdge( double K0, double K )
+    :
+      m_K0(K0), m_K(K)
+    {
+    }
+
+    inline double operator()(
+      double R1,
+      double G1,
+      double B1,
+      double Rnbr,
+      double Gnbr,
+      double Bnbr,
+      int    row1,
+      int    col1,
+      int    rowNbr,
+      int    colNbr
+    ) const
+    {
+      const double tol = 1E-5;
+
+      // Only allow the edge to the bottom-right
+      if ( R1 > tol && Rnbr <= 1E-5 && (rowNbr>row1 || (rowNbr==row1 && colNbr==col1+1) ) ){
+        // centre is edge and neighbour isn't: no penalty
+        return m_K0;
+      } else {
+        // no edge -> penalise
+        return m_K0 + m_K;
+      }
+    }
+
+  private:
+    const double m_K0;
+    const double m_K;
 };
 
 /////////////////////////////////////////////
@@ -217,7 +260,8 @@ static double inference2FunctorBased(
             
             wt = functor(
               pixR, pixG, pixB,
-              nbrR, nbrG,  nbrB
+              nbrR, nbrG, nbrB,
+              r,c, nr,nc
             );
           }
           else
@@ -440,7 +484,8 @@ double energyOfLabellingN(
             pixR, pixG, pixB,
             cMatInputImage[(idx+cols)*nbImgChannels+0],
             cMatInputImage[(idx+cols)*nbImgChannels+1],
-            cMatInputImage[(idx+cols)*nbImgChannels+2] 
+            cMatInputImage[(idx+cols)*nbImgChannels+2],
+            r, c, r+1, c
           );
         }
         // else Same label, no penalty.
@@ -454,7 +499,8 @@ double energyOfLabellingN(
             pixR, pixG, pixB,
             cMatInputImage[(idx+1)*nbImgChannels+0],
             cMatInputImage[(idx+1)*nbImgChannels+1],
-            cMatInputImage[(idx+1)*nbImgChannels+2] 
+            cMatInputImage[(idx+1)*nbImgChannels+2],
+            r, c, r, c+1
           );
         }
         // else Same label, no penalty.
@@ -482,7 +528,8 @@ double energyOfLabellingN(
               pixR, pixG, pixB,
               cMatInputImage[(idx+cols+1)*nbImgChannels+0],
               cMatInputImage[(idx+cols+1)*nbImgChannels+1],
-              cMatInputImage[(idx+cols+1)*nbImgChannels+2]
+              cMatInputImage[(idx+cols+1)*nbImgChannels+2],
+              r, c, r+1, c+1
             );
           }
           // else Same label, no penalty.
@@ -496,7 +543,8 @@ double energyOfLabellingN(
               pixR, pixG, pixB,
               cMatInputImage[(idx+cols-1)*nbImgChannels+0],
               cMatInputImage[(idx+cols-1)*nbImgChannels+1],
-              cMatInputImage[(idx+cols-1)*nbImgChannels+2]
+              cMatInputImage[(idx+cols-1)*nbImgChannels+2],
+              r, c, r+1, c-1
             );
           }
           // else Same label, no penalty.
@@ -1012,6 +1060,25 @@ void ultraflow_inferenceN(
     double K  = nbrPotentialParams[1];
     double sigmaSq = nbrPotentialParams[2];
     NbrPotentialFunctorContrastSensitive functor( K0, K, sigmaSq );
+    inferenceNUsingTFunctor(
+      method,
+      nhoodSize,
+      rows,
+      cols,
+      nbImgChannels,
+      nbLabels,
+      cMatInputImage,
+      cMatLabelWeights,
+      functor,
+      cMatOut
+    );
+  }
+  else if ( nbrPotentialMethod == std::string("edge") )
+  {
+    // shonky assignment
+    double K0 = nbrPotentialParams[0];
+    double K  = nbrPotentialParams[1];
+    NbrPotentialFunctorEdge functor( K0, K );
     inferenceNUsingTFunctor(
       method,
       nhoodSize,

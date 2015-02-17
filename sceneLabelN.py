@@ -32,9 +32,9 @@ parser.add_argument('--K', type=float, action='store', default=0.1, \
                         help='Weighting for pairwise potential term in MRF.')
 parser.add_argument('--nhoodSz', type=int, action='store', default=4, \
                         help='Neighbourhood connectivity for graph, must be 4 or 8.')
-#parser.add_argument('--nbrPotentialMethod', type=str, action='store', \
-#                        choices=['degreeSensitive', 'adjacencyAndDegreeSensitive'], default='degreeSensitive',\
-#                        help='Neighbour potential method.  If adjacency is used, then --adjFn must be specified.')
+parser.add_argument('--nbrPotentialMethod', type=str, action='store', \
+                        choices=['contrastSensitive', 'edge'], default='contrastSensitive',\
+                        help='Neighbour potential method.')
 
 args = parser.parse_args()
 
@@ -81,7 +81,7 @@ if precomputedMode == True:
   if x.has_key('singlepix_conf'):
     # these are the per-pixel probs
     classLabs = x['singlepix_label']
-    classProbs = x['singlepix_conf']
+    classProbs = x['singlepix_conf'].astype(float)
     # the labels are out of order for probabilities.  Paul has: impervious, bldg, car, low veg, tree, clutter
     #classProbs = classProbs[:,:, np.array([1,2,5,3,4])-1]
   else:
@@ -100,7 +100,8 @@ else:
   print 'Loading classifier...'
   clfr = pomio.unpickleObject(clfrFn)
   ftype = 'classic'
-  classLabs, classProbs = classification.classifyImagePixels(imgRGB, clfr, ftype, True)
+  classLabs, classProbs = classification.classifyImagePixels(imgRGB, clfr, \
+                                                               ftype, True)
   print 'done.  result size = ', classProbs.shape
 
   print ' classes = ', clfr.classes_
@@ -144,6 +145,8 @@ print "Estimated neighbour RMS pixel diff = ", np.sqrt(sigsq)
 # validation data results.
 #K0 = 0#0.5
 
+print 'K0 = %f, K = %f' % (args.K0, args.K)
+
 if args.verbose:
   plt.figure()
 # for K in np.linspace(1,100,10):
@@ -167,7 +170,7 @@ if args.verbose:
 #     nhoodSz, \
 #     nbrCallback )
 
-nbrPotentialMethod = 'contrastSensitive'
+nbrPotentialMethod = args.nbrPotentialMethod#'contrastSensitive'
 nbrPotentialParams = [args.K0,args.K,sigsq]
 
 #print 'size of class probs = ', classProbs.shape
